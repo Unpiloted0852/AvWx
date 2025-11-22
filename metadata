@@ -1,0 +1,24 @@
+categories:
+  - Weather
+description: |
+  AvWx is an Android app that provides METAR and TAF aviation weather data.
+
+license: MIT
+licenseFile: LICENSE
+webpage: https://github.com/Unpiloted0852/AvWx
+
+issues: https://github.com/Unpiloted0852/AvWx/issues
+
+source:
+  url: https://github.com/Unpiloted0852/AvWx
+  type: git
+  tag: v1.0.0
+
+build:
+  gradle:
+    - app: app
+      tasks:
+        - assembleRelease
+      publish: true
+
+autoUpdate: git
