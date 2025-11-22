@@ -1,0 +1,1 @@
+/home/mark/Downloads/htmlapp_kotlin_project/app/build/intermediates/merged_res/debug/mergeDebugResources/layout_activity_main.xml.flat /home/mark/Downloads/htmlapp_kotlin_project/app/build/intermediates/merged_res/debug/mergeDebugResources/values_values.arsc.flat 

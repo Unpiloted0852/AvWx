@@ -1,0 +1,196 @@
+-- Merging decision tree log ---
+manifest
+ADDED from /home/mark/Downloads/htmlapp_kotlin_project/app/src/main/AndroidManifest.xml:2:1-20:12
+INJECTED from /home/mark/Downloads/htmlapp_kotlin_project/app/src/main/AndroidManifest.xml:2:1-20:12
+INJECTED from /home/mark/Downloads/htmlapp_kotlin_project/app/src/main/AndroidManifest.xml:2:1-20:12
+INJECTED from /home/mark/Downloads/htmlapp_kotlin_project/app/src/main/AndroidManifest.xml:2:1-20:12
+MERGED from [androidx.appcompat:appcompat-resources:1.6.1] /home/mark/.gradle/caches/9.0-milestone-1/transforms/0ae4d60e1a1115288b1dd019f7c7b070/transformed/appcompat-resources-1.6.1/AndroidManifest.xml:17:1-22:12
+MERGED from [androidx.appcompat:appcompat:1.6.1] /home/mark/.gradle/caches/9.0-milestone-1/transforms/6b1a612806544de2c1ec165f3d55feb4/transformed/appcompat-1.6.1/AndroidManifest.xml:17:1-22:12
+MERGED from [androidx.fragment:fragment:1.3.6] /home/mark/.gradle/caches/9.0-milestone-1/transforms/400b3fd2d46b96b77956dafbeb160854/transformed/fragment-1.3.6/AndroidManifest.xml:17:1-24:12
+MERGED from [androidx.activity:activity:1.6.0] /home/mark/.gradle/caches/9.0-milestone-1/transforms/3ce087fab3401a2119d567c887011064/transformed/activity-1.6.0/AndroidManifest.xml:17:1-22:12
+MERGED from [androidx.drawerlayout:drawerlayout:1.0.0] /home/mark/.gradle/caches/9.0-milestone-1/transforms/70765f0a41457bdd60960625cd4dd517/transformed/drawerlayout-1.0.0/AndroidManifest.xml:17:1-22:12
+MERGED from [androidx.emoji2:emoji2-views-helper:1.2.0] /home/mark/.gradle/caches/9.0-milestone-1/transforms/07cbbfe7286db2a9ded6b96d860a6aca/transformed/emoji2-views-helper-1.2.0/AndroidManifest.xml:2:1-7:12
+MERGED from [androidx.emoji2:emoji2:1.2.0] /home/mark/.gradle/caches/9.0-milestone-1/transforms/6bf741f06b6f58e57f39cc00af896ee6/transformed/emoji2-1.2.0/AndroidManifest.xml:17:1-35:12
+MERGED from [androidx.vectordrawable:vectordrawable-animated:1.1.0] /home/mark/.gradle/caches/9.0-milestone-1/transforms/84e560ad7c031004199a274c06667b09/transformed/vectordrawable-animated-1.1.0/AndroidManifest.xml:17:1-24:12
+MERGED from [androidx.vectordrawable:vectordrawable:1.1.0] /home/mark/.gradle/caches/9.0-milestone-1/transforms/fdea05d5bac7bc8a521949039ff5a9c4/transformed/vectordrawable-1.1.0/AndroidManifest.xml:17:1-24:12
+MERGED from [androidx.viewpager:viewpager:1.0.0] /home/mark/.gradle/caches/9.0-milestone-1/transforms/e0012a25b425c831b8b95360a2e4f5bc/transformed/viewpager-1.0.0/AndroidManifest.xml:17:1-22:12
+MERGED from [androidx.customview:customview:1.0.0] /home/mark/.gradle/caches/9.0-milestone-1/transforms/e10f7ba9aeb7a38722f0ac1599c839e1/transformed/customview-1.0.0/AndroidManifest.xml:17:1-22:12
+MERGED from [androidx.loader:loader:1.0.0] /home/mark/.gradle/caches/9.0-milestone-1/transforms/bc2f6267cf6a8848782f82c15f3d7cd8/transformed/loader-1.0.0/AndroidManifest.xml:17:1-22:12
+MERGED from [androidx.core:core:1.12.0] /home/mark/.gradle/caches/9.0-milestone-1/transforms/d95451d7253717e9783d59af7f5a0b61/transformed/core-1.12.0/AndroidManifest.xml:17:1-30:12
+MERGED from [androidx.lifecycle:lifecycle-viewmodel:2.5.1] /home/mark/.gradle/caches/9.0-milestone-1/transforms/16f2ff716b7a43069f5d2d4b35f57b13/transformed/lifecycle-viewmodel-2.5.1/AndroidManifest.xml:17:1-24:12
+MERGED from [androidx.lifecycle:lifecycle-viewmodel-savedstate:2.5.1] /home/mark/.gradle/caches/9.0-milestone-1/transforms/b3c4ef5a2ab6fd17d12a17105822ff9d/transformed/lifecycle-viewmodel-savedstate-2.5.1/AndroidManifest.xml:17:1-24:12
+MERGED from [androidx.core:core-ktx:1.12.0] /home/mark/.gradle/caches/9.0-milestone-1/transforms/578c7eddbe445add254d29c2e79890c6/transformed/core-ktx-1.12.0/AndroidManifest.xml:2:1-7:12
+MERGED from [androidx.savedstate:savedstate:1.2.0] /home/mark/.gradle/caches/9.0-milestone-1/transforms/30e58327c6a89277b91fa04e07f4ced9/transformed/savedstate-1.2.0/AndroidManifest.xml:17:1-24:12
+MERGED from [androidx.annotation:annotation-experimental:1.3.0] /home/mark/.gradle/caches/9.0-milestone-1/transforms/80a8892fad7dfdada981100c5dcd5dab/transformed/annotation-experimental-1.3.0/AndroidManifest.xml:17:1-22:12
+MERGED from [androidx.cursoradapter:cursoradapter:1.0.0] /home/mark/.gradle/caches/9.0-milestone-1/transforms/4977ac524b5713d9a0f4eb81317ab139/transformed/cursoradapter-1.0.0/AndroidManifest.xml:17:1-22:12
+MERGED from [androidx.lifecycle:lifecycle-process:2.4.1] /home/mark/.gradle/caches/9.0-milestone-1/transforms/cb78a9e967e09c8bb6cc7038afae76a2/transformed/lifecycle-process-2.4.1/AndroidManifest.xml:17:1-37:12
+MERGED from [androidx.lifecycle:lifecycle-runtime:2.5.1] /home/mark/.gradle/caches/9.0-milestone-1/transforms/e6e22c5d9d5831322bfadbb33e9a3126/transformed/lifecycle-runtime-2.5.1/AndroidManifest.xml:17:1-24:12
+MERGED from [androidx.interpolator:interpolator:1.0.0] /home/mark/.gradle/caches/9.0-milestone-1/transforms/55c716630c125adddc8c9f840b5a19c9/transformed/interpolator-1.0.0/AndroidManifest.xml:17:1-22:12
+MERGED from [androidx.versionedparcelable:versionedparcelable:1.1.1] /home/mark/.gradle/caches/9.0-milestone-1/transforms/cb2ba3efba91689ac00604a0b21c85e3/transformed/versionedparcelable-1.1.1/AndroidManifest.xml:17:1-27:12
+MERGED from [androidx.startup:startup-runtime:1.1.1] /home/mark/.gradle/caches/9.0-milestone-1/transforms/e22e92e471a3789f1009f2f1b130d79d/transformed/startup-runtime-1.1.1/AndroidManifest.xml:17:1-33:12
+MERGED from [androidx.tracing:tracing:1.0.0] /home/mark/.gradle/caches/9.0-milestone-1/transforms/14cf7a9efebb92bdbb3a29493a375b73/transformed/tracing-1.0.0/AndroidManifest.xml:17:1-24:12
+MERGED from [androidx.lifecycle:lifecycle-livedata:2.0.0] /home/mark/.gradle/caches/9.0-milestone-1/transforms/ed950e76f53086ffb7db04089ddb6e42/transformed/lifecycle-livedata-2.0.0/AndroidManifest.xml:17:1-22:12
+MERGED from [androidx.lifecycle:lifecycle-livedata-core:2.5.1] /home/mark/.gradle/caches/9.0-milestone-1/transforms/b84f4758153890dfe19bcae6b7ad31d9/transformed/lifecycle-livedata-core-2.5.1/AndroidManifest.xml:17:1-24:12
+MERGED from [androidx.arch.core:core-runtime:2.1.0] /home/mark/.gradle/caches/9.0-milestone-1/transforms/c8edc60ef252b27c97830d2bbfc13ed5/transformed/core-runtime-2.1.0/AndroidManifest.xml:17:1-24:12
+	package
+		ADDED from /home/mark/Downloads/htmlapp_kotlin_project/app/src/main/AndroidManifest.xml:2:11-40
+		INJECTED from /home/mark/Downloads/htmlapp_kotlin_project/app/src/main/AndroidManifest.xml
+	android:versionName
+		INJECTED from /home/mark/Downloads/htmlapp_kotlin_project/app/src/main/AndroidManifest.xml
+	android:versionCode
+		INJECTED from /home/mark/Downloads/htmlapp_kotlin_project/app/src/main/AndroidManifest.xml
+	xmlns:android
+		ADDED from /home/mark/Downloads/htmlapp_kotlin_project/app/src/main/AndroidManifest.xml:3:5-63
+uses-permission#android.permission.INTERNET
+ADDED from /home/mark/Downloads/htmlapp_kotlin_project/app/src/main/AndroidManifest.xml:5:5-66
+	android:name
+		ADDED from /home/mark/Downloads/htmlapp_kotlin_project/app/src/main/AndroidManifest.xml:5:22-64
+application
+ADDED from /home/mark/Downloads/htmlapp_kotlin_project/app/src/main/AndroidManifest.xml:7:5-19:19
+INJECTED from /home/mark/Downloads/htmlapp_kotlin_project/app/src/main/AndroidManifest.xml:7:5-19:19
+MERGED from [androidx.emoji2:emoji2:1.2.0] /home/mark/.gradle/caches/9.0-milestone-1/transforms/6bf741f06b6f58e57f39cc00af896ee6/transformed/emoji2-1.2.0/AndroidManifest.xml:23:5-33:19
+MERGED from [androidx.emoji2:emoji2:1.2.0] /home/mark/.gradle/caches/9.0-milestone-1/transforms/6bf741f06b6f58e57f39cc00af896ee6/transformed/emoji2-1.2.0/AndroidManifest.xml:23:5-33:19
+MERGED from [androidx.core:core:1.12.0] /home/mark/.gradle/caches/9.0-milestone-1/transforms/d95451d7253717e9783d59af7f5a0b61/transformed/core-1.12.0/AndroidManifest.xml:28:5-89
+MERGED from [androidx.core:core:1.12.0] /home/mark/.gradle/caches/9.0-milestone-1/transforms/d95451d7253717e9783d59af7f5a0b61/transformed/core-1.12.0/AndroidManifest.xml:28:5-89
+MERGED from [androidx.lifecycle:lifecycle-process:2.4.1] /home/mark/.gradle/caches/9.0-milestone-1/transforms/cb78a9e967e09c8bb6cc7038afae76a2/transformed/lifecycle-process-2.4.1/AndroidManifest.xml:25:5-35:19
+MERGED from [androidx.lifecycle:lifecycle-process:2.4.1] /home/mark/.gradle/caches/9.0-milestone-1/transforms/cb78a9e967e09c8bb6cc7038afae76a2/transformed/lifecycle-process-2.4.1/AndroidManifest.xml:25:5-35:19
+MERGED from [androidx.versionedparcelable:versionedparcelable:1.1.1] /home/mark/.gradle/caches/9.0-milestone-1/transforms/cb2ba3efba91689ac00604a0b21c85e3/transformed/versionedparcelable-1.1.1/AndroidManifest.xml:24:5-25:19
+MERGED from [androidx.versionedparcelable:versionedparcelable:1.1.1] /home/mark/.gradle/caches/9.0-milestone-1/transforms/cb2ba3efba91689ac00604a0b21c85e3/transformed/versionedparcelable-1.1.1/AndroidManifest.xml:24:5-25:19
+MERGED from [androidx.startup:startup-runtime:1.1.1] /home/mark/.gradle/caches/9.0-milestone-1/transforms/e22e92e471a3789f1009f2f1b130d79d/transformed/startup-runtime-1.1.1/AndroidManifest.xml:25:5-31:19
+MERGED from [androidx.startup:startup-runtime:1.1.1] /home/mark/.gradle/caches/9.0-milestone-1/transforms/e22e92e471a3789f1009f2f1b130d79d/transformed/startup-runtime-1.1.1/AndroidManifest.xml:25:5-31:19
+	android:extractNativeLibs
+		INJECTED from /home/mark/Downloads/htmlapp_kotlin_project/app/src/main/AndroidManifest.xml
+	android:appComponentFactory
+		ADDED from [androidx.core:core:1.12.0] /home/mark/.gradle/caches/9.0-milestone-1/transforms/d95451d7253717e9783d59af7f5a0b61/transformed/core-1.12.0/AndroidManifest.xml:28:18-86
+	android:label
+		ADDED from /home/mark/Downloads/htmlapp_kotlin_project/app/src/main/AndroidManifest.xml:8:9-41
+	android:roundIcon
+		ADDED from /home/mark/Downloads/htmlapp_kotlin_project/app/src/main/AndroidManifest.xml:10:9-54
+	android:icon
+		ADDED from /home/mark/Downloads/htmlapp_kotlin_project/app/src/main/AndroidManifest.xml:9:9-43
+activity#com.example.htmlapp.MainActivity
+ADDED from /home/mark/Downloads/htmlapp_kotlin_project/app/src/main/AndroidManifest.xml:12:9-18:20
+	android:exported
+		ADDED from /home/mark/Downloads/htmlapp_kotlin_project/app/src/main/AndroidManifest.xml:13:13-36
+	android:name
+		ADDED from /home/mark/Downloads/htmlapp_kotlin_project/app/src/main/AndroidManifest.xml:12:19-47
+intent-filter#action:name:android.intent.action.MAIN+category:name:android.intent.category.LAUNCHER
+ADDED from /home/mark/Downloads/htmlapp_kotlin_project/app/src/main/AndroidManifest.xml:14:13-17:29
+action#android.intent.action.MAIN
+ADDED from /home/mark/Downloads/htmlapp_kotlin_project/app/src/main/AndroidManifest.xml:15:17-68
+	android:name
+		ADDED from /home/mark/Downloads/htmlapp_kotlin_project/app/src/main/AndroidManifest.xml:15:25-66
+category#android.intent.category.LAUNCHER
+ADDED from /home/mark/Downloads/htmlapp_kotlin_project/app/src/main/AndroidManifest.xml:16:17-76
+	android:name
+		ADDED from /home/mark/Downloads/htmlapp_kotlin_project/app/src/main/AndroidManifest.xml:16:27-74
+uses-sdk
+INJECTED from /home/mark/Downloads/htmlapp_kotlin_project/app/src/main/AndroidManifest.xml reason: use-sdk injection requested
+INJECTED from /home/mark/Downloads/htmlapp_kotlin_project/app/src/main/AndroidManifest.xml
+INJECTED from /home/mark/Downloads/htmlapp_kotlin_project/app/src/main/AndroidManifest.xml
+MERGED from [androidx.appcompat:appcompat-resources:1.6.1] /home/mark/.gradle/caches/9.0-milestone-1/transforms/0ae4d60e1a1115288b1dd019f7c7b070/transformed/appcompat-resources-1.6.1/AndroidManifest.xml:20:5-44
+MERGED from [androidx.appcompat:appcompat-resources:1.6.1] /home/mark/.gradle/caches/9.0-milestone-1/transforms/0ae4d60e1a1115288b1dd019f7c7b070/transformed/appcompat-resources-1.6.1/AndroidManifest.xml:20:5-44
+MERGED from [androidx.appcompat:appcompat:1.6.1] /home/mark/.gradle/caches/9.0-milestone-1/transforms/6b1a612806544de2c1ec165f3d55feb4/transformed/appcompat-1.6.1/AndroidManifest.xml:20:5-44
+MERGED from [androidx.appcompat:appcompat:1.6.1] /home/mark/.gradle/caches/9.0-milestone-1/transforms/6b1a612806544de2c1ec165f3d55feb4/transformed/appcompat-1.6.1/AndroidManifest.xml:20:5-44
+MERGED from [androidx.fragment:fragment:1.3.6] /home/mark/.gradle/caches/9.0-milestone-1/transforms/400b3fd2d46b96b77956dafbeb160854/transformed/fragment-1.3.6/AndroidManifest.xml:20:5-22:41
+MERGED from [androidx.fragment:fragment:1.3.6] /home/mark/.gradle/caches/9.0-milestone-1/transforms/400b3fd2d46b96b77956dafbeb160854/transformed/fragment-1.3.6/AndroidManifest.xml:20:5-22:41
+MERGED from [androidx.activity:activity:1.6.0] /home/mark/.gradle/caches/9.0-milestone-1/transforms/3ce087fab3401a2119d567c887011064/transformed/activity-1.6.0/AndroidManifest.xml:20:5-44
+MERGED from [androidx.activity:activity:1.6.0] /home/mark/.gradle/caches/9.0-milestone-1/transforms/3ce087fab3401a2119d567c887011064/transformed/activity-1.6.0/AndroidManifest.xml:20:5-44
+MERGED from [androidx.drawerlayout:drawerlayout:1.0.0] /home/mark/.gradle/caches/9.0-milestone-1/transforms/70765f0a41457bdd60960625cd4dd517/transformed/drawerlayout-1.0.0/AndroidManifest.xml:20:5-44
+MERGED from [androidx.drawerlayout:drawerlayout:1.0.0] /home/mark/.gradle/caches/9.0-milestone-1/transforms/70765f0a41457bdd60960625cd4dd517/transformed/drawerlayout-1.0.0/AndroidManifest.xml:20:5-44
+MERGED from [androidx.emoji2:emoji2-views-helper:1.2.0] /home/mark/.gradle/caches/9.0-milestone-1/transforms/07cbbfe7286db2a9ded6b96d860a6aca/transformed/emoji2-views-helper-1.2.0/AndroidManifest.xml:5:5-44
+MERGED from [androidx.emoji2:emoji2-views-helper:1.2.0] /home/mark/.gradle/caches/9.0-milestone-1/transforms/07cbbfe7286db2a9ded6b96d860a6aca/transformed/emoji2-views-helper-1.2.0/AndroidManifest.xml:5:5-44
+MERGED from [androidx.emoji2:emoji2:1.2.0] /home/mark/.gradle/caches/9.0-milestone-1/transforms/6bf741f06b6f58e57f39cc00af896ee6/transformed/emoji2-1.2.0/AndroidManifest.xml:21:5-44
+MERGED from [androidx.emoji2:emoji2:1.2.0] /home/mark/.gradle/caches/9.0-milestone-1/transforms/6bf741f06b6f58e57f39cc00af896ee6/transformed/emoji2-1.2.0/AndroidManifest.xml:21:5-44
+MERGED from [androidx.vectordrawable:vectordrawable-animated:1.1.0] /home/mark/.gradle/caches/9.0-milestone-1/transforms/84e560ad7c031004199a274c06667b09/transformed/vectordrawable-animated-1.1.0/AndroidManifest.xml:20:5-22:41
+MERGED from [androidx.vectordrawable:vectordrawable-animated:1.1.0] /home/mark/.gradle/caches/9.0-milestone-1/transforms/84e560ad7c031004199a274c06667b09/transformed/vectordrawable-animated-1.1.0/AndroidManifest.xml:20:5-22:41
+MERGED from [androidx.vectordrawable:vectordrawable:1.1.0] /home/mark/.gradle/caches/9.0-milestone-1/transforms/fdea05d5bac7bc8a521949039ff5a9c4/transformed/vectordrawable-1.1.0/AndroidManifest.xml:20:5-22:41
+MERGED from [androidx.vectordrawable:vectordrawable:1.1.0] /home/mark/.gradle/caches/9.0-milestone-1/transforms/fdea05d5bac7bc8a521949039ff5a9c4/transformed/vectordrawable-1.1.0/AndroidManifest.xml:20:5-22:41
+MERGED from [androidx.viewpager:viewpager:1.0.0] /home/mark/.gradle/caches/9.0-milestone-1/transforms/e0012a25b425c831b8b95360a2e4f5bc/transformed/viewpager-1.0.0/AndroidManifest.xml:20:5-44
+MERGED from [androidx.viewpager:viewpager:1.0.0] /home/mark/.gradle/caches/9.0-milestone-1/transforms/e0012a25b425c831b8b95360a2e4f5bc/transformed/viewpager-1.0.0/AndroidManifest.xml:20:5-44
+MERGED from [androidx.customview:customview:1.0.0] /home/mark/.gradle/caches/9.0-milestone-1/transforms/e10f7ba9aeb7a38722f0ac1599c839e1/transformed/customview-1.0.0/AndroidManifest.xml:20:5-44
+MERGED from [androidx.customview:customview:1.0.0] /home/mark/.gradle/caches/9.0-milestone-1/transforms/e10f7ba9aeb7a38722f0ac1599c839e1/transformed/customview-1.0.0/AndroidManifest.xml:20:5-44
+MERGED from [androidx.loader:loader:1.0.0] /home/mark/.gradle/caches/9.0-milestone-1/transforms/bc2f6267cf6a8848782f82c15f3d7cd8/transformed/loader-1.0.0/AndroidManifest.xml:20:5-44
+MERGED from [androidx.loader:loader:1.0.0] /home/mark/.gradle/caches/9.0-milestone-1/transforms/bc2f6267cf6a8848782f82c15f3d7cd8/transformed/loader-1.0.0/AndroidManifest.xml:20:5-44
+MERGED from [androidx.core:core:1.12.0] /home/mark/.gradle/caches/9.0-milestone-1/transforms/d95451d7253717e9783d59af7f5a0b61/transformed/core-1.12.0/AndroidManifest.xml:20:5-44
+MERGED from [androidx.core:core:1.12.0] /home/mark/.gradle/caches/9.0-milestone-1/transforms/d95451d7253717e9783d59af7f5a0b61/transformed/core-1.12.0/AndroidManifest.xml:20:5-44
+MERGED from [androidx.lifecycle:lifecycle-viewmodel:2.5.1] /home/mark/.gradle/caches/9.0-milestone-1/transforms/16f2ff716b7a43069f5d2d4b35f57b13/transformed/lifecycle-viewmodel-2.5.1/AndroidManifest.xml:20:5-22:41
+MERGED from [androidx.lifecycle:lifecycle-viewmodel:2.5.1] /home/mark/.gradle/caches/9.0-milestone-1/transforms/16f2ff716b7a43069f5d2d4b35f57b13/transformed/lifecycle-viewmodel-2.5.1/AndroidManifest.xml:20:5-22:41
+MERGED from [androidx.lifecycle:lifecycle-viewmodel-savedstate:2.5.1] /home/mark/.gradle/caches/9.0-milestone-1/transforms/b3c4ef5a2ab6fd17d12a17105822ff9d/transformed/lifecycle-viewmodel-savedstate-2.5.1/AndroidManifest.xml:20:5-22:41
+MERGED from [androidx.lifecycle:lifecycle-viewmodel-savedstate:2.5.1] /home/mark/.gradle/caches/9.0-milestone-1/transforms/b3c4ef5a2ab6fd17d12a17105822ff9d/transformed/lifecycle-viewmodel-savedstate-2.5.1/AndroidManifest.xml:20:5-22:41
+MERGED from [androidx.core:core-ktx:1.12.0] /home/mark/.gradle/caches/9.0-milestone-1/transforms/578c7eddbe445add254d29c2e79890c6/transformed/core-ktx-1.12.0/AndroidManifest.xml:5:5-44
+MERGED from [androidx.core:core-ktx:1.12.0] /home/mark/.gradle/caches/9.0-milestone-1/transforms/578c7eddbe445add254d29c2e79890c6/transformed/core-ktx-1.12.0/AndroidManifest.xml:5:5-44
+MERGED from [androidx.savedstate:savedstate:1.2.0] /home/mark/.gradle/caches/9.0-milestone-1/transforms/30e58327c6a89277b91fa04e07f4ced9/transformed/savedstate-1.2.0/AndroidManifest.xml:20:5-22:41
+MERGED from [androidx.savedstate:savedstate:1.2.0] /home/mark/.gradle/caches/9.0-milestone-1/transforms/30e58327c6a89277b91fa04e07f4ced9/transformed/savedstate-1.2.0/AndroidManifest.xml:20:5-22:41
+MERGED from [androidx.annotation:annotation-experimental:1.3.0] /home/mark/.gradle/caches/9.0-milestone-1/transforms/80a8892fad7dfdada981100c5dcd5dab/transformed/annotation-experimental-1.3.0/AndroidManifest.xml:20:5-44
+MERGED from [androidx.annotation:annotation-experimental:1.3.0] /home/mark/.gradle/caches/9.0-milestone-1/transforms/80a8892fad7dfdada981100c5dcd5dab/transformed/annotation-experimental-1.3.0/AndroidManifest.xml:20:5-44
+MERGED from [androidx.cursoradapter:cursoradapter:1.0.0] /home/mark/.gradle/caches/9.0-milestone-1/transforms/4977ac524b5713d9a0f4eb81317ab139/transformed/cursoradapter-1.0.0/AndroidManifest.xml:20:5-44
+MERGED from [androidx.cursoradapter:cursoradapter:1.0.0] /home/mark/.gradle/caches/9.0-milestone-1/transforms/4977ac524b5713d9a0f4eb81317ab139/transformed/cursoradapter-1.0.0/AndroidManifest.xml:20:5-44
+MERGED from [androidx.lifecycle:lifecycle-process:2.4.1] /home/mark/.gradle/caches/9.0-milestone-1/transforms/cb78a9e967e09c8bb6cc7038afae76a2/transformed/lifecycle-process-2.4.1/AndroidManifest.xml:21:5-23:41
+MERGED from [androidx.lifecycle:lifecycle-process:2.4.1] /home/mark/.gradle/caches/9.0-milestone-1/transforms/cb78a9e967e09c8bb6cc7038afae76a2/transformed/lifecycle-process-2.4.1/AndroidManifest.xml:21:5-23:41
+MERGED from [androidx.lifecycle:lifecycle-runtime:2.5.1] /home/mark/.gradle/caches/9.0-milestone-1/transforms/e6e22c5d9d5831322bfadbb33e9a3126/transformed/lifecycle-runtime-2.5.1/AndroidManifest.xml:20:5-22:41
+MERGED from [androidx.lifecycle:lifecycle-runtime:2.5.1] /home/mark/.gradle/caches/9.0-milestone-1/transforms/e6e22c5d9d5831322bfadbb33e9a3126/transformed/lifecycle-runtime-2.5.1/AndroidManifest.xml:20:5-22:41
+MERGED from [androidx.interpolator:interpolator:1.0.0] /home/mark/.gradle/caches/9.0-milestone-1/transforms/55c716630c125adddc8c9f840b5a19c9/transformed/interpolator-1.0.0/AndroidManifest.xml:20:5-44
+MERGED from [androidx.interpolator:interpolator:1.0.0] /home/mark/.gradle/caches/9.0-milestone-1/transforms/55c716630c125adddc8c9f840b5a19c9/transformed/interpolator-1.0.0/AndroidManifest.xml:20:5-44
+MERGED from [androidx.versionedparcelable:versionedparcelable:1.1.1] /home/mark/.gradle/caches/9.0-milestone-1/transforms/cb2ba3efba91689ac00604a0b21c85e3/transformed/versionedparcelable-1.1.1/AndroidManifest.xml:20:5-22:41
+MERGED from [androidx.versionedparcelable:versionedparcelable:1.1.1] /home/mark/.gradle/caches/9.0-milestone-1/transforms/cb2ba3efba91689ac00604a0b21c85e3/transformed/versionedparcelable-1.1.1/AndroidManifest.xml:20:5-22:41
+MERGED from [androidx.startup:startup-runtime:1.1.1] /home/mark/.gradle/caches/9.0-milestone-1/transforms/e22e92e471a3789f1009f2f1b130d79d/transformed/startup-runtime-1.1.1/AndroidManifest.xml:21:5-23:41
+MERGED from [androidx.startup:startup-runtime:1.1.1] /home/mark/.gradle/caches/9.0-milestone-1/transforms/e22e92e471a3789f1009f2f1b130d79d/transformed/startup-runtime-1.1.1/AndroidManifest.xml:21:5-23:41
+MERGED from [androidx.tracing:tracing:1.0.0] /home/mark/.gradle/caches/9.0-milestone-1/transforms/14cf7a9efebb92bdbb3a29493a375b73/transformed/tracing-1.0.0/AndroidManifest.xml:20:5-22:41
+MERGED from [androidx.tracing:tracing:1.0.0] /home/mark/.gradle/caches/9.0-milestone-1/transforms/14cf7a9efebb92bdbb3a29493a375b73/transformed/tracing-1.0.0/AndroidManifest.xml:20:5-22:41
+MERGED from [androidx.lifecycle:lifecycle-livedata:2.0.0] /home/mark/.gradle/caches/9.0-milestone-1/transforms/ed950e76f53086ffb7db04089ddb6e42/transformed/lifecycle-livedata-2.0.0/AndroidManifest.xml:20:5-44
+MERGED from [androidx.lifecycle:lifecycle-livedata:2.0.0] /home/mark/.gradle/caches/9.0-milestone-1/transforms/ed950e76f53086ffb7db04089ddb6e42/transformed/lifecycle-livedata-2.0.0/AndroidManifest.xml:20:5-44
+MERGED from [androidx.lifecycle:lifecycle-livedata-core:2.5.1] /home/mark/.gradle/caches/9.0-milestone-1/transforms/b84f4758153890dfe19bcae6b7ad31d9/transformed/lifecycle-livedata-core-2.5.1/AndroidManifest.xml:20:5-22:41
+MERGED from [androidx.lifecycle:lifecycle-livedata-core:2.5.1] /home/mark/.gradle/caches/9.0-milestone-1/transforms/b84f4758153890dfe19bcae6b7ad31d9/transformed/lifecycle-livedata-core-2.5.1/AndroidManifest.xml:20:5-22:41
+MERGED from [androidx.arch.core:core-runtime:2.1.0] /home/mark/.gradle/caches/9.0-milestone-1/transforms/c8edc60ef252b27c97830d2bbfc13ed5/transformed/core-runtime-2.1.0/AndroidManifest.xml:20:5-22:41
+MERGED from [androidx.arch.core:core-runtime:2.1.0] /home/mark/.gradle/caches/9.0-milestone-1/transforms/c8edc60ef252b27c97830d2bbfc13ed5/transformed/core-runtime-2.1.0/AndroidManifest.xml:20:5-22:41
+	android:targetSdkVersion
+		INJECTED from /home/mark/Downloads/htmlapp_kotlin_project/app/src/main/AndroidManifest.xml
+	android:minSdkVersion
+		INJECTED from /home/mark/Downloads/htmlapp_kotlin_project/app/src/main/AndroidManifest.xml
+provider#androidx.startup.InitializationProvider
+ADDED from [androidx.emoji2:emoji2:1.2.0] /home/mark/.gradle/caches/9.0-milestone-1/transforms/6bf741f06b6f58e57f39cc00af896ee6/transformed/emoji2-1.2.0/AndroidManifest.xml:24:9-32:20
+MERGED from [androidx.lifecycle:lifecycle-process:2.4.1] /home/mark/.gradle/caches/9.0-milestone-1/transforms/cb78a9e967e09c8bb6cc7038afae76a2/transformed/lifecycle-process-2.4.1/AndroidManifest.xml:26:9-34:20
+MERGED from [androidx.lifecycle:lifecycle-process:2.4.1] /home/mark/.gradle/caches/9.0-milestone-1/transforms/cb78a9e967e09c8bb6cc7038afae76a2/transformed/lifecycle-process-2.4.1/AndroidManifest.xml:26:9-34:20
+MERGED from [androidx.startup:startup-runtime:1.1.1] /home/mark/.gradle/caches/9.0-milestone-1/transforms/e22e92e471a3789f1009f2f1b130d79d/transformed/startup-runtime-1.1.1/AndroidManifest.xml:26:9-30:34
+MERGED from [androidx.startup:startup-runtime:1.1.1] /home/mark/.gradle/caches/9.0-milestone-1/transforms/e22e92e471a3789f1009f2f1b130d79d/transformed/startup-runtime-1.1.1/AndroidManifest.xml:26:9-30:34
+	tools:node
+		ADDED from [androidx.emoji2:emoji2:1.2.0] /home/mark/.gradle/caches/9.0-milestone-1/transforms/6bf741f06b6f58e57f39cc00af896ee6/transformed/emoji2-1.2.0/AndroidManifest.xml:28:13-31
+	android:authorities
+		ADDED from [androidx.emoji2:emoji2:1.2.0] /home/mark/.gradle/caches/9.0-milestone-1/transforms/6bf741f06b6f58e57f39cc00af896ee6/transformed/emoji2-1.2.0/AndroidManifest.xml:26:13-68
+	android:exported
+		ADDED from [androidx.emoji2:emoji2:1.2.0] /home/mark/.gradle/caches/9.0-milestone-1/transforms/6bf741f06b6f58e57f39cc00af896ee6/transformed/emoji2-1.2.0/AndroidManifest.xml:27:13-37
+	android:name
+		ADDED from [androidx.emoji2:emoji2:1.2.0] /home/mark/.gradle/caches/9.0-milestone-1/transforms/6bf741f06b6f58e57f39cc00af896ee6/transformed/emoji2-1.2.0/AndroidManifest.xml:25:13-67
+meta-data#androidx.emoji2.text.EmojiCompatInitializer
+ADDED from [androidx.emoji2:emoji2:1.2.0] /home/mark/.gradle/caches/9.0-milestone-1/transforms/6bf741f06b6f58e57f39cc00af896ee6/transformed/emoji2-1.2.0/AndroidManifest.xml:29:13-31:52
+	android:value
+		ADDED from [androidx.emoji2:emoji2:1.2.0] /home/mark/.gradle/caches/9.0-milestone-1/transforms/6bf741f06b6f58e57f39cc00af896ee6/transformed/emoji2-1.2.0/AndroidManifest.xml:31:17-49
+	android:name
+		ADDED from [androidx.emoji2:emoji2:1.2.0] /home/mark/.gradle/caches/9.0-milestone-1/transforms/6bf741f06b6f58e57f39cc00af896ee6/transformed/emoji2-1.2.0/AndroidManifest.xml:30:17-75
+permission#${applicationId}.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION
+ADDED from [androidx.core:core:1.12.0] /home/mark/.gradle/caches/9.0-milestone-1/transforms/d95451d7253717e9783d59af7f5a0b61/transformed/core-1.12.0/AndroidManifest.xml:22:5-24:47
+	android:protectionLevel
+		ADDED from [androidx.core:core:1.12.0] /home/mark/.gradle/caches/9.0-milestone-1/transforms/d95451d7253717e9783d59af7f5a0b61/transformed/core-1.12.0/AndroidManifest.xml:24:9-44
+	android:name
+		ADDED from [androidx.core:core:1.12.0] /home/mark/.gradle/caches/9.0-milestone-1/transforms/d95451d7253717e9783d59af7f5a0b61/transformed/core-1.12.0/AndroidManifest.xml:23:9-81
+permission#com.example.htmlapp.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION
+ADDED from [androidx.core:core:1.12.0] /home/mark/.gradle/caches/9.0-milestone-1/transforms/d95451d7253717e9783d59af7f5a0b61/transformed/core-1.12.0/AndroidManifest.xml:22:5-24:47
+	android:protectionLevel
+		ADDED from [androidx.core:core:1.12.0] /home/mark/.gradle/caches/9.0-milestone-1/transforms/d95451d7253717e9783d59af7f5a0b61/transformed/core-1.12.0/AndroidManifest.xml:24:9-44
+	android:name
+		ADDED from [androidx.core:core:1.12.0] /home/mark/.gradle/caches/9.0-milestone-1/transforms/d95451d7253717e9783d59af7f5a0b61/transformed/core-1.12.0/AndroidManifest.xml:23:9-81
+uses-permission#${applicationId}.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION
+ADDED from [androidx.core:core:1.12.0] /home/mark/.gradle/caches/9.0-milestone-1/transforms/d95451d7253717e9783d59af7f5a0b61/transformed/core-1.12.0/AndroidManifest.xml:26:5-97
+	android:name
+		ADDED from [androidx.core:core:1.12.0] /home/mark/.gradle/caches/9.0-milestone-1/transforms/d95451d7253717e9783d59af7f5a0b61/transformed/core-1.12.0/AndroidManifest.xml:26:22-94
+uses-permission#com.example.htmlapp.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION
+ADDED from [androidx.core:core:1.12.0] /home/mark/.gradle/caches/9.0-milestone-1/transforms/d95451d7253717e9783d59af7f5a0b61/transformed/core-1.12.0/AndroidManifest.xml:26:5-97
+	android:name
+		ADDED from [androidx.core:core:1.12.0] /home/mark/.gradle/caches/9.0-milestone-1/transforms/d95451d7253717e9783d59af7f5a0b61/transformed/core-1.12.0/AndroidManifest.xml:26:22-94
+meta-data#androidx.lifecycle.ProcessLifecycleInitializer
+ADDED from [androidx.lifecycle:lifecycle-process:2.4.1] /home/mark/.gradle/caches/9.0-milestone-1/transforms/cb78a9e967e09c8bb6cc7038afae76a2/transformed/lifecycle-process-2.4.1/AndroidManifest.xml:31:13-33:52
+	android:value
+		ADDED from [androidx.lifecycle:lifecycle-process:2.4.1] /home/mark/.gradle/caches/9.0-milestone-1/transforms/cb78a9e967e09c8bb6cc7038afae76a2/transformed/lifecycle-process-2.4.1/AndroidManifest.xml:33:17-49
+	android:name
+		ADDED from [androidx.lifecycle:lifecycle-process:2.4.1] /home/mark/.gradle/caches/9.0-milestone-1/transforms/cb78a9e967e09c8bb6cc7038afae76a2/transformed/lifecycle-process-2.4.1/AndroidManifest.xml:32:17-78

@@ -1,0 +1,79 @@
+1<?xml version="1.0" encoding="utf-8"?>
+2<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+3    package="com.example.htmlapp"
+4    android:versionCode="1"
+5    android:versionName="1.0" >
+6
+7    <uses-sdk
+8        android:minSdkVersion="21"
+9        android:targetSdkVersion="34" />
+10
+11    <uses-permission android:name="android.permission.INTERNET" />
+11-->/home/mark/Downloads/htmlapp_kotlin_project/app/src/main/AndroidManifest.xml:5:5-66
+11-->/home/mark/Downloads/htmlapp_kotlin_project/app/src/main/AndroidManifest.xml:5:22-64
+12
+13    <permission
+13-->[androidx.core:core:1.12.0] /home/mark/.gradle/caches/9.0-milestone-1/transforms/d95451d7253717e9783d59af7f5a0b61/transformed/core-1.12.0/AndroidManifest.xml:22:5-24:47
+14        android:name="com.example.htmlapp.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION"
+14-->[androidx.core:core:1.12.0] /home/mark/.gradle/caches/9.0-milestone-1/transforms/d95451d7253717e9783d59af7f5a0b61/transformed/core-1.12.0/AndroidManifest.xml:23:9-81
+15        android:protectionLevel="signature" />
+15-->[androidx.core:core:1.12.0] /home/mark/.gradle/caches/9.0-milestone-1/transforms/d95451d7253717e9783d59af7f5a0b61/transformed/core-1.12.0/AndroidManifest.xml:24:9-44
+16
+17    <uses-permission android:name="com.example.htmlapp.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION" />
+17-->[androidx.core:core:1.12.0] /home/mark/.gradle/caches/9.0-milestone-1/transforms/d95451d7253717e9783d59af7f5a0b61/transformed/core-1.12.0/AndroidManifest.xml:26:5-97
+17-->[androidx.core:core:1.12.0] /home/mark/.gradle/caches/9.0-milestone-1/transforms/d95451d7253717e9783d59af7f5a0b61/transformed/core-1.12.0/AndroidManifest.xml:26:22-94
+18
+19    <application
+19-->/home/mark/Downloads/htmlapp_kotlin_project/app/src/main/AndroidManifest.xml:7:5-19:19
+20        android:appComponentFactory="androidx.core.app.CoreComponentFactory"
+20-->[androidx.core:core:1.12.0] /home/mark/.gradle/caches/9.0-milestone-1/transforms/d95451d7253717e9783d59af7f5a0b61/transformed/core-1.12.0/AndroidManifest.xml:28:18-86
+21        android:debuggable="true"
+22        android:extractNativeLibs="true"
+23        android:icon="@mipmap/ic_launcher"
+23-->/home/mark/Downloads/htmlapp_kotlin_project/app/src/main/AndroidManifest.xml:9:9-43
+24        android:label="@string/app_name"
+24-->/home/mark/Downloads/htmlapp_kotlin_project/app/src/main/AndroidManifest.xml:8:9-41
+25        android:roundIcon="@mipmap/ic_launcher_round" >
+25-->/home/mark/Downloads/htmlapp_kotlin_project/app/src/main/AndroidManifest.xml:10:9-54
+26        <activity
+26-->/home/mark/Downloads/htmlapp_kotlin_project/app/src/main/AndroidManifest.xml:12:9-18:20
+27            android:name="com.example.htmlapp.MainActivity"
+27-->/home/mark/Downloads/htmlapp_kotlin_project/app/src/main/AndroidManifest.xml:12:19-47
+28            android:exported="true" >
+28-->/home/mark/Downloads/htmlapp_kotlin_project/app/src/main/AndroidManifest.xml:13:13-36
+29            <intent-filter>
+29-->/home/mark/Downloads/htmlapp_kotlin_project/app/src/main/AndroidManifest.xml:14:13-17:29
+30                <action android:name="android.intent.action.MAIN" />
+30-->/home/mark/Downloads/htmlapp_kotlin_project/app/src/main/AndroidManifest.xml:15:17-68
+30-->/home/mark/Downloads/htmlapp_kotlin_project/app/src/main/AndroidManifest.xml:15:25-66
+31
+32                <category android:name="android.intent.category.LAUNCHER" />
+32-->/home/mark/Downloads/htmlapp_kotlin_project/app/src/main/AndroidManifest.xml:16:17-76
+32-->/home/mark/Downloads/htmlapp_kotlin_project/app/src/main/AndroidManifest.xml:16:27-74
+33            </intent-filter>
+34        </activity>
+35
+36        <provider
+36-->[androidx.emoji2:emoji2:1.2.0] /home/mark/.gradle/caches/9.0-milestone-1/transforms/6bf741f06b6f58e57f39cc00af896ee6/transformed/emoji2-1.2.0/AndroidManifest.xml:24:9-32:20
+37            android:name="androidx.startup.InitializationProvider"
+37-->[androidx.emoji2:emoji2:1.2.0] /home/mark/.gradle/caches/9.0-milestone-1/transforms/6bf741f06b6f58e57f39cc00af896ee6/transformed/emoji2-1.2.0/AndroidManifest.xml:25:13-67
+38            android:authorities="com.example.htmlapp.androidx-startup"
+38-->[androidx.emoji2:emoji2:1.2.0] /home/mark/.gradle/caches/9.0-milestone-1/transforms/6bf741f06b6f58e57f39cc00af896ee6/transformed/emoji2-1.2.0/AndroidManifest.xml:26:13-68
+39            android:exported="false" >
+39-->[androidx.emoji2:emoji2:1.2.0] /home/mark/.gradle/caches/9.0-milestone-1/transforms/6bf741f06b6f58e57f39cc00af896ee6/transformed/emoji2-1.2.0/AndroidManifest.xml:27:13-37
+40            <meta-data
+40-->[androidx.emoji2:emoji2:1.2.0] /home/mark/.gradle/caches/9.0-milestone-1/transforms/6bf741f06b6f58e57f39cc00af896ee6/transformed/emoji2-1.2.0/AndroidManifest.xml:29:13-31:52
+41                android:name="androidx.emoji2.text.EmojiCompatInitializer"
+41-->[androidx.emoji2:emoji2:1.2.0] /home/mark/.gradle/caches/9.0-milestone-1/transforms/6bf741f06b6f58e57f39cc00af896ee6/transformed/emoji2-1.2.0/AndroidManifest.xml:30:17-75
+42                android:value="androidx.startup" />
+42-->[androidx.emoji2:emoji2:1.2.0] /home/mark/.gradle/caches/9.0-milestone-1/transforms/6bf741f06b6f58e57f39cc00af896ee6/transformed/emoji2-1.2.0/AndroidManifest.xml:31:17-49
+43            <meta-data
+43-->[androidx.lifecycle:lifecycle-process:2.4.1] /home/mark/.gradle/caches/9.0-milestone-1/transforms/cb78a9e967e09c8bb6cc7038afae76a2/transformed/lifecycle-process-2.4.1/AndroidManifest.xml:31:13-33:52
+44                android:name="androidx.lifecycle.ProcessLifecycleInitializer"
+44-->[androidx.lifecycle:lifecycle-process:2.4.1] /home/mark/.gradle/caches/9.0-milestone-1/transforms/cb78a9e967e09c8bb6cc7038afae76a2/transformed/lifecycle-process-2.4.1/AndroidManifest.xml:32:17-78
+45                android:value="androidx.startup" />
+45-->[androidx.lifecycle:lifecycle-process:2.4.1] /home/mark/.gradle/caches/9.0-milestone-1/transforms/cb78a9e967e09c8bb6cc7038afae76a2/transformed/lifecycle-process-2.4.1/AndroidManifest.xml:33:17-49
+46        </provider>
+47    </application>
+48
+49</manifest>

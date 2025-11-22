@@ -1,0 +1,4 @@
+com.example.htmlapp.test.app-androidTest-0 /home/mark/Downloads/htmlapp_kotlin_project/app/build/generated/res/resValues/androidTest/debug
+com.example.htmlapp.test.app-mergeDebugAndroidTestResources-1 /home/mark/Downloads/htmlapp_kotlin_project/app/build/intermediates/incremental/debugAndroidTest/mergeDebugAndroidTestResources/merged.dir
+com.example.htmlapp.test.app-mergeDebugAndroidTestResources-2 /home/mark/Downloads/htmlapp_kotlin_project/app/build/intermediates/incremental/debugAndroidTest/mergeDebugAndroidTestResources/stripped.dir
+com.example.htmlapp.test.app-debugAndroidTest-3 /home/mark/Downloads/htmlapp_kotlin_project/app/build/intermediates/merged_res/debugAndroidTest/mergeDebugAndroidTestResources
