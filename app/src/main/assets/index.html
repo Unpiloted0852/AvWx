@@ -112,6 +112,8 @@
 
     const TAF_DATA_URL = 'https://aviationweather.gov/data/cache/tafs.cache.xml.gz';
     const METAR_DATA_URL = 'https://aviationweather.gov/data/cache/metars.cache.xml.gz';
+    const STATIONS_DATA_URL = 'https://aviationweather.gov/data/cache/stations.cache.xml.gz';
+
     const PROXY_URL = 'https://corsproxy.io/?';
     const MAX_RETRIES = 3;
     const PAGE_MARGIN = 15;
@@ -119,6 +121,9 @@
     const PAGE_HEIGHT = 297;
     const USABLE_WIDTH = PAGE_WIDTH - (PAGE_MARGIN * 2);
     const LINE_SPACING = 4;
+
+    // Cache for station data to avoid re-downloading
+    let cachedStationMap = null;
 
     const COLORS = {
         VFR: [0, 170, 0],
@@ -198,27 +203,34 @@
         return (R * c) * 0.539957; // Convert km to NM
     }
 
-    // New helper to calculate age
-    function getAgeString(isoTime) {
-        if (!isoTime) return '';
-        const now = new Date();
-        const time = new Date(isoTime);
-        const diffMs = now - time;
-
-        // Prevent negative age for slightly future timestamps (sync issues)
-        if (diffMs < 0) return 'just now';
-
-        const diffMins = Math.floor(diffMs / 60000);
-        const hours = Math.floor(diffMins / 60);
-        const mins = diffMins % 60;
-
-        if (hours > 24) {
-            const days = Math.floor(hours / 24);
-            return `${days}d ago`;
+    function calculateAgeInMinutes(isoTimestamp) {
+        try {
+            const timestamp = new Date(isoTimestamp);
+            const now = new Date();
+            const diffMs = now.getTime() - timestamp.getTime();
+            return Math.floor(diffMs / (1000 * 60));
+        } catch (e) {
+            return null;
         }
-        if (hours > 0) return `${hours}h ${mins}m ago`;
-        return `${mins}m ago`;
     }
+
+    function formatAge(minutes) {
+        if (minutes === null || isNaN(minutes)) return "N/A";
+        if (minutes < 60) {
+            return `${minutes} min ago`;
+        } else if (minutes < 1440) { // Less than 24 hours
+            const hours = Math.floor(minutes / 60);
+            const remainingMinutes = minutes % 60;
+            if (remainingMinutes > 0) {
+                return `${hours}h ${remainingMinutes}m ago`;
+            }
+            return `${hours} hours ago`;
+        } else {
+            const days = Math.floor(minutes / 1440);
+            return `${days} days ago`;
+        }
+    }
+
 
     // --- FETCH & PROCESS ---
 
@@ -299,10 +311,49 @@
         });
     }
 
-    function processData(tafDoc, metarDoc, homeIcao) {
+    // New function to handle station metadata caching
+    async function getStationMap() {
+        if (cachedStationMap) return cachedStationMap;
+
+        try {
+            const stationsDoc = await fetchAndParse(STATIONS_DATA_URL);
+            const map = new Map();
+            stationsDoc.querySelectorAll("Station").forEach(node => {
+                const id = node.querySelector("station_id")?.textContent;
+                const site = node.querySelector("site")?.textContent;
+                const state = node.querySelector("state")?.textContent;
+                const country = node.querySelector("country")?.textContent;
+
+                if (id && site) {
+                    // Clean up site name (often title cased)
+                    const cleanSite = site.trim().replace(/\/INTL$/, '').replace(/\//g, ' ');
+                    let label = cleanSite;
+
+                    // Logic: US gets State, everyone else gets Country
+                    if (country === 'US' && state) {
+                        label += `, ${state}`;
+                    } else if (country) {
+                        label += `, ${country}`;
+                    } else if (state) {
+                        // Fallback if country is missing but state exists
+                        label += `, ${state}`;
+                    }
+
+                    map.set(id, label);
+                }
+            });
+            cachedStationMap = map;
+            return map;
+        } catch (e) {
+            console.warn("Failed to fetch station DB, proceeding without names", e);
+            return new Map(); // Return empty map so app doesn't crash
+        }
+    }
+
+    function processData(tafDoc, metarDoc, stationNames, homeIcao) {
         const stationMap = new Map();
 
-        // 1. Parse all METARs
+        // 1. Process METARs
         metarDoc.querySelectorAll("METAR").forEach(node => {
             const stationId = node.querySelector("station_id")?.textContent;
             if (!stationId) return;
@@ -312,17 +363,19 @@
             const lon = parseFloat(node.querySelector("longitude")?.textContent);
             const rawText = node.querySelector("raw_text")?.textContent || 'N/A';
             const category = node.querySelector("flight_category")?.textContent || analyzeCondition(rawText);
+            const obsTimeText = node.querySelector("observation_time")?.textContent;
+            const metarAgeMinutes = calculateAgeInMinutes(obsTimeText);
 
-            // Extract observation time
-            const obsTime = node.querySelector("observation_time")?.textContent;
-            const age = getAgeString(obsTime);
+            // Look up formatted name
+            const niceName = stationNames.get(stationId) || '';
 
             stationMap.set(stationId, {
                 id: stationId,
+                name: niceName,
                 latitude: isNaN(lat) ? null : lat,
                 longitude: isNaN(lon) ? null : lon,
                 distanceNM: null,
-                metar: { rawText, category, tempF, rh, age },
+                metar: { rawText, category, tempF, rh, age: metarAgeMinutes, obsTime: obsTimeText },
                 taf: null
             });
         });
@@ -333,10 +386,8 @@
             if (!stationId) return;
             const rawText = node.querySelector("raw_text")?.textContent || 'N/A';
             const validToText = node.querySelector("valid_time_to")?.textContent;
-
-            // Extract issue time
-            const issueTime = node.querySelector("issue_time")?.textContent;
-            const age = getAgeString(issueTime);
+            const issueTimeText = node.querySelector("issue_time")?.textContent;
+            const tafAgeMinutes = calculateAgeInMinutes(issueTimeText);
 
             let periodHours = null;
             if (validToText) {
@@ -345,17 +396,19 @@
                     const now = new Date();
                     const hoursRemaining = (validTo.getTime() - now.getTime()) / (1000 * 60 * 60);
                     periodHours = Math.max(0, Math.round(hoursRemaining));
-                } catch (e) {
-                    console.error("Error parsing TAF valid time:", e);
-                }
+                } catch (e) {}
             }
 
             if (!stationMap.has(stationId)) {
+                // TAF only station
+                const niceName = stationNames.get(stationId) || '';
                 stationMap.set(stationId, {
-                    id: stationId, latitude: null, longitude: null, distanceNM: null, metar: null
+                    id: stationId,
+                    name: niceName,
+                    latitude: null, longitude: null, distanceNM: null, metar: null
                 });
             }
-            stationMap.get(stationId).taf = { rawText, periodHours, age };
+            stationMap.get(stationId).taf = { rawText, periodHours, age: tafAgeMinutes, issueTime: issueTimeText };
         });
 
         // 3. Determine Reference Location
@@ -368,7 +421,7 @@
             if (homeStation && homeStation.latitude !== null) {
                 refLat = homeStation.latitude;
                 refLon = homeStation.longitude;
-                refName = `Airport ${homeIcao.toUpperCase()}`;
+                refName = `${homeIcao.toUpperCase()} (${homeStation.name || 'Unknown'})`;
             } else {
                 console.warn("Home ICAO not found in METAR data.");
             }
@@ -420,17 +473,19 @@
             generateButton.disabled = true;
             generateButton.textContent = "Fetching Data...";
             generateButton.classList.add('opacity-50', 'cursor-not-allowed');
-            showStatus("Fetching METAR and TAF data...", false);
+            showStatus("Fetching METAR, TAF, and Station Database...", false);
             resultsContainerEl.classList.add('hidden');
 
-            const [tafDoc, metarDoc] = await Promise.all([
+            // Parallel fetch of all resources
+            const [tafDoc, metarDoc, stationNames] = await Promise.all([
                 fetchAndParse(TAF_DATA_URL),
-                fetchAndParse(METAR_DATA_URL)
+                fetchAndParse(METAR_DATA_URL),
+                getStationMap()
             ]);
 
             showStatus("Processing stations...");
 
-            const result = processData(tafDoc, metarDoc, homeIcao);
+            const result = processData(tafDoc, metarDoc, stationNames, homeIcao);
             const stationsData = result.stations;
             const usedRef = result.refName;
 
@@ -499,15 +554,27 @@
             const taf = data.taf;
             let metarHtml = '<div class="text-gray-500 dark:text-gray-400 italic">No METAR available.</div>';
             let tafHtml = '<div class="text-gray-500 dark:text-gray-400 italic">No TAF available.</div>';
+
+            // --- NEW: Add Station Name to Header ---
             let headerText = data.id;
-            let infoText = '';
+            if (data.name) {
+                // Uses a slightly smaller/lighter font for the name
+                headerText += ` <span class="text-base font-normal text-gray-500 dark:text-gray-400 ml-2">${data.name}</span>`;
+            }
+
+            let infoTextParts = [];
 
             if (metar) {
                 const category = metar.category;
                 const className = getCategoryClassName(category);
-                infoText = `${metar.tempF} • ${metar.rh}`;
+
+                infoTextParts.push(`${metar.tempF} • ${metar.rh}`);
+
+                const ageFormatted = formatAge(metar.age);
+                infoTextParts.push(`Observed ${ageFormatted}`);
+
                 if (data.distanceNM !== null) {
-                    infoText += ` • ${data.distanceNM.toFixed(0)} NM`;
+                    infoTextParts.push(`${data.distanceNM.toFixed(0)} NM`);
                 }
 
                 const dotClassToBorderColor = {
@@ -519,29 +586,32 @@
                 const borderColorClass = dotClassToBorderColor[className] || 'border-gray-500';
 
                 metarHtml = `<div class="bg-gray-100 dark:bg-gray-700 p-2 rounded-lg border-l-4 ${borderColorClass}">
-                                <div class="flex justify-between items-baseline mb-1">
-                                    <h4 class="font-bold text-sm text-gray-600 dark:text-gray-300">METAR</h4>
-                                    <span class="text-xs text-gray-500 dark:text-gray-400 italic">${metar.age || ''}</span>
-                                </div>
+                                <h4 class="font-bold mb-1 text-sm text-gray-600 dark:text-gray-300">METAR</h4>
                                 <p class="font-mono text-xs md:text-sm leading-relaxed">${formatRawText(metar.rawText)}</p>
                              </div>`;
             } else if (data.distanceNM !== null) {
-                infoText = `Distance: ${data.distanceNM.toFixed(0)} NM`;
+                infoTextParts.push(`Distance: ${data.distanceNM.toFixed(0)} NM`);
             }
 
             if (taf) {
-                let note = '';
+                let notes = [];
+                if (taf.age !== null) {
+                    const ageFormatted = formatAge(taf.age);
+                    notes.push(`Issued ${ageFormatted}`);
+                }
                 if (taf.periodHours !== null) {
-                    note = `<p class="text-xs text-gray-500 dark:text-gray-400 mt-2">Forecast period ends in ${taf.periodHours} hours</p>`;
+                    notes.push(`Forecast period ends in ${taf.periodHours} hours`);
+                }
+
+                let noteHtml = '';
+                if (notes.length > 0) {
+                    noteHtml = `<p class="text-xs text-gray-500 dark:text-gray-400 mt-2">${notes.join(' • ')}</p>`;
                 }
 
                 tafHtml = `<div class="bg-gray-100 dark:bg-gray-700 p-2 rounded-lg">
-                            <div class="flex justify-between items-baseline mb-1">
-                                <h4 class="font-bold text-sm text-gray-600 dark:text-gray-300">TAF</h4>
-                                <span class="text-xs text-gray-500 dark:text-gray-400 italic">${taf.age || ''}</span>
-                            </div>
+                            <h4 class="font-bold mb-1 text-sm text-gray-600 dark:text-gray-300">TAF</h4>
                             <div class="space-y-1">${formatRawText(taf.rawText)}</div>
-                            ${note}
+                            ${noteHtml}
                          </div>`;
             }
 
@@ -549,8 +619,10 @@
             stationEntry.className = 'border border-gray-200 dark:border-gray-700 rounded-lg p-4 shadow-md bg-white dark:bg-gray-900';
             stationEntry.innerHTML = `
                 <div class="flex flex-col sm:flex-row sm:items-baseline justify-between mb-3 border-b pb-2">
-                    <h3 class="text-xl font-extrabold text-gray-900 dark:text-gray-100">${headerText}</h3>
-                    <p class="text-xs text-gray-500 dark:text-gray-400 font-medium">${infoText}</p>
+                    <h3 class="text-xl font-extrabold text-gray-900 dark:text-gray-100 flex items-baseline flex-wrap">
+                        ${headerText}
+                    </h3>
+                    <p class="text-xs text-gray-500 dark:text-gray-400 font-medium">${infoTextParts.join(' • ')}</p>
                 </div>
                 <div class="space-y-3">
                     ${metarHtml}
@@ -582,7 +654,14 @@
     function generatePDF(stationsData, refName) {
         const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
         let cursorY = PAGE_MARGIN;
-        const splitText = text => doc.splitTextToSize(text, USABLE_WIDTH - 10);
+
+        // Helper to split text using the specific font settings used in the body
+        // We use a slightly narrower width (USABLE_WIDTH - 25) to account for bold text expansion
+        const splitBodyText = text => {
+            doc.setFont("courier", "normal");
+            doc.setFontSize(9);
+            return doc.splitTextToSize(text, USABLE_WIDTH - 25);
+        };
 
         const now = new Date();
         const utc = now.toISOString().replace('T', ' ').substring(0, 19);
@@ -624,76 +703,92 @@
 
         for (const data of stationsData) {
             const stationId = data.id;
+            const headerTitle = data.name ? `${stationId} - ${data.name}` : stationId;
 
             let metarLines = [];
             let metarColor = COLORS.VFR;
-            let tempRHText = "";
+            let infoText = "";
 
+            let infoTextParts = [];
             if (data.metar) {
-                metarLines = splitText(data.metar.rawText);
+                // Use the specific splitter ensures correct wrapping for Courier font
+                metarLines = splitBodyText(data.metar.rawText);
                 metarColor = getCategoryColor(data.metar.category);
-                tempRHText = `${data.metar.tempF} • ${data.metar.rh}`;
+
+                infoTextParts.push(`${data.metar.tempF} • ${data.metar.rh}`);
+                infoTextParts.push(`Observed ${formatAge(data.metar.age)}`);
+
                 if (data.distanceNM !== null) {
-                    tempRHText += ` • ${data.distanceNM.toFixed(0)} NM`;
+                    infoTextParts.push(`${data.distanceNM.toFixed(0)} NM`);
                 }
+                infoText = infoTextParts.join(' • ');
+
             } else if (data.distanceNM !== null) {
-                tempRHText = `Distance: ${data.distanceNM.toFixed(0)} NM (No METAR)`;
+                infoText = `Distance: ${data.distanceNM.toFixed(0)} NM (No METAR)`;
             }
 
             let tafBlocks = [];
             let tafPeriodNote = '';
+            let tafIssueNote = '';
 
             if (data.taf) {
                 const formatted = data.taf.rawText.replace(/(FM\d{6}|BECMG|PROB\d{2} TEMPO|PROB\d{2}|TEMPO)/g, "\n$1");
-                tafBlocks = formatted.split('\n').map(l => l.trim()).filter(l => l);
+                const rawBlocks = formatted.split('\n').map(l => l.trim()).filter(l => l);
+
+                // Split each block using the correct font context
+                tafBlocks = rawBlocks.map(block => ({
+                    lines: splitBodyText(block),
+                    raw: block
+                }));
 
                 if (data.taf.periodHours !== null) {
                     tafPeriodNote = `Forecast period ends in ${data.taf.periodHours} hours`;
                 }
+                if (data.taf.age !== null) {
+                    tafIssueNote = `Issued ${formatAge(data.taf.age)}`;
+                }
             }
 
-            let heightNeeded = 16;
+            // Calculate Height Needed
+            let heightNeeded = 14; // Header + Info + Spacing
             if (metarLines.length > 0) heightNeeded += metarLines.length * LINE_SPACING + 3;
             if (tafBlocks.length > 0) {
-                for (const block of tafBlocks) heightNeeded += splitText(block).length * LINE_SPACING;
+                for (const block of tafBlocks) heightNeeded += block.lines.length * LINE_SPACING;
                 heightNeeded += 5;
             }
-            if (tafPeriodNote) heightNeeded += LINE_SPACING;
+            if (tafPeriodNote || tafIssueNote) heightNeeded += LINE_SPACING;
 
             if (cursorY + heightNeeded > PAGE_HEIGHT - PAGE_MARGIN) {
                 doc.addPage();
                 cursorY = PAGE_MARGIN;
             }
 
+            // 1. Draw Header (Station ID + Name)
             doc.setFont("helvetica", "bold");
             doc.setFontSize(12);
             doc.setTextColor(0, 0, 0);
-            doc.text(stationId, PAGE_MARGIN, cursorY);
+            doc.text(headerTitle, PAGE_MARGIN, cursorY);
+            cursorY += 5;
 
-            if (tempRHText) {
+            // 2. Draw Info Text (Temp, Age, Distance) on the NEXT line to avoid overlap
+            if (infoText) {
                 doc.setFont("helvetica", "normal");
                 doc.setFontSize(10);
                 doc.setTextColor(80, 80, 80);
-                doc.text(tempRHText, PAGE_MARGIN + doc.getTextWidth(stationId) + 5, cursorY);
+                doc.text(infoText, PAGE_MARGIN, cursorY);
+                cursorY += 6;
+            } else {
+                cursorY += 2;
             }
-            cursorY += 6;
 
+            // 3. Draw METAR
             if (data.metar) {
                 doc.setFont("helvetica", "bold");
                 doc.setFontSize(9);
                 doc.setTextColor(60, 60, 60);
                 doc.text("METAR:", PAGE_MARGIN + 2, cursorY);
-
-                // Add METAR Age aligned right
-                if (data.metar.age) {
-                    doc.setFont("helvetica", "italic");
-                    doc.setFontSize(8);
-                    doc.setTextColor(120, 120, 120);
-                    doc.text(data.metar.age, PAGE_WIDTH - PAGE_MARGIN, cursorY, { align: "right" });
-                    doc.setTextColor(60, 60, 60); // reset
-                }
-
                 doc.setFontSize(9);
+
                 for (const line of metarLines) {
                     drawStyledText(doc, line, PAGE_MARGIN + 18, cursorY, metarColor);
                     cursorY += LINE_SPACING;
@@ -701,37 +796,32 @@
                 cursorY += 2;
             }
 
+            // 4. Draw TAF
             if (data.taf) {
                 doc.setFont("helvetica", "bold");
                 doc.setFontSize(9);
                 doc.setTextColor(60, 60, 60);
                 doc.text("TAF:", PAGE_MARGIN + 2, cursorY);
-
-                // Add TAF Age aligned right
-                if (data.taf.age) {
-                    doc.setFont("helvetica", "italic");
-                    doc.setFontSize(8);
-                    doc.setTextColor(120, 120, 120);
-                    doc.text(data.taf.age, PAGE_WIDTH - PAGE_MARGIN, cursorY, { align: "right" });
-                    doc.setTextColor(60, 60, 60); // reset
-                }
-
                 doc.setFontSize(9);
+
                 for (const block of tafBlocks) {
-                    const blockColor = getCategoryColor(analyzeCondition(block));
-                    const lines = splitText(block);
-                    for (const line of lines) {
+                    const blockColor = getCategoryColor(analyzeCondition(block.raw));
+                    for (const line of block.lines) {
                         drawStyledText(doc, line, PAGE_MARGIN + 18, cursorY, blockColor);
                         cursorY += LINE_SPACING;
                     }
                 }
                 cursorY += 2;
 
-                if (tafPeriodNote) {
+                let tafNotes = [];
+                if (tafIssueNote) tafNotes.push(tafIssueNote);
+                if (tafPeriodNote) tafNotes.push(tafPeriodNote);
+
+                if (tafNotes.length > 0) {
                     doc.setFont("helvetica", "normal");
                     doc.setFontSize(8);
                     doc.setTextColor(100, 100, 100);
-                    doc.text(tafPeriodNote, PAGE_MARGIN + 18, cursorY);
+                    doc.text(tafNotes.join(' • '), PAGE_MARGIN + 18, cursorY);
                     cursorY += LINE_SPACING;
                 }
             }
@@ -742,9 +832,22 @@
             cursorY += 6;
         }
 
-        const pdfDataUri = doc.output('datauristring');
-        const base64Data = pdfDataUri.substring(pdfDataUri.indexOf(',') + 1);
-        window.Android.savePdf(base64Data, "weather-report-combined.pdf");
+        // Instead of saving directly to browser, send PDF to Android WebView if available.
+        try {
+            const pdfDataUri = doc.output('datauristring');
+            const base64Data = pdfDataUri.substring(pdfDataUri.indexOf(',') + 1);
+            if (window.Android && typeof window.Android.savePdf === 'function') {
+                // Android interface expects base64 data and filename
+                window.Android.savePdf(base64Data, "weather-report-combined.pdf");
+            } else {
+                // Fallback for browser testing
+                doc.save("weather-report-combined.pdf");
+            }
+        } catch (e) {
+            // Last-resort fallback
+            console.error('PDF export failed:', e);
+            try { doc.save("weather-report-combined.pdf"); } catch (ee) { /* ignore */ }
+        }
     }
 </script>
 </body>
