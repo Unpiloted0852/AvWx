@@ -8,76 +8,162 @@
     <!-- We keep jsPDF for the PDF option -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pako/2.1.0/pako.min.js"></script>
+
+    <!-- Flatpickr for enforced 24h UTC inputs -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
+
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
     <style>
         body { font-family: 'Inter', sans-serif; }
         .font-mono { font-family: 'JetBrains Mono', 'Courier New', monospace; }
-        
+
         /* Custom styles for the colored legend dots */
-        .weather-dot { 
-            display: inline-block; 
-            width: 10px; 
-            height: 10px; 
-            border-radius: 50%; 
-            margin-right: 4px; 
+        .weather-dot {
+            display: inline-block;
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            margin-right: 4px;
+            flex-shrink: 0;
         }
 
-        /* Updated to use background-color for reliable rendering */
-        .vfr-dot { background-color: rgb(0, 170, 0); }
-        .mvfr-dot { background-color: rgb(0, 50, 160); }
-        .ifr-dot { background-color: rgb(200, 0, 0); }
-        .lifr-dot { background-color: rgb(255, 20, 147); }
+        /* Weather Colors */
+        .vfr-dot { background-color: rgb(0, 170, 0); } /* Green */
+        .mvfr-dot { background-color: rgb(0, 50, 160); } /* Blue */
+        .ifr-dot { background-color: rgb(200, 0, 0); } /* Red */
+        .lifr-dot { background-color: rgb(255, 20, 147); } /* Magenta */
+
+        /* Advanced Tab Tiles */
+        .vfr-tile { background-color: rgb(0, 170, 0); }
+        .mvfr-tile { background-color: rgb(0, 50, 160); }
+        .ifr-tile { background-color: rgb(200, 0, 0); }
+        .lifr-tile { background-color: rgb(255, 20, 147); }
+        .nodata-tile { background-color: rgb(150, 150, 150); }
+
+        /* Elegant Navigation */
+        .nav-pill-container {
+            @apply flex p-1 space-x-1 bg-gray-200 dark:bg-gray-700 rounded-xl;
+        }
+        .tab-button {
+            @apply w-full py-2.5 text-sm font-medium leading-5 rounded-lg text-center transition-all duration-200;
+            @apply text-gray-700 dark:text-gray-200;
+        }
+        .tab-button:hover:not(.active) {
+            @apply bg-gray-300 dark:bg-gray-600;
+        }
+        .tab-button.active {
+            @apply bg-white dark:bg-gray-600 text-blue-700 dark:text-blue-300 shadow shadow-sm;
+        }
+
+        /* Flatpickr Customization for consistent UI */
+        .flatpickr-calendar {
+            font-family: 'Inter', sans-serif;
+        }
     </style>
 </head>
 <body class="bg-gray-100 dark:bg-gray-900 text-gray-900 dark:text-gray-100 min-h-full antialiased">
 
-<div class="container mx-auto p-4 md:p-8 max-w-4xl">
+<div class="container mx-auto p-4 md:p-8 max-w-5xl">
     <header class="mb-8 text-center">
         <h1 class="text-3xl font-bold text-blue-600 dark:text-blue-400">Aviation Weather Generator</h1>
         <p class="text-gray-600 dark:text-gray-400 mt-2">
-            Generates a report of current METARs and TAFs, viewable in-browser or as PDF.
+            Generates a report of current METARs and TAFs, view in-app or download as PDF.
         </p>
         <div class="flex justify-center flex-wrap gap-x-4 mt-4 text-sm font-bold">
             <span class="flex items-center gap-1"><span class="weather-dot vfr-dot"></span>VFR</span>
             <span class="flex items-center gap-1"><span class="weather-dot mvfr-dot"></span>MVFR</span>
             <span class="flex items-center gap-1"><span class="weather-dot ifr-dot"></span>IFR</span>
             <span class="flex items-center gap-1"><span class="weather-dot lifr-dot"></span>LIFR</span>
+            <span id="nodata-legend" class="flex items-center gap-1 text-gray-500" style="display: none;"><span class="weather-dot nodata-tile"></span>No TAF Data</span>
         </div>
     </header>
 
+    <!-- Main Settings and Advanced Toggle -->
     <div class="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-lg mb-6">
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             <!-- Output Mode Option -->
             <div>
                 <label for="outputMode" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                     Output Mode
                 </label>
                 <select id="outputMode" class="w-full p-2.5 border border-gray-300 dark:border-gray-600 rounded-lg bg-gray-50 dark:bg-gray-700 dark:text-gray-200 focus:ring-blue-500 focus:border-blue-500 transition duration-150">
-                    <option value="browser">View in Browser</option>
-                    <option value="pdf">Download PDF Report</option>
+                    <option value="browser">View in App</option>
+                    <option value="pdf">Download PDF</option>
                 </select>
             </div>
 
-            <!-- Sorting Option -->
-            <div class="flex flex-col">
+            <!-- Home ICAO Input & Sorting Option -->
+            <div class="md:col-span-1">
                 <label for="sortMode" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                     Sort Results By
                 </label>
                 <select id="sortMode" class="w-full p-2.5 border border-gray-300 dark:border-gray-600 rounded-lg bg-gray-50 dark:bg-gray-700 dark:text-gray-200 focus:ring-blue-500 focus:border-blue-500 transition duration-150">
-                    <option value="alpha">Station ID (A-Z)</option>
-                    <option value="distance" disabled>Distance (requires Home ICAO)</option>
+                    <option value="alpha">Alphabetical (ICAO)</option>
+                    <option value="distance" disabled>Distance to Home Airport</option>
                 </select>
 
-                <!-- Home ICAO Input -->
                 <div class="mt-3 p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg border border-gray-200 dark:border-gray-700">
                     <label for="icaoInput" class="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">
-                        Home Airport (Reference Location)
+                        Home Airport (Optional)
                     </label>
-                    <input type="text" id="icaoInput" maxlength="4" placeholder="e.g. KJFK"
+                    <input type="text" id="icaoInput" maxlength="4" placeholder="e.g. KOKC"
                            class="uppercase w-full p-2 text-sm border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-800 dark:text-gray-100 focus:ring-blue-500 focus:border-blue-500 tracking-widest font-mono transition-colors">
-                    <p class="text-xs text-gray-400 mt-1">Enter 3-4 letter ICAO code to enable distance sorting.</p>
+                    <p class="text-xs text-gray-400 mt-1">Enter 4 letter ICAO code to enable distance sorting.</p>
+                </div>
+            </div>
+
+            <!-- Advanced Planning Toggle -->
+            <div class="md:col-span-1 flex items-end">
+                <div class="w-full">
+                    <p class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Alternate Analysis</p>
+                    <button id="toggleAdvanced"
+                            class="w-full bg-yellow-500 hover:bg-yellow-600 text-white font-bold py-2.5 px-4 rounded-lg shadow-md transition duration-150 focus:outline-none focus:ring-2 focus:ring-yellow-500 focus:ring-offset-2 dark:focus:ring-offset-gray-900">
+                        Enable Alternate Planner
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Advanced Planning Inputs (Initially Hidden) -->
+        <div id="advancedInputs" class="hidden mt-6 pt-4 border-t border-gray-200 dark:border-gray-700">
+            <h3 class="text-lg font-semibold text-blue-600 dark:text-blue-400 mb-4">Flight Plan Details</h3>
+            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                <!-- Departure -->
+                <div>
+                    <label for="depIcao" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                        Departure Airport (ICAO)
+                    </label>
+                    <input type="text" id="depIcao" maxlength="4" placeholder="e.g. KSEA"
+                           class="uppercase w-full p-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 dark:text-gray-100 focus:ring-blue-500 focus:border-blue-500 font-mono transition-colors">
+                </div>
+                <!-- Destination -->
+                <div>
+                    <label for="destIcao" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                        Destination Airport (ICAO)
+                    </label>
+                    <input type="text" id="destIcao" maxlength="4" placeholder="e.g. KSAN"
+                           class="uppercase w-full p-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 dark:text-gray-100 focus:ring-blue-500 focus:border-blue-500 font-mono transition-colors">
+                </div>
+                <!-- Takeoff Time -->
+                <div>
+                    <label for="takeOffTime" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                        Takeoff Time (UTC)
+                    </label>
+                    <!-- Type text for Flatpickr -->
+                    <input type="text" id="takeOffTime" placeholder="YYYY-MM-DD HH:MM" required
+                           class="w-full p-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 dark:text-gray-100 focus:ring-blue-500 focus:border-blue-500 transition-colors cursor-pointer">
+                </div>
+                <!-- Landing Time -->
+                <div>
+                    <label for="landingTime" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                        Landing Time (UTC)
+                    </label>
+                    <!-- Type text for Flatpickr -->
+                    <input type="text" id="landingTime" placeholder="YYYY-MM-DD HH:MM" required
+                           class="w-full p-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 dark:text-gray-100 focus:ring-blue-500 focus:border-blue-500 transition-colors cursor-pointer">
                 </div>
             </div>
         </div>
@@ -93,9 +179,22 @@
     <div id="status" class="hidden mt-6 p-4 text-center rounded-lg"></div>
     <div id="details" class="hidden mt-2 text-sm text-gray-500 text-center font-mono"></div>
 
-    <div id="resultsContainer" class="hidden mt-8 p-4 bg-white dark:bg-gray-800 rounded-xl shadow-inner max-h-[80vh] overflow-y-auto">
-        <h2 class="text-xl font-semibold mb-4 border-b pb-2 text-blue-600 dark:text-blue-400">Weather Report Data</h2>
-        <div id="weatherList" class="space-y-6"></div>
+    <!-- Results Container -->
+    <div id="resultsContainer" class="hidden mt-8 p-4 bg-white dark:bg-gray-800 rounded-xl shadow-inner max-h-[85vh] flex flex-col">
+
+        <!-- Updated Elegant Navigation Tabs -->
+        <div class="mb-4">
+            <div class="nav-pill-container">
+                <button id="tabStandard" class="tab-button active">Standard Report</button>
+                <button id="tabRouteAnalysis" class="tab-button hidden" >Alternate Analysis</button>
+            </div>
+        </div>
+
+        <!-- Tab Content -->
+        <div class="flex-grow overflow-y-auto">
+            <div id="weatherList" class="space-y-6 tab-content"></div>
+            <div id="routeAnalysisView" class="hidden tab-content p-4"></div>
+        </div>
     </div>
 </div>
 
@@ -109,6 +208,18 @@
     const detailsEl = document.getElementById('details');
     const resultsContainerEl = document.getElementById('resultsContainer');
     const weatherListEl = document.getElementById('weatherList');
+    const routeAnalysisViewEl = document.getElementById('routeAnalysisView');
+    const toggleAdvancedButton = document.getElementById('toggleAdvanced');
+    const advancedInputsEl = document.getElementById('advancedInputs');
+    const tabStandard = document.getElementById('tabStandard');
+    const tabRouteAnalysis = document.getElementById('tabRouteAnalysis');
+    const nodataLegendEl = document.getElementById('nodata-legend');
+
+    // Advanced Inputs
+    const depIcaoInput = document.getElementById('depIcao');
+    const destIcaoInput = document.getElementById('destIcao');
+    const takeOffTimeInput = document.getElementById('takeOffTime');
+    const landingTimeInput = document.getElementById('landingTime');
 
     const TAF_DATA_URL = 'https://aviationweather.gov/data/cache/tafs.cache.xml.gz';
     const METAR_DATA_URL = 'https://aviationweather.gov/data/cache/metars.cache.xml.gz';
@@ -122,18 +233,146 @@
     const USABLE_WIDTH = PAGE_WIDTH - (PAGE_MARGIN * 2);
     const LINE_SPACING = 4;
 
+    // --- 1) Set search radius to 220nm ---
+    const MAX_ROUTE_DISTANCE_NM = 220;
+
     // Cache for station data to avoid re-downloading
     let cachedStationMap = null;
+    let routeAnalysisEnabled = false;
+
+    const CATEGORY_ORDER = {
+        'LIFR': 4,
+        'IFR': 3,
+        'MVFR': 2,
+        'VFR': 1,
+        'NODATA': 0 // Lowest priority
+    };
 
     const COLORS = {
         VFR: [0, 170, 0],
         MVFR: [0, 50, 160],
         IFR: [200, 0, 0],
-        LIFR: [255, 20, 147]
+        LIFR: [255, 20, 147],
+        NODATA: [150, 150, 150]
     };
 
-    // Event Listeners
+    // --- INITIALIZATION ---
+    // UTC Helper for strings
+    function formatUtcForInput(date) {
+        const Y = date.getUTCFullYear();
+        const M = String(date.getUTCMonth() + 1).padStart(2, '0');
+        const D = String(date.getUTCDate()).padStart(2, '0');
+        const h = String(date.getUTCHours()).padStart(2, '0');
+        const m = String(date.getUTCMinutes()).padStart(2, '0');
+        return `${Y}-${M}-${D} ${h}:${m}`;
+    }
+
+    // Helper to parse input string as pure UTC
+    // Input: "2023-10-27 14:00" -> Date object representing 14:00 UTC
+    function parseUtcString(str) {
+        if (!str) return null;
+        // Append Z to force UTC parsing
+        return new Date(str.replace(' ', 'T') + 'Z');
+    }
+
+    function initializeTimeInputs() {
+        const now = new Date();
+
+        // Set default takeoff 1 hour from now (UTC)
+        const takeoffDefault = new Date(now.getTime() + 60 * 60 * 1000);
+
+        // Set default landing 3 hours from now (UTC)
+        const landingDefault = new Date(now.getTime() + 3 * 60 * 60 * 1000);
+
+        // Initialize Flatpickr
+        // This forces 24hr format visually and programmatically
+        const commonConfig = {
+            enableTime: true,
+            dateFormat: "Y-m-d H:i",
+            time_24hr: true,
+            minuteIncrement: 1,
+            static: true // keeps the calendar positioned near element
+        };
+
+        flatpickr("#takeOffTime", {
+            ...commonConfig,
+            defaultDate: formatUtcForInput(takeoffDefault)
+        });
+
+        flatpickr("#landingTime", {
+            ...commonConfig,
+            defaultDate: formatUtcForInput(landingDefault)
+        });
+    }
+    initializeTimeInputs();
+
+    // --- 2) Helper for 24-hour formatting ---
+    function formatTimeHHMM(date) {
+        const h = String(date.getUTCHours()).padStart(2, '0');
+        const m = String(date.getUTCMinutes()).padStart(2, '0');
+        return `${h}:${m}Z`;
+    }
+
+    // --- EVENT LISTENERS ---
     generateButton.addEventListener('click', handleGenerateClick);
+    // Replace previous icaoInput listener with one that also handles storage
+    // icaoInput.addEventListener('input', updateSortOptions);
+    toggleAdvancedButton.addEventListener('click', toggleAdvancedPanel);
+    tabStandard.addEventListener('click', () => switchTab('standard'));
+    tabRouteAnalysis.addEventListener('click', () => switchTab('route-analysis'));
+
+    // --- PERSISTENCE & AUTO-FILL LOGIC ---
+
+    let isMirroringHome = false;
+
+    // Load saved values from local storage
+    function loadSavedInputs() {
+        const savedHome = localStorage.getItem('homeIcao');
+        const savedDep = localStorage.getItem('depIcao');
+        const savedDest = localStorage.getItem('destIcao');
+
+        if (savedHome) {
+            icaoInput.value = savedHome;
+            updateSortOptions();
+        }
+        if (savedDep) depIcaoInput.value = savedDep;
+        if (savedDest) destIcaoInput.value = savedDest;
+    }
+
+    // Home ICAO: Save + Sort
+    icaoInput.addEventListener('input', () => {
+        isMirroringHome = false; // User manually edited, so stop auto-filling
+        localStorage.setItem('homeIcao', icaoInput.value);
+        updateSortOptions();
+    });
+
+    // Departure ICAO: Save + Auto-fill Home if Home is empty
+    depIcaoInput.addEventListener('input', () => {
+        const val = depIcaoInput.value;
+        localStorage.setItem('depIcao', val);
+
+        // If home input is currently empty, start mirroring
+        if (!icaoInput.value.trim()) {
+            isMirroringHome = true;
+        }
+
+        // If we are in mirroring mode, update home input
+        if (isMirroringHome) {
+            icaoInput.value = val;
+            localStorage.setItem('homeIcao', val);
+            updateSortOptions();
+        }
+    });
+
+    // Destination ICAO: Save only
+    destIcaoInput.addEventListener('input', () => {
+         localStorage.setItem('destIcao', destIcaoInput.value);
+    });
+
+    // Initialize saved values on load
+    loadSavedInputs();
+
+    // ------------------------------------
 
     // Logic to enable "Sort By Distance" if ICAO text is entered
     function updateSortOptions() {
@@ -144,21 +383,54 @@
             const wasDisabled = distOption.disabled;
             distOption.disabled = false;
 
-            // Automatically select distance if it was previously disabled (user just typed a valid ICAO)
-            // or if the current selection is still default 'alpha'.
             if (wasDisabled || sortModeSelect.value === 'alpha') {
                 sortModeSelect.value = 'distance';
             }
         } else {
             distOption.disabled = true;
-            // Revert to alpha if we lost the reference
             if (sortModeSelect.value === 'distance') {
                 sortModeSelect.value = 'alpha';
             }
         }
     }
+    // Run updateSortOptions initially in case localStorage populated it
+    updateSortOptions();
 
-    icaoInput.addEventListener('input', updateSortOptions);
+    function toggleAdvancedPanel() {
+        const isHidden = advancedInputsEl.classList.contains('hidden');
+        if (isHidden) {
+            advancedInputsEl.classList.remove('hidden');
+            toggleAdvancedButton.textContent = 'Disable Alternate Planning';
+            toggleAdvancedButton.classList.remove('bg-yellow-500', 'hover:bg-yellow-600');
+            toggleAdvancedButton.classList.add('bg-gray-500', 'hover:bg-gray-600');
+            routeAnalysisEnabled = true;
+            nodataLegendEl.style.display = 'flex';
+        } else {
+            advancedInputsEl.classList.add('hidden');
+            toggleAdvancedButton.textContent = 'Enable Alternate Planning';
+            toggleAdvancedButton.classList.add('bg-yellow-500', 'hover:bg-yellow-600');
+            toggleAdvancedButton.classList.remove('bg-gray-500', 'hover:bg-gray-600');
+            routeAnalysisEnabled = false;
+            tabRouteAnalysis.classList.add('hidden'); // Hide the tab entirely if disabled
+            nodataLegendEl.style.display = 'none';
+        }
+    }
+
+    function switchTab(tabId) {
+        const contents = document.querySelectorAll('.tab-content');
+        const buttons = document.querySelectorAll('.tab-button');
+
+        contents.forEach(el => el.classList.add('hidden'));
+        buttons.forEach(el => el.classList.remove('active'));
+
+        if (tabId === 'standard') {
+            weatherListEl.classList.remove('hidden');
+            tabStandard.classList.add('active');
+        } else if (tabId === 'route-analysis') {
+            routeAnalysisViewEl.classList.remove('hidden');
+            tabRouteAnalysis.classList.add('active');
+        }
+    }
 
     // --- UTILS ---
 
@@ -231,6 +503,42 @@
         }
     }
 
+    function getCategoryColor(cat) {
+        if (!cat) return COLORS.VFR;
+        const c = cat.toUpperCase().trim();
+        if (c === 'LIFR') return COLORS.LIFR;
+        if (c === 'IFR') return COLORS.IFR;
+        if (c === 'MVFR') return COLORS.MVFR;
+        if (c === 'NODATA') return COLORS.NODATA;
+        return COLORS.VFR;
+    }
+
+    function getCategoryClassName(cat) {
+        if (!cat) return 'vfr-dot';
+        const c = cat.toUpperCase().trim();
+        if (c === 'LIFR') return 'lifr-dot';
+        if (c === 'IFR') return 'ifr-dot';
+        if (c === 'MVFR') return 'mvfr-dot';
+        if (c === 'NODATA') return 'nodata-tile';
+        return 'vfr-dot';
+    }
+
+    function getCategoryTileClassName(cat) {
+        if (!cat) return 'vfr-tile';
+        const c = cat.toUpperCase().trim();
+        if (c === 'LIFR') return 'lifr-tile';
+        if (c === 'IFR') return 'ifr-tile';
+        if (c === 'MVFR') return 'mvfr-tile';
+        if (c === 'NODATA') return 'nodata-tile';
+        return 'vfr-tile';
+    }
+
+    function getCategoryPriority(cat) {
+        if (!cat) return CATEGORY_ORDER.VFR;
+        const c = cat.toUpperCase().trim();
+        return CATEGORY_ORDER[c] || CATEGORY_ORDER.VFR;
+    }
+
 
     // --- FETCH & PROCESS ---
 
@@ -245,42 +553,46 @@
         return { tempF: `${tempF}°F`, rh: `RH ${rh}%` };
     }
 
-    function analyzeCondition(text) {
-        const isLIFR_Ceil = /(BKN|OVC|VV)00[0-4]\b/.test(text);
-        const isIFR_Ceil = /(BKN|OVC|VV)00[5-9]\b/.test(text);
-        const isMVFR_Ceil = /(BKN|OVC|VV)(0[1-2]\d|030)\b/.test(text);
+   function analyzeCondition(text) {
+        // Allow optional TCU or CB after height groups
+        const suf = '(?:TCU|CB)?';
 
-        const isLIFR_SM = /\b(M)?(0|1)\/\dSM\b|\b0SM\b/.test(text);
-        const isIFR_SM = /\b[1-2]( \d\/\d)?SM\b/.test(text);
+        // --- Ceiling Checks ---
+
+        // LIFR: < 500 ft
+        const isLIFR_Ceil = new RegExp(`(BKN|OVC|VV)00[0-4]${suf}\\b`).test(text);
+
+        // IFR: 500 to < 1000 ft
+        const isIFR_Ceil = new RegExp(`(BKN|OVC|VV)00[5-9]${suf}\\b`).test(text);
+
+        // MVFR: 1000 to 3000 ft
+        const isMVFR_Ceil = new RegExp(`(BKN|OVC|VV)(0[1-2]\\d|030)${suf}\\b`).test(text);
+
+        // --- Visibility Checks (Statute Miles & Meters) ---
+
+        // LIFR: < 1 SM or < 1600m
+        // SM: Matches 0SM, M1/4SM, 1/2SM, etc.
+        const isLIFR_SM = /\b(M)?(0|1)\/\dSM\b|\b0SM\b|\b(M)?0SM\b|\b(M)?1\/[248]SM\b/.test(text);
+        // Meters: 0000 to 1599. (Ensures 4 digits are boundary-isolated to avoid dates like 2601/2602)
+        const isLIFR_M = /(?:^|\s)(0\d{3}|1[0-5]\d{2})(?=\s|$)/.test(text);
+
+        // IFR: 1 SM to < 3 SM or 1600m to < 5000m
+        // SM: Matches 1SM, 1 1/2SM, 2SM, 2 1/2SM. (Explicitly excludes 3SM which is MVFR)
+        const isIFR_SM = /\b[1-2]( \d\/\d)?SM\b|\b1SM\b|\b2SM\b/.test(text);
+        // Meters: 1600 to 4999.
+        const isIFR_M = /(?:^|\s)(1[6-9]\d{2}|[2-4]\d{3})(?=\s|$)/.test(text);
+
+        // MVFR: 3 SM to 5 SM or 5000m to 8000m
+        // SM: Matches 3SM, 4SM, 5SM.
         const isMVFR_SM = /\b[3-5]SM\b/.test(text);
-
-        const isLIFR_M = /\b(0\d|1[0-5])(00|50)\b/.test(text);
-        const isIFR_M = /\b(1[6-9]|[2-3]\d|4[0-7])(00|50)\b/.test(text);
-        const isMVFR_M = /\b(4[8-9]|[5-7]\d|80)(00|50)\b/.test(text);
+        // Meters: 5000 to 8000.
+        const isMVFR_M = /(?:^|\s)([5-7]\d{3}|8000)(?=\s|$)/.test(text);
 
         if (isLIFR_Ceil || isLIFR_SM || isLIFR_M) return 'LIFR';
         if (isIFR_Ceil || isIFR_SM || isIFR_M) return 'IFR';
         if (isMVFR_Ceil || isMVFR_SM || isMVFR_M) return 'MVFR';
 
         return 'VFR';
-    }
-
-    function getCategoryColor(cat) {
-        if (!cat) return COLORS.VFR;
-        const c = cat.toUpperCase().trim();
-        if (c === 'LIFR') return COLORS.LIFR;
-        if (c === 'IFR') return COLORS.IFR;
-        if (c === 'MVFR') return COLORS.MVFR;
-        return COLORS.VFR;
-    }
-
-    function getCategoryClassName(cat) {
-        if (!cat) return 'vfr-dot';
-        const c = cat.toUpperCase().trim();
-        if (c === 'LIFR') return 'lifr-dot';
-        if (c === 'IFR') return 'ifr-dot';
-        if (c === 'MVFR') return 'mvfr-dot';
-        return 'vfr-dot';
     }
 
     function fetchWithRetry(fn, retries = MAX_RETRIES) {
@@ -311,7 +623,6 @@
         });
     }
 
-    // New function to handle station metadata caching
     async function getStationMap() {
         if (cachedStationMap) return cachedStationMap;
 
@@ -323,121 +634,253 @@
                 const site = node.querySelector("site")?.textContent;
                 const state = node.querySelector("state")?.textContent;
                 const country = node.querySelector("country")?.textContent;
+                const lat = parseFloat(node.querySelector("latitude")?.textContent);
+                const lon = parseFloat(node.querySelector("longitude")?.textContent);
 
                 if (id && site) {
-                    // Clean up site name (often title cased)
                     const cleanSite = site.trim().replace(/\/INTL$/, '').replace(/\//g, ' ');
                     let label = cleanSite;
 
-                    // Logic: US gets State, everyone else gets Country
                     if (country === 'US' && state) {
                         label += `, ${state}`;
                     } else if (country) {
                         label += `, ${country}`;
                     } else if (state) {
-                        // Fallback if country is missing but state exists
                         label += `, ${state}`;
                     }
 
-                    map.set(id, label);
+                    map.set(id, {
+                        name: label,
+                        latitude: isNaN(lat) ? null : lat,
+                        longitude: isNaN(lon) ? null : lon
+                    });
                 }
             });
             cachedStationMap = map;
             return map;
         } catch (e) {
-            console.warn("Failed to fetch station DB, proceeding without names", e);
-            return new Map(); // Return empty map so app doesn't crash
+            console.warn("Failed to fetch station DB, proceeding without names/coords", e);
+            return new Map();
         }
     }
 
-    function processData(tafDoc, metarDoc, stationNames, homeIcao) {
-        const stationMap = new Map();
+    function getCoordsForICAO(icao, stationMap) {
+        const data = stationMap.get(icao.toUpperCase());
+        return data ? { lat: data.latitude, lon: data.longitude } : null;
+    }
+
+    // --- 4) Updated TAF Parsing Logic for Worst Category ---
+
+    // Helper to handle date rollover (e.g. if TAF is 28th and valid until 1st)
+    function resolveTafDate(issueDate, day, hour) {
+        const date = new Date(issueDate);
+        date.setUTCDate(day);
+        date.setUTCHours(hour);
+        date.setUTCMinutes(0);
+        date.setUTCSeconds(0);
+
+        // Adjust month/year if we rolled over backwards (e.g. issue 30th, forecast 1st)
+        // If forecast day is small (1) and issue day is large (30), add month
+        if (day < issueDate.getUTCDate() - 5) {
+            date.setUTCMonth(date.getUTCMonth() + 1);
+        }
+        // If forecast day is large (30) and issue day is small (1) (rare for past queries), subtract month
+         else if (day > issueDate.getUTCDate() + 5) {
+            date.setUTCMonth(date.getUTCMonth() - 1);
+        }
+        return date;
+    }
+
+    function getWorstFlightCategoryFromTAF(tafRawText, forecastStart, forecastEnd) {
+        if (!tafRawText) return 'NODATA';
+
+        // Extract Issue Time (roughly) or use now to anchor the dates
+        const tafValidMatch = tafRawText.match(/(\d{6})Z/);
+        const now = new Date();
+        let issueTime = new Date(now);
+
+        if (tafValidMatch) {
+            const day = parseInt(tafValidMatch[1].substring(0, 2));
+            const hour = parseInt(tafValidMatch[1].substring(2, 4));
+            issueTime = resolveTafDate(now, day, hour);
+        }
+
+        // Tokenize TAF logic to handle all line types
+        // This split preserves the delimiter at the start of the next token
+        const tokens = tafRawText.split(/\s(?=(FM\d{6}|BECMG|TEMPO|PROB\d{2}))/);
+
+        let worstCategory = 'VFR';
+
+        // Timestamps for window
+        const winStart = forecastStart.getTime();
+        const winEnd = forecastEnd.getTime();
+
+        // "Base" time tracker. The TAF starts at issueTime (roughly).
+        // Any initial segment (before first FM/BECMG/TEMPO) is valid from Issue -> Infinity (or next FM).
+        let baseStart = issueTime.getTime();
+
+        for (const token of tokens) {
+            const cleanToken = token.trim();
+            if (!cleanToken) continue;
+
+            let chunkStart = baseStart;
+            let chunkEnd = 4102444800000; // Default to far future (Infinity)
+
+            // Determine Validity Period of this Token
+            if (cleanToken.startsWith('FM')) {
+                // FMddhhmm: From this time onwards (until next FM)
+                const d = parseInt(cleanToken.substring(2, 4));
+                const h = parseInt(cleanToken.substring(4, 6));
+                const m = parseInt(cleanToken.substring(6, 8));
+
+                const fmDate = resolveTafDate(issueTime, d, h);
+                fmDate.setUTCMinutes(m); // FM includes minutes
+
+                chunkStart = fmDate.getTime();
+                chunkEnd = 4102444800000; // Persists until next change (or handled by window logic)
+
+                // Update baseStart for subsequent non-FM/BECMG tokens if needed,
+                // though usually FM resets the whole timeline.
+                baseStart = chunkStart;
+
+            } else if (/^(BECMG)/.test(cleanToken)) {
+                // BECMG ddhh/ddhh: Conditions change during period, then persist.
+                // For "worst case", we consider the change period AND the period after.
+                const timeMatch = cleanToken.match(/(\d{2})(\d{2})\/(\d{2})(\d{2})/);
+                if (timeMatch) {
+                    const [_, sd, sh, ed, eh] = timeMatch;
+                    chunkStart = resolveTafDate(issueTime, parseInt(sd), parseInt(sh)).getTime();
+                    // It persists indefinitely after the change
+                    chunkEnd = 4102444800000;
+                }
+
+            } else if (/^(TEMPO|PROB)/.test(cleanToken)) {
+                // TEMPO/PROB ddhh/ddhh: Valid ONLY during the window
+                const timeMatch = cleanToken.match(/(\d{2})(\d{2})\/(\d{2})(\d{2})/);
+                if (timeMatch) {
+                    const [_, sd, sh, ed, eh] = timeMatch;
+                    chunkStart = resolveTafDate(issueTime, parseInt(sd), parseInt(sh)).getTime();
+                    chunkEnd = resolveTafDate(issueTime, parseInt(ed), parseInt(eh)).getTime();
+                } else {
+                    // Malformed TEMPO without time? Assume it applies to the 'current' base period.
+                    // For safety in worst-case logic, we might skip or assume current base.
+                    // Let's assume it inherits baseStart -> Infinity if no time found (rare in valid TAFs).
+                    chunkStart = baseStart;
+                }
+            }
+
+            // Check Overlap with Flight Window
+            // Logic: (TokenStart < FlightEnd) AND (TokenEnd > FlightStart)
+            if (chunkStart < winEnd && chunkEnd > winStart) {
+                const cat = analyzeCondition(cleanToken);
+                if (getCategoryPriority(cat) > getCategoryPriority(worstCategory)) {
+                    worstCategory = cat;
+                }
+            }
+        }
+
+        return worstCategory;
+    }
+
+
+    function processData(tafDoc, metarDoc, stationMap, homeIcao) {
+        const stationDataMap = new Map();
+
+        // Function to add or get station data, using stationMap for names/coords
+        const getOrCreateStation = (id) => {
+            if (!stationDataMap.has(id)) {
+                const metadata = stationMap.get(id) || {};
+                stationDataMap.set(id, {
+                    id: id,
+                    name: metadata.name || '',
+                    latitude: metadata.latitude || null,
+                    longitude: metadata.longitude || null,
+                    distanceNM: null,
+                    metar: null,
+                    taf: null,
+                    routeWorstCat: null, // For advanced analysis
+                    isRouteStation: false // For advanced analysis
+                });
+            }
+            return stationDataMap.get(id);
+        };
 
         // 1. Process METARs
         metarDoc.querySelectorAll("METAR").forEach(node => {
             const stationId = node.querySelector("station_id")?.textContent;
             if (!stationId) return;
 
+            const station = getOrCreateStation(stationId);
+
             const { tempF, rh } = calculateTempFAndRH(node);
-            const lat = parseFloat(node.querySelector("latitude")?.textContent);
-            const lon = parseFloat(node.querySelector("longitude")?.textContent);
             const rawText = node.querySelector("raw_text")?.textContent || 'N/A';
             const category = node.querySelector("flight_category")?.textContent || analyzeCondition(rawText);
             const obsTimeText = node.querySelector("observation_time")?.textContent;
             const metarAgeMinutes = calculateAgeInMinutes(obsTimeText);
 
-            // Look up formatted name
-            const niceName = stationNames.get(stationId) || '';
-
-            stationMap.set(stationId, {
-                id: stationId,
-                name: niceName,
-                latitude: isNaN(lat) ? null : lat,
-                longitude: isNaN(lon) ? null : lon,
-                distanceNM: null,
-                metar: { rawText, category, tempF, rh, age: metarAgeMinutes, obsTime: obsTimeText },
-                taf: null
-            });
+            station.metar = { rawText, category, tempF, rh, age: metarAgeMinutes, obsTime: obsTimeText };
         });
 
         // 2. Process TAFs
         tafDoc.querySelectorAll("TAF").forEach(node => {
             const stationId = node.querySelector("station_id")?.textContent;
             if (!stationId) return;
+
+            const station = getOrCreateStation(stationId);
+
             const rawText = node.querySelector("raw_text")?.textContent || 'N/A';
             const validToText = node.querySelector("valid_time_to")?.textContent;
             const issueTimeText = node.querySelector("issue_time")?.textContent;
             const tafAgeMinutes = calculateAgeInMinutes(issueTimeText);
 
             let periodHours = null;
+            let validToDate = null;
+
             if (validToText) {
                 try {
-                    const validTo = new Date(validToText);
+                    validToDate = new Date(validToText);
                     const now = new Date();
-                    const hoursRemaining = (validTo.getTime() - now.getTime()) / (1000 * 60 * 60);
+                    const hoursRemaining = (validToDate.getTime() - now.getTime()) / (1000 * 60 * 60);
                     periodHours = Math.max(0, Math.round(hoursRemaining));
                 } catch (e) {}
             }
 
-            if (!stationMap.has(stationId)) {
-                // TAF only station
-                const niceName = stationNames.get(stationId) || '';
-                stationMap.set(stationId, {
-                    id: stationId,
-                    name: niceName,
-                    latitude: null, longitude: null, distanceNM: null, metar: null
-                });
-            }
-            stationMap.get(stationId).taf = { rawText, periodHours, age: tafAgeMinutes, issueTime: issueTimeText };
+            station.taf = {
+                rawText,
+                periodHours,
+                age: tafAgeMinutes,
+                issueTime: issueTimeText,
+                validTo: validToDate // Store Date object for expiry checking
+            };
         });
 
-        // 3. Determine Reference Location
+        // 3. Determine Reference Location and Calculate Distances (Standard Sorting)
         let refLat = null;
         let refLon = null;
         let refName = null;
 
         if (homeIcao && homeIcao.length >= 3) {
-            const homeStation = stationMap.get(homeIcao.toUpperCase());
-            if (homeStation && homeStation.latitude !== null) {
-                refLat = homeStation.latitude;
-                refLon = homeStation.longitude;
-                refName = `${homeIcao.toUpperCase()} (${homeStation.name || 'Unknown'})`;
+            const homeStationData = getCoordsForICAO(homeIcao, stationMap);
+            if (homeStationData && homeStationData.lat !== null) {
+                refLat = homeStationData.lat;
+                refLon = homeStationData.lon;
+                const homeStation = stationDataMap.get(homeIcao.toUpperCase());
+                refName = `${homeIcao.toUpperCase()} (${(homeStation && homeStation.name) || 'Unknown'})`;
             } else {
-                console.warn("Home ICAO not found in METAR data.");
+                console.warn("Home ICAO not found in station data.");
             }
         }
 
-        // 4. Calculate Distances
         if (refLat !== null && refLon !== null) {
-            for (let station of stationMap.values()) {
+            for (let station of stationDataMap.values()) {
                 if (station.latitude !== null && station.longitude !== null) {
                     station.distanceNM = haversineDistance(refLat, refLon, station.latitude, station.longitude);
                 }
             }
         }
 
-        // 5. Sorting
-        let stations = Array.from(stationMap.values());
+        // 4. Sorting
+        let stations = Array.from(stationDataMap.values());
         const sortMode = sortModeSelect.value;
 
         if (sortMode === 'distance' && refLat !== null) {
@@ -451,8 +894,91 @@
             stations.sort((a, b) => a.id.localeCompare(b.id));
         }
 
-        return { stations, refName };
+        return { stations, refName, stationDataMap };
     }
+
+    // --- ALTERNATE ANALYSIS LOGIC ---
+
+    function runRouteAnalysis(stationDataMap, depIcao, destIcao, takeOffTime, landingTime) {
+        const dep = depIcao.toUpperCase();
+        const dest = destIcao.toUpperCase();
+
+        const depCoords = getCoordsForICAO(dep, cachedStationMap);
+        const destCoords = getCoordsForICAO(dest, cachedStationMap);
+
+        if (!depCoords || !destCoords || depCoords.lat === null || destCoords.lat === null) {
+            throw new Error("Could not find coordinates for both Departure and Destination airports. Check ICAO codes.");
+        }
+
+        // FORCE UTC: Treat the input strings as UTC
+        const toDate = parseUtcString(takeOffTime);
+        const lDate = parseUtcString(landingTime);
+
+        if (!toDate || !lDate) {
+            throw new Error("Invalid time format.");
+        }
+
+        // Planning window: 1 hour before takeoff to 1 hour after landing
+        const planningStart = new Date(toDate.getTime() - 60 * 60 * 1000);
+        const planningEnd = new Date(lDate.getTime() + 60 * 60 * 1000);
+        const now = new Date(); // Current time for expiry check
+
+        const analysisResults = [];
+
+        for (const station of stationDataMap.values()) {
+            // Must have coordinates
+            if (station.latitude === null || station.longitude === null) continue;
+
+            // Check for valid TAF
+            if (!station.taf) continue;
+
+            // ** EXPIRED TAF CHECK **
+            // If valid_time_to is before NOW, the TAF is expired and unsafe for planning.
+            if (station.taf.validTo && station.taf.validTo < now) {
+                continue; // Skip this station (effectively treating as No Data)
+            }
+
+            // Distance Check: within 220nm (MAX_ROUTE_DISTANCE_NM) of DEPARTURE OR DESTINATION
+            const distToDep = haversineDistance(depCoords.lat, depCoords.lon, station.latitude, station.longitude);
+            const distToDest = haversineDistance(destCoords.lat, destCoords.lon, station.latitude, station.longitude);
+
+            if (distToDep <= MAX_ROUTE_DISTANCE_NM || distToDest <= MAX_ROUTE_DISTANCE_NM) {
+                const worstCat = getWorstFlightCategoryFromTAF(station.taf.rawText, planningStart, planningEnd);
+
+                // Prioritize the minimum distance for sorting
+                const minDistance = Math.min(distToDep, distToDest);
+
+                analysisResults.push({
+                    id: station.id,
+                    name: station.name,
+                    worstCategory: worstCat,
+                    minDistance: minDistance, // Used for sorting
+                    distToDep: distToDep,
+                    distToDest: distToDest
+                });
+            }
+        }
+
+        // --- 5) Sort purely by closest to furthest ---
+        analysisResults.sort((a, b) => {
+            return a.minDistance - b.minDistance;
+        });
+
+        // Include Dep/Dest details for the report page
+        const depName = stationDataMap.get(dep)?.name || 'Unknown';
+        const destName = stationDataMap.get(dest)?.name || 'Unknown';
+
+        return {
+            results: analysisResults,
+            planningStart: planningStart.toISOString(),
+            planningEnd: planningEnd.toISOString(),
+            depName: dep,
+            destName: dest,
+            depFullName: depName,
+            destFullName: destName
+        };
+    }
+
 
     async function handleGenerateClick() {
         if (typeof pako === 'undefined') {
@@ -463,11 +989,29 @@
         try {
             const outputMode = outputModeSelect.value;
             const sortMode = sortModeSelect.value;
-            const homeIcao = icaoInput.value.trim();
+            const homeIcao = icaoInput.value.trim().toUpperCase();
+            let routeAnalysisResult = null;
 
             if (sortMode === 'distance' && homeIcao.length < 3) {
                 showStatus("Sort Error", true, "To sort by distance, please enter a Home ICAO.");
                 return;
+            }
+
+            const depIcao = depIcaoInput.value.trim().toUpperCase();
+            const destIcao = destIcaoInput.value.trim().toUpperCase();
+            const takeOffTime = takeOffTimeInput.value;
+            const landingTime = landingTimeInput.value;
+
+            if (routeAnalysisEnabled) {
+                if (depIcao.length < 3 || destIcao.length < 3) {
+                     showStatus("Route Error", true, "Please enter 3-4 letter ICAO codes for both Departure and Destination.");
+                     return;
+                }
+                // UTC String comparison
+                if (takeOffTime >= landingTime) {
+                     showStatus("Time Error", true, "Landing time must be after Takeoff time.");
+                     return;
+                }
             }
 
             generateButton.disabled = true;
@@ -477,7 +1021,7 @@
             resultsContainerEl.classList.add('hidden');
 
             // Parallel fetch of all resources
-            const [tafDoc, metarDoc, stationNames] = await Promise.all([
+            const [tafDoc, metarDoc, stationMap] = await Promise.all([
                 fetchAndParse(TAF_DATA_URL),
                 fetchAndParse(METAR_DATA_URL),
                 getStationMap()
@@ -485,24 +1029,32 @@
 
             showStatus("Processing stations...");
 
-            const result = processData(tafDoc, metarDoc, stationNames, homeIcao);
-            const stationsData = result.stations;
-            const usedRef = result.refName;
+            const processResult = processData(tafDoc, metarDoc, stationMap, homeIcao);
+            const stationsData = processResult.stations;
+            const stationDataMap = processResult.stationDataMap;
+            const usedRef = processResult.refName;
 
-            if (sortMode === 'distance' && !usedRef) {
-                 showStatus("Warning: Airport not found.", true, `Could not find coordinates for "${homeIcao}". Sorted alphabetically instead.`);
+            if (routeAnalysisEnabled) {
+                showStatus("Running Alternate Analysis...");
+                routeAnalysisResult = runRouteAnalysis(stationDataMap, depIcao, destIcao, takeOffTime, landingTime);
+            }
+
+            let infoMsg = `Output: ${outputMode.toUpperCase()} | Sort: ${sortMode.toUpperCase()}`;
+            if (usedRef && sortMode === 'distance') infoMsg += ` from ${usedRef}`;
+            if (routeAnalysisEnabled) infoMsg += ` | Alternate Analysis Enabled`;
+
+            if (routeAnalysisEnabled) {
+                tabRouteAnalysis.classList.remove('hidden');
             } else {
-                 let infoMsg = `Output: ${outputMode.toUpperCase()} | Sort: ${sortMode.toUpperCase()}`;
-                 if (usedRef && sortMode === 'distance') infoMsg += ` from ${usedRef}`;
-                 showStatus(`Data retrieved for ${stationsData.length} stations.`, false, infoMsg);
+                tabRouteAnalysis.classList.add('hidden');
             }
 
             if (outputMode === 'pdf') {
                 if (typeof jsPDF === 'undefined') throw new Error("jsPDF library missing");
-                generatePDF(stationsData, usedRef);
+                generatePDF(stationsData, usedRef, routeAnalysisResult);
                 showSuccess(`PDF generated – ${stationsData.length} stations`);
             } else {
-                renderInBrowser(stationsData, usedRef);
+                renderInBrowser(stationsData, usedRef, routeAnalysisResult);
                 showSuccess(`Report displayed – ${stationsData.length} stations`);
             }
 
@@ -516,30 +1068,62 @@
         }
     }
 
-    // --- RENDERERS ---
+    // --- BROWSER RENDERERS ---
 
-    function formatRawText(rawText) {
-        const formatted = rawText.replace(/(FM\d{6}|BECMG|PROB\d{2} TEMPO|PROB\d{2}|TEMPO)/g, "\n<span class='font-bold text-white'>$1</span>");
-        const lines = formatted.split('\n').map(l => l.trim()).filter(l => l);
-        let html = '';
-        for (const line of lines) {
-            const category = analyzeCondition(line.replace(/<[^>]*>?/gm, ''));
-            const className = getCategoryClassName(category);
-            const highlightedLine = line.split(' ').map(word => {
-                return isPrecipOrTS(word) ? `<span class="font-bold">${word}</span>` : word;
-            }).join(' ');
-            html += `<div class="font-mono text-xs md:text-sm leading-relaxed p-1 rounded-md text-white ${className}">${highlightedLine}</div>`;
+    function renderRouteAnalysisBrowser(analysisResult) {
+        const { results, planningStart, planningEnd, depName, destName } = analysisResult;
+        routeAnalysisViewEl.innerHTML = '';
+
+        // Use 24-hour UTC format
+        const startObj = new Date(planningStart);
+        const endObj = new Date(planningEnd);
+        const start = formatTimeHHMM(startObj);
+        const end = formatTimeHHMM(endObj);
+
+        const headerHtml = `
+            <div class="p-4 rounded-xl bg-blue-50 dark:bg-blue-900/30 mb-6 shadow-md">
+                <h3 class="text-xl font-bold text-blue-800 dark:text-blue-200 mb-2">
+                    Alternate Analysis: ${depName} to ${destName}
+                </h3>
+                <p class="text-sm font-medium text-gray-700 dark:text-gray-400">
+                    Worst-case TAF prediction within ${MAX_ROUTE_DISTANCE_NM} NM of the route for the period:
+                    <span class="font-mono text-base block mt-1 font-bold">
+                        ${start} to ${end}
+                    </span>
+                </p>
+                <p class="text-xs text-gray-500 dark:text-gray-400 mt-2 italic">
+                    Sorted by Distance (closest first). Colors represent worst-case flight cateogry between ${start} to ${end}.
+                </p>
+            </div>
+        `;
+        routeAnalysisViewEl.insertAdjacentHTML('beforeend', headerHtml);
+
+        if (results.length === 0) {
+             routeAnalysisViewEl.insertAdjacentHTML('beforeend', `<div class="text-center p-8 text-gray-500 dark:text-gray-400">No TAF data found within ${MAX_ROUTE_DISTANCE_NM} NM of the route.</div>`);
+             return;
         }
-        return html;
+
+        const gridHtml = results.map(data => {
+            const className = getCategoryTileClassName(data.worstCategory);
+            const dotColor = getCategoryColor(data.worstCategory);
+            const textColor = (dotColor[0] + dotColor[1] + dotColor[2]) > 300 ? 'text-gray-900' : 'text-white';
+
+            return `
+                <div class="p-3 rounded-lg shadow-md ${className} flex flex-col items-center justify-center space-y-1 transition-transform hover:scale-[1.05] cursor-default"
+                     title="${data.id} - ${data.name || 'Unknown'} | Worst Category: ${data.worstCategory} | Distance: ${data.minDistance.toFixed(0)} NM">
+                    <span class="font-bold text-lg font-mono ${textColor}">${data.id}</span>
+                    <span class="text-xs ${textColor} opacity-80 text-center">${data.name || 'N/A'}</span>
+                    <span class="text-xs font-semibold ${textColor} opacity-90">${data.worstCategory}</span>
+                    <span class="text-xs ${textColor} opacity-70">${data.minDistance.toFixed(0)} NM</span>
+                </div>
+            `;
+        }).join('');
+
+        const contentGrid = `<div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">${gridHtml}</div>`;
+        routeAnalysisViewEl.insertAdjacentHTML('beforeend', contentGrid);
     }
 
-    function isPrecipOrTS(word) {
-        const clean = word.replace(/[,.;]+$/, '').toUpperCase();
-        const regex = /^([-+]|VC)?(RA|SN|DZ|SG|IC|PL|GR|GS|UP|TS|SH|FZ|BR|FG|HZ){1,4}$/i;
-        return regex.test(clean);
-    }
-
-    function renderInBrowser(stationsData, refName) {
+    function renderInBrowser(stationsData, refName, routeAnalysisResult) {
         weatherListEl.innerHTML = '';
 
         if (refName && sortModeSelect.value === 'distance') {
@@ -555,10 +1139,8 @@
             let metarHtml = '<div class="text-gray-500 dark:text-gray-400 italic">No METAR available.</div>';
             let tafHtml = '<div class="text-gray-500 dark:text-gray-400 italic">No TAF available.</div>';
 
-            // --- NEW: Add Station Name to Header ---
             let headerText = data.id;
             if (data.name) {
-                // Uses a slightly smaller/lighter font for the name
                 headerText += ` <span class="text-base font-normal text-gray-500 dark:text-gray-400 ml-2">${data.name}</span>`;
             }
 
@@ -632,15 +1214,56 @@
             weatherListEl.appendChild(stationEntry);
         });
 
+        if (routeAnalysisResult) {
+            renderRouteAnalysisBrowser(routeAnalysisResult);
+            // Set default tab to standard view
+            switchTab('standard');
+        } else {
+            tabRouteAnalysis.classList.add('hidden');
+            switchTab('standard');
+        }
+
         resultsContainerEl.classList.remove('hidden');
     }
 
+    function formatRawText(rawText) {
+        const formatted = rawText.replace(/(FM\d{6}|BECMG|PROB\d{2} TEMPO|PROB\d{2}|TEMPO)/g, "\n<span class='font-bold text-white'>$1</span>");
+        const lines = formatted.split('\n').map(l => l.trim()).filter(l => l);
+        let html = '';
+        for (const line of lines) {
+            const category = analyzeCondition(line.replace(/<[^>]*>?/gm, ''));
+            const className = getCategoryClassName(category);
+            const highlightedLine = line.split(' ').map(word => {
+                return isPrecipOrTS(word) ? `<span class="font-bold">${word}</span>` : word;
+            }).join(' ');
+
+            // Use a slightly different color palette for text blocks to ensure readability against background
+            const bgClass = {
+                'vfr-dot': 'bg-green-600',
+                'mvfr-dot': 'bg-blue-600',
+                'ifr-dot': 'bg-red-600',
+                'lifr-dot': 'bg-pink-600'
+            }[className] || 'bg-gray-500';
+
+            html += `<div class="font-mono text-xs md:text-sm leading-relaxed p-1 rounded-md text-white ${bgClass}">${highlightedLine}</div>`;
+        }
+        return html;
+    }
+
+    function isPrecipOrTS(word) {
+        const clean = word.replace(/[,.;]+$/, '').toUpperCase();
+        const regex = /^([-+]|VC)?(RA|SN|DZ|SG|IC|PL|GR|GS|UP|TS|SH|FZ|BR|FG|HZ){1,4}$/i;
+        return regex.test(clean);
+    }
+
     // --- PDF GENERATOR ---
+
     function drawStyledText(doc, lineText, x, y, baseColor) {
         const words = lineText.split(' ');
         let currentX = x;
         doc.setTextColor(...baseColor);
         doc.setFont("courier", "normal");
+        doc.setFontSize(9);
         const spaceWidth = doc.getTextWidth(" ");
 
         for (let word of words) {
@@ -651,58 +1274,214 @@
         }
     }
 
-    function generatePDF(stationsData, refName) {
-        const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
+    function drawRouteAnalysisPDFPage(doc, analysisResult) {
+        const { results, planningStart, planningEnd, depName, destName, depFullName, destFullName } = analysisResult;
         let cursorY = PAGE_MARGIN;
 
-        // Helper to split text using the specific font settings used in the body
-        // We use a slightly narrower width (USABLE_WIDTH - 25) to account for bold text expansion
-        const splitBodyText = text => {
-            doc.setFont("courier", "normal");
-            doc.setFontSize(9);
-            return doc.splitTextToSize(text, USABLE_WIDTH - 25);
-        };
+        // Format for PDF 24h
+        const startObj = new Date(planningStart);
+        const endObj = new Date(planningEnd);
+        const start = formatTimeHHMM(startObj);
+        const end = formatTimeHHMM(endObj);
 
+        doc.setFont("helvetica", "bold");
+        doc.setFontSize(18);
+        doc.setTextColor(30, 30, 30);
+        doc.text("Alternate Weather Analysis", PAGE_WIDTH / 2, cursorY, { align: "center" });
+        cursorY += 10;
+
+        doc.setFontSize(12);
+        doc.setTextColor(50, 50, 50);
+        doc.text(`Flight: ${depName} (${depFullName}) to ${destName} (${destFullName})`, PAGE_WIDTH / 2, cursorY, { align: "center" });
+        cursorY += 7;
+
+        doc.setFont("helvetica", "normal");
+        doc.setFontSize(9);
+        doc.text(`Planning Window (UTC): ${start} to ${end}`, PAGE_WIDTH / 2, cursorY, { align: "center" });
+        cursorY += 7;
+
+        doc.text(`Stations analyzed within ${MAX_ROUTE_DISTANCE_NM} NM of departure and arrival airports: ${results.length}`, PAGE_WIDTH / 2, cursorY, { align: "center" });
+        cursorY += 10;
+
+        // Legend - Centered
+        doc.setFont("helvetica", "bold");
+        doc.setFontSize(10);
+        doc.text(`Worst Predicted Flight Category ${start} to ${end}`, PAGE_WIDTH / 2, cursorY, { align: "center" });
+        cursorY += 6;
+
+        const legendItems = ['LIFR', 'IFR', 'MVFR', 'VFR', 'NODATA'];
+
+        // Calculate total width to center the block
+        const itemWidth = 25;
+        const totalWidth = legendItems.length * itemWidth;
+        const startX = (PAGE_WIDTH - totalWidth) / 2;
+
+        legendItems.forEach((cat, index) => {
+            const color = getCategoryColor(cat);
+            const x = startX + (index * itemWidth);
+            doc.setFillColor(...color);
+            doc.rect(x, cursorY, 4, 4, 'F');
+            doc.setFont("helvetica", "normal");
+            doc.setTextColor(30, 30, 30);
+            doc.text(cat, x + 5, cursorY + 3);
+        });
+        cursorY += 10;
+
+        // Tiles
+        doc.setLineWidth(0.2);
+        doc.setDrawColor(200, 200, 200);
+
+        let startTileX = PAGE_MARGIN;
+        const tileWidth = 30;
+        const tileHeight = 15;
+        const tileMargin = 5;
+        const maxTilesPerRow = Math.floor(USABLE_WIDTH / (tileWidth + tileMargin));
+
+        let col = 0;
+        let row = 0;
+
+        for (const data of results) {
+            const color = getCategoryColor(data.worstCategory);
+            doc.setFillColor(...color);
+
+            let x = startTileX + col * (tileWidth + tileMargin);
+            let y = cursorY + row * (tileHeight + tileMargin);
+
+            if (y + tileHeight > PAGE_HEIGHT - PAGE_MARGIN) {
+                doc.addPage();
+                cursorY = PAGE_MARGIN;
+                row = 0;
+                col = 0;
+
+                // Re-apply styles as new pages might reset state in some PDF viewers
+                doc.setLineWidth(0.2);
+                doc.setDrawColor(200, 200, 200);
+
+                // Recalculate coordinates for the new page
+                x = startTileX + col * (tileWidth + tileMargin);
+                y = cursorY + row * (tileHeight + tileMargin);
+            }
+
+            doc.rect(x, y, tileWidth, tileHeight, 'FD');
+
+            // Determine text color for contrast
+            const avgColor = (color[0] + color[1] + color[2]) / 3;
+            doc.setTextColor(avgColor > 128 ? 0 : 255, avgColor > 128 ? 0 : 255, avgColor > 128 ? 0 : 255);
+
+            doc.setFont("helvetica", "bold");
+            doc.setFontSize(9);
+            doc.text(data.id, x + tileWidth / 2, y + 5, { align: 'center' });
+
+            doc.setFont("helvetica", "normal");
+            doc.setFontSize(6);
+            const infoText = `${data.worstCategory} / ${data.minDistance.toFixed(0)} NM`;
+            doc.text(infoText, x + tileWidth / 2, y + 10, { align: 'center' });
+
+            col++;
+            if (col >= maxTilesPerRow) {
+                col = 0;
+                row++;
+            }
+        }
+
+        // Move cursor past the tiles for the next page
+        cursorY += (row + 1) * (tileHeight + tileMargin);
+        if (cursorY < 120) cursorY = 120; // Ensure enough space for the next section title
+
+        return cursorY;
+    }
+
+
+// --- FIX: Updated Single-Row Centered Legend (drawPdfLegend) ---
+function drawPdfLegend(doc, cursorY) {
+doc.setFont("helvetica", "bold");
+doc.setFontSize(10);
+doc.text("METAR Flight Categories", PAGE_WIDTH / 2, cursorY, { align: "center" });
+cursorY += 6;
+
+const legendItems = [
+    { label: "VFR", color: COLORS.VFR },
+    { label: "MVFR", color: COLORS.MVFR },
+    { label: "IFR", color: COLORS.IFR },
+    { label: "LIFR", color: COLORS.LIFR },
+    { label: "NODATA", color: COLORS.NODATA }
+];
+
+// Calculate width to center perfectly
+// Assume roughly 25-30mm per item including box and text
+// Fixed width items for alignment looks cleaner
+const itemWidth = 30;
+const totalLegendWidth = legendItems.length * itemWidth;
+const startX = (PAGE_WIDTH - totalLegendWidth) / 2;
+const boxSize = 4;
+const padding = 4;
+
+for (let i = 0; i < legendItems.length; i++) {
+    const x = startX + i * itemWidth;
+    const item = legendItems[i];
+
+    doc.setFillColor(...item.color);
+    doc.rect(x, cursorY - 3, boxSize, boxSize, 'F');
+
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(8);
+    doc.setTextColor(30, 30, 30);
+    doc.text(item.label, x + boxSize + padding, cursorY);
+}
+
+return cursorY + 6; // Add some padding below legend
+}
+
+function generatePDF(stationsData, refName, routeAnalysisResult) {
+        const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
+
+        // 1. Draw Advanced Planning Page (if enabled)
+        let cursorY = PAGE_MARGIN;
+        if (routeAnalysisResult) {
+            drawRouteAnalysisPDFPage(doc, routeAnalysisResult);
+            doc.addPage(); // Start report on a new page
+        }
+
+        // 2. Draw Standard Report Pages
+        cursorY = PAGE_MARGIN;
+
+        // Header for Standard Report
         const now = new Date();
         const utc = now.toISOString().replace('T', ' ').substring(0, 19);
         doc.setFont("helvetica", "bold");
         doc.setFontSize(22);
-        doc.text("Aviation Weather Report", PAGE_WIDTH / 2, 40, { align: "center" });
+        doc.setTextColor(30, 30, 30);
+        doc.text("Aviation Weather Report", PAGE_WIDTH / 2, cursorY + 5, { align: "center" });
         doc.setFontSize(14);
-        doc.text("METAR & TAF", PAGE_WIDTH / 2, 50, { align: "center" });
+        doc.text("METAR & TAF Details", PAGE_WIDTH / 2, cursorY + 12, { align: "center" });
+        cursorY += 20;
+
         doc.setFontSize(10);
-        doc.text(`Generated (UTC): ${utc} Z`, PAGE_WIDTH / 2, 65, { align: "center" });
-        doc.text(`Total Stations: ${stationsData.length}`, PAGE_WIDTH / 2, 70, { align: "center" });
+        doc.setFont("helvetica", "normal");
+        doc.text(`Generated (UTC): ${utc} Z`, PAGE_WIDTH / 2, cursorY + 5, { align: "center" });
+        doc.text(`Total Stations: ${stationsData.length}`, PAGE_WIDTH / 2, cursorY + 10, { align: "center" });
+        cursorY += 15;
 
         const sortMode = sortModeSelect.value;
         let sortDetail = "Sorted Alphabetically by Station ID";
         if (sortMode === 'distance' && refName) {
             sortDetail = `Sorted by Distance from ${refName}`;
         }
-
-        doc.text(sortDetail, PAGE_WIDTH / 2, 75, { align: "center" });
+        doc.text(sortDetail, PAGE_WIDTH / 2, cursorY, { align: "center" });
+        cursorY += 10;
 
         // Legend
-        let legendY = 90;
-        doc.setFont("helvetica", "bold");
-        doc.setFontSize(12);
-        doc.text("Legend", PAGE_WIDTH / 2, legendY, { align: "center" });
-        legendY += 10;
-        doc.setFontSize(10);
-        doc.setTextColor(...COLORS.VFR);
-        doc.text("VFR (Ceiling > 3000ft & Vis > 5sm)", PAGE_WIDTH / 2, legendY, { align: "center" }); legendY += 7;
-        doc.setTextColor(...COLORS.MVFR);
-        doc.text("MVFR (Ceiling 1000-3000ft or Vis 3-5sm)", PAGE_WIDTH / 2, legendY, { align: "center" }); legendY += 7;
-        doc.setTextColor(...COLORS.IFR);
-        doc.text("IFR (Ceiling 500-1000ft or Vis 1-3sm)", PAGE_WIDTH / 2, legendY, { align: "center" }); legendY += 7;
-        doc.setTextColor(...COLORS.LIFR);
-        doc.text("LIFR (Ceiling < 500ft or Vis < 1sm)", PAGE_WIDTH / 2, legendY, { align: "center" });
+        cursorY = drawPdfLegend(doc, cursorY);
 
-        doc.addPage();
-        cursorY = PAGE_MARGIN;
+        doc.setDrawColor(220, 220, 220);
+        doc.line(PAGE_MARGIN, cursorY, PAGE_WIDTH - PAGE_MARGIN, cursorY);
+        cursorY += 5; // Little bit more breathing room
 
+
+        // Data Loop
         for (const data of stationsData) {
             const stationId = data.id;
+            // Header might be long, so we prepare to split it too if necessary
             const headerTitle = data.name ? `${stationId} - ${data.name}` : stationId;
 
             let metarLines = [];
@@ -711,8 +1490,11 @@
 
             let infoTextParts = [];
             if (data.metar) {
-                // Use the specific splitter ensures correct wrapping for Courier font
-                metarLines = splitBodyText(data.metar.rawText);
+                // FIX 1: Use Courier for splitting METAR to match drawStyledText font width
+                doc.setFont("courier", "normal");
+                doc.setFontSize(9);
+                metarLines = doc.splitTextToSize(data.metar.rawText, USABLE_WIDTH - 35);
+
                 metarColor = getCategoryColor(data.metar.category);
 
                 infoTextParts.push(`${data.metar.tempF} • ${data.metar.rh}`);
@@ -735,9 +1517,12 @@
                 const formatted = data.taf.rawText.replace(/(FM\d{6}|BECMG|PROB\d{2} TEMPO|PROB\d{2}|TEMPO)/g, "\n$1");
                 const rawBlocks = formatted.split('\n').map(l => l.trim()).filter(l => l);
 
-                // Split each block using the correct font context
+                // FIX 1: Use Courier for splitting TAF blocks too
+                doc.setFont("courier", "normal");
+                doc.setFontSize(9);
+
                 tafBlocks = rawBlocks.map(block => ({
-                    lines: splitBodyText(block),
+                    lines: doc.splitTextToSize(block, USABLE_WIDTH - 35),
                     raw: block
                 }));
 
@@ -749,8 +1534,14 @@
                 }
             }
 
-            // Calculate Height Needed
-            let heightNeeded = 14; // Header + Info + Spacing
+            // Check header wrapping
+            doc.setFont("helvetica", "bold");
+            doc.setFontSize(12);
+            const headerLines = doc.splitTextToSize(headerTitle, USABLE_WIDTH);
+
+            // Calculate Height Needed (Approximate)
+            let heightNeeded = 3 + (headerLines.length * 6); // Header height
+            if (infoText) heightNeeded += 6; // Info text
             if (metarLines.length > 0) heightNeeded += metarLines.length * LINE_SPACING + 3;
             if (tafBlocks.length > 0) {
                 for (const block of tafBlocks) heightNeeded += block.lines.length * LINE_SPACING;
@@ -758,7 +1549,8 @@
             }
             if (tafPeriodNote || tafIssueNote) heightNeeded += LINE_SPACING;
 
-            if (cursorY + heightNeeded > PAGE_HEIGHT - PAGE_MARGIN) {
+            // Extra buffer to prevent orphans at bottom of page
+            if (cursorY + heightNeeded > PAGE_HEIGHT - PAGE_MARGIN - 10) {
                 doc.addPage();
                 cursorY = PAGE_MARGIN;
             }
@@ -767,10 +1559,14 @@
             doc.setFont("helvetica", "bold");
             doc.setFontSize(12);
             doc.setTextColor(0, 0, 0);
-            doc.text(headerTitle, PAGE_MARGIN, cursorY);
-            cursorY += 5;
+            // Draw all lines of header
+            headerLines.forEach(line => {
+                doc.text(line, PAGE_MARGIN, cursorY);
+                cursorY += 5;
+            });
+            // cursorY += 5; // handled in loop
 
-            // 2. Draw Info Text (Temp, Age, Distance) on the NEXT line to avoid overlap
+            // 2. Draw Info Text (Temp, Age, Distance) on the NEXT line
             if (infoText) {
                 doc.setFont("helvetica", "normal");
                 doc.setFontSize(10);
@@ -787,9 +1583,9 @@
                 doc.setFontSize(9);
                 doc.setTextColor(60, 60, 60);
                 doc.text("METAR:", PAGE_MARGIN + 2, cursorY);
-                doc.setFontSize(9);
 
                 for (const line of metarLines) {
+                    // drawStyledText internally uses Courier, which matches our split calculation now
                     drawStyledText(doc, line, PAGE_MARGIN + 18, cursorY, metarColor);
                     cursorY += LINE_SPACING;
                 }
@@ -802,7 +1598,6 @@
                 doc.setFontSize(9);
                 doc.setTextColor(60, 60, 60);
                 doc.text("TAF:", PAGE_MARGIN + 2, cursorY);
-                doc.setFontSize(9);
 
                 for (const block of tafBlocks) {
                     const blockColor = getCategoryColor(analyzeCondition(block.raw));
@@ -825,13 +1620,7 @@
                     cursorY += LINE_SPACING;
                 }
             }
-
-            doc.setDrawColor(220, 220, 220);
-            doc.setLineWidth(0.1);
-            doc.line(PAGE_MARGIN, cursorY, PAGE_WIDTH - PAGE_MARGIN, cursorY);
-            cursorY += 6;
         }
-
         // Instead of saving directly to browser, send PDF to Android WebView if available.
         try {
             const pdfDataUri = doc.output('datauristring');
@@ -849,6 +1638,7 @@
             try { doc.save("weather-report-combined.pdf"); } catch (ee) { /* ignore */ }
         }
     }
+
 </script>
 </body>
 </html>
