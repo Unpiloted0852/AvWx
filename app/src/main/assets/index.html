@@ -1620,7 +1620,13 @@ function generatePDF(stationsData, refName, routeAnalysisResult) {
                     cursorY += LINE_SPACING;
                 }
             }
+
+            doc.setDrawColor(220, 220, 220);
+                doc.setLineWidth(0.1);
+                doc.line(PAGE_MARGIN, cursorY, PAGE_WIDTH - PAGE_MARGIN, cursorY);
+                cursorY += 6;
         }
+
         // Instead of saving directly to browser, send PDF to Android WebView if available.
         try {
             const pdfDataUri = doc.output('datauristring');
