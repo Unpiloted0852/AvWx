@@ -43,21 +43,6 @@
         .lifr-tile { background-color: rgb(255, 20, 147); }
         .nodata-tile { background-color: rgb(150, 150, 150); }
 
-        /* Elegant Navigation */
-        .nav-pill-container {
-            @apply flex p-1 space-x-1 bg-gray-200 dark:bg-gray-700 rounded-xl;
-        }
-        .tab-button {
-            @apply w-full py-2.5 text-sm font-medium leading-5 rounded-lg text-center transition-all duration-200;
-            @apply text-gray-700 dark:text-gray-200;
-        }
-        .tab-button:hover:not(.active) {
-            @apply bg-gray-300 dark:bg-gray-600;
-        }
-        .tab-button.active {
-            @apply bg-white dark:bg-gray-600 text-blue-700 dark:text-blue-300 shadow shadow-sm;
-        }
-
         /* Flatpickr Customization for consistent UI */
         .flatpickr-calendar {
             font-family: 'Inter', sans-serif;
@@ -184,9 +169,16 @@
 
         <!-- Updated Elegant Navigation Tabs -->
         <div class="mb-4">
-            <div class="nav-pill-container">
-                <button id="tabStandard" class="tab-button active">Standard Report</button>
-                <button id="tabRouteAnalysis" class="tab-button hidden" >Alternate Analysis</button>
+            <!-- Container now uses utility classes directly -->
+            <div class="flex p-1 space-x-1 bg-gray-200 dark:bg-gray-700 rounded-xl">
+                <button id="tabStandard"
+                        class="tab-button w-full py-2.5 text-sm font-medium leading-5 rounded-lg text-center transition-all duration-200 focus:outline-none bg-white dark:bg-gray-600 text-blue-700 dark:text-blue-200 shadow">
+                    Standard Report
+                </button>
+                <button id="tabRouteAnalysis"
+                        class="tab-button w-full py-2.5 text-sm font-medium leading-5 rounded-lg text-center transition-all duration-200 focus:outline-none text-gray-700 dark:text-gray-200 hover:bg-gray-300 dark:hover:bg-gray-600 hidden">
+                    Alternate Analysis
+                </button>
             </div>
         </div>
 
@@ -416,19 +408,34 @@
         }
     }
 
+    // --- TAB SWITCHING WITH PROPER TAILWIND STYLES ---
+
+    // Define classes for active/inactive states
+    const TAB_ACTIVE_CLASSES = ['bg-white', 'dark:bg-gray-600', 'text-blue-700', 'dark:text-blue-200', 'shadow'];
+    const TAB_INACTIVE_CLASSES = ['text-gray-700', 'dark:text-gray-200', 'hover:bg-gray-300', 'dark:hover:bg-gray-600'];
+
     function switchTab(tabId) {
         const contents = document.querySelectorAll('.tab-content');
         const buttons = document.querySelectorAll('.tab-button');
 
+        // Hide all content
         contents.forEach(el => el.classList.add('hidden'));
-        buttons.forEach(el => el.classList.remove('active'));
 
+        // Reset all buttons to inactive state
+        buttons.forEach(btn => {
+            btn.classList.remove(...TAB_ACTIVE_CLASSES);
+            btn.classList.add(...TAB_INACTIVE_CLASSES);
+        });
+
+        // Activate specific tab
         if (tabId === 'standard') {
             weatherListEl.classList.remove('hidden');
-            tabStandard.classList.add('active');
+            tabStandard.classList.remove(...TAB_INACTIVE_CLASSES);
+            tabStandard.classList.add(...TAB_ACTIVE_CLASSES);
         } else if (tabId === 'route-analysis') {
             routeAnalysisViewEl.classList.remove('hidden');
-            tabRouteAnalysis.classList.add('active');
+            tabRouteAnalysis.classList.remove(...TAB_INACTIVE_CLASSES);
+            tabRouteAnalysis.classList.add(...TAB_ACTIVE_CLASSES);
         }
     }
 
@@ -1356,6 +1363,7 @@
                 // Re-apply styles as new pages might reset state in some PDF viewers
                 doc.setLineWidth(0.2);
                 doc.setDrawColor(200, 200, 200);
+                doc.setFillColor(...color); // Re-apply fill color as addPage might reset it
 
                 // Recalculate coordinates for the new page
                 x = startTileX + col * (tileWidth + tileMargin);
