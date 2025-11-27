@@ -925,12 +925,16 @@
             throw new Error("Invalid time format.");
         }
 
-        // Planning window: 1 hour before takeoff to 1 hour after landing
-        const planningStart = new Date(toDate.getTime() - 60 * 60 * 1000);
-        const planningEnd = new Date(lDate.getTime() + 60 * 60 * 1000);
+        // --- NEW LOGIC: Split windows ---
+        const ONE_HOUR = 60 * 60 * 1000;
+        const takeoffStart = new Date(toDate.getTime() - ONE_HOUR);
+        const takeoffEnd = new Date(toDate.getTime() + ONE_HOUR);
+        const landingStart = new Date(lDate.getTime() - ONE_HOUR);
+        const landingEnd = new Date(lDate.getTime() + ONE_HOUR);
         const now = new Date(); // Current time for expiry check
 
-        const analysisResults = [];
+        const depResults = [];
+        const destResults = [];
 
         for (const station of stationDataMap.values()) {
             // Must have coordinates
@@ -945,40 +949,46 @@
                 continue; // Skip this station (effectively treating as No Data)
             }
 
-            // Distance Check: within 220nm (MAX_ROUTE_DISTANCE_NM) of DEPARTURE OR DESTINATION
+            // Distance Check
             const distToDep = haversineDistance(depCoords.lat, depCoords.lon, station.latitude, station.longitude);
             const distToDest = haversineDistance(destCoords.lat, destCoords.lon, station.latitude, station.longitude);
 
-            if (distToDep <= MAX_ROUTE_DISTANCE_NM || distToDest <= MAX_ROUTE_DISTANCE_NM) {
-                const worstCat = getWorstFlightCategoryFromTAF(station.taf.rawText, planningStart, planningEnd);
-
-                // Prioritize the minimum distance for sorting
-                const minDistance = Math.min(distToDep, distToDest);
-
-                analysisResults.push({
+            // Check Departure Vicinity (Takeoff Window)
+            if (distToDep <= MAX_ROUTE_DISTANCE_NM) {
+                 const cat = getWorstFlightCategoryFromTAF(station.taf.rawText, takeoffStart, takeoffEnd);
+                 depResults.push({
                     id: station.id,
                     name: station.name,
-                    worstCategory: worstCat,
-                    minDistance: minDistance, // Used for sorting
-                    distToDep: distToDep,
-                    distToDest: distToDest
-                });
+                    worstCategory: cat,
+                    distance: distToDep // Distance from Dep
+                 });
+            }
+
+            // Check Destination Vicinity (Landing Window)
+            if (distToDest <= MAX_ROUTE_DISTANCE_NM) {
+                 const cat = getWorstFlightCategoryFromTAF(station.taf.rawText, landingStart, landingEnd);
+                 destResults.push({
+                    id: station.id,
+                    name: station.name,
+                    worstCategory: cat,
+                    distance: distToDest // Distance from Dest
+                 });
             }
         }
 
         // --- 5) Sort purely by closest to furthest ---
-        analysisResults.sort((a, b) => {
-            return a.minDistance - b.minDistance;
-        });
+        depResults.sort((a, b) => a.distance - b.distance);
+        destResults.sort((a, b) => a.distance - b.distance);
 
         // Include Dep/Dest details for the report page
         const depName = stationDataMap.get(dep)?.name || 'Unknown';
         const destName = stationDataMap.get(dest)?.name || 'Unknown';
 
         return {
-            results: analysisResults,
-            planningStart: planningStart.toISOString(),
-            planningEnd: planningEnd.toISOString(),
+            depResults,
+            destResults,
+            takeoffStart, takeoffEnd,
+            landingStart, landingEnd,
             depName: dep,
             destName: dest,
             depFullName: depName,
@@ -1078,56 +1088,74 @@
     // --- BROWSER RENDERERS ---
 
     function renderRouteAnalysisBrowser(analysisResult) {
-        const { results, planningStart, planningEnd, depName, destName } = analysisResult;
+        const { depResults, destResults, takeoffStart, takeoffEnd, landingStart, landingEnd, depName, destName } = analysisResult;
         routeAnalysisViewEl.innerHTML = '';
 
-        // Use 24-hour UTC format
-        const startObj = new Date(planningStart);
-        const endObj = new Date(planningEnd);
-        const start = formatTimeHHMM(startObj);
-        const end = formatTimeHHMM(endObj);
+        // Format times
+        const tStart = formatTimeHHMM(takeoffStart);
+        const tEnd = formatTimeHHMM(takeoffEnd);
+        const lStart = formatTimeHHMM(landingStart);
+        const lEnd = formatTimeHHMM(landingEnd);
 
+        // Header
         const headerHtml = `
-            <div class="p-4 rounded-xl bg-blue-50 dark:bg-blue-900/30 mb-6 shadow-md">
-                <h3 class="text-xl font-bold text-blue-800 dark:text-blue-200 mb-2">
+            <div class="p-4 rounded-xl bg-blue-50 dark:bg-blue-900/30 mb-6 shadow-md text-center">
+                <h3 class="text-xl font-bold text-blue-800 dark:text-blue-200">
                     Alternate Analysis: ${depName} to ${destName}
                 </h3>
-                <p class="text-sm font-medium text-gray-700 dark:text-gray-400">
-                    Worst-case TAF prediction within ${MAX_ROUTE_DISTANCE_NM} NM of the route for the period:
-                    <span class="font-mono text-base block mt-1 font-bold">
-                        ${start} to ${end}
-                    </span>
-                </p>
                 <p class="text-xs text-gray-500 dark:text-gray-400 mt-2 italic">
-                    Sorted by Distance (closest first). Colors represent worst-case flight cateogry between ${start} to ${end}.
+                    Stations within ${MAX_ROUTE_DISTANCE_NM} NM. Colors represent worst-case category during the respective windows.
                 </p>
             </div>
         `;
         routeAnalysisViewEl.insertAdjacentHTML('beforeend', headerHtml);
 
-        if (results.length === 0) {
-             routeAnalysisViewEl.insertAdjacentHTML('beforeend', `<div class="text-center p-8 text-gray-500 dark:text-gray-400">No TAF data found within ${MAX_ROUTE_DISTANCE_NM} NM of the route.</div>`);
-             return;
-        }
+        const generateGrid = (items) => {
+             if (items.length === 0) return `<div class="text-center p-4 text-gray-500 italic">No alternates found within range.</div>`;
+             const tiles = items.map(data => {
+                const className = getCategoryTileClassName(data.worstCategory);
+                const dotColor = getCategoryColor(data.worstCategory);
+                const textColor = (dotColor[0] + dotColor[1] + dotColor[2]) > 300 ? 'text-gray-900' : 'text-white';
+                return `
+                    <div class="p-3 rounded-lg shadow-md ${className} flex flex-col items-center justify-center space-y-1 transition-transform hover:scale-[1.05] cursor-default"
+                         title="${data.id} - ${data.name || 'Unknown'} | Worst Category: ${data.worstCategory} | Distance: ${data.distance.toFixed(0)} NM">
+                        <span class="font-bold text-lg font-mono ${textColor}">${data.id}</span>
+                        <span class="text-xs ${textColor} opacity-80 text-center truncate w-full">${data.name || 'N/A'}</span>
+                        <span class="text-xs font-semibold ${textColor} opacity-90">${data.worstCategory}</span>
+                        <span class="text-xs ${textColor} opacity-70">${data.distance.toFixed(0)} NM</span>
+                    </div>
+                `;
+             }).join('');
+             return `<div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">${tiles}</div>`;
+        };
 
-        const gridHtml = results.map(data => {
-            const className = getCategoryTileClassName(data.worstCategory);
-            const dotColor = getCategoryColor(data.worstCategory);
-            const textColor = (dotColor[0] + dotColor[1] + dotColor[2]) > 300 ? 'text-gray-900' : 'text-white';
-
-            return `
-                <div class="p-3 rounded-lg shadow-md ${className} flex flex-col items-center justify-center space-y-1 transition-transform hover:scale-[1.05] cursor-default"
-                     title="${data.id} - ${data.name || 'Unknown'} | Worst Category: ${data.worstCategory} | Distance: ${data.minDistance.toFixed(0)} NM">
-                    <span class="font-bold text-lg font-mono ${textColor}">${data.id}</span>
-                    <span class="text-xs ${textColor} opacity-80 text-center">${data.name || 'N/A'}</span>
-                    <span class="text-xs font-semibold ${textColor} opacity-90">${data.worstCategory}</span>
-                    <span class="text-xs ${textColor} opacity-70">${data.minDistance.toFixed(0)} NM</span>
+        // Section 1: Departure
+        const depSection = `
+            <div class="mb-8">
+                <div class="flex items-center justify-between mb-3 border-b border-gray-200 dark:border-gray-700 pb-2">
+                    <h4 class="text-lg font-bold text-gray-800 dark:text-gray-100">Departure Alternates</h4>
+                    <span class="text-xs font-mono bg-gray-200 dark:bg-gray-700 px-2 py-1 rounded text-gray-700 dark:text-gray-200">
+                        Window: ${tStart} - ${tEnd}
+                    </span>
                 </div>
-            `;
-        }).join('');
+                ${generateGrid(depResults)}
+            </div>
+        `;
+        routeAnalysisViewEl.insertAdjacentHTML('beforeend', depSection);
 
-        const contentGrid = `<div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">${gridHtml}</div>`;
-        routeAnalysisViewEl.insertAdjacentHTML('beforeend', contentGrid);
+        // Section 2: Destination
+        const destSection = `
+            <div>
+                <div class="flex items-center justify-between mb-3 border-b border-gray-200 dark:border-gray-700 pb-2">
+                    <h4 class="text-lg font-bold text-gray-800 dark:text-gray-100">Destination Alternates</h4>
+                    <span class="text-xs font-mono bg-gray-200 dark:bg-gray-700 px-2 py-1 rounded text-gray-700 dark:text-gray-200">
+                        Window: ${lStart} - ${lEnd}
+                    </span>
+                </div>
+                ${generateGrid(destResults)}
+            </div>
+        `;
+        routeAnalysisViewEl.insertAdjacentHTML('beforeend', destSection);
     }
 
     function renderInBrowser(stationsData, refName, routeAnalysisResult) {
@@ -1282,14 +1310,14 @@
     }
 
     function drawRouteAnalysisPDFPage(doc, analysisResult) {
-        const { results, planningStart, planningEnd, depName, destName, depFullName, destFullName } = analysisResult;
+        const { depResults, destResults, takeoffStart, takeoffEnd, landingStart, landingEnd, depName, destName, depFullName, destFullName } = analysisResult;
         let cursorY = PAGE_MARGIN;
 
         // Format for PDF 24h
-        const startObj = new Date(planningStart);
-        const endObj = new Date(planningEnd);
-        const start = formatTimeHHMM(startObj);
-        const end = formatTimeHHMM(endObj);
+        const tStart = formatTimeHHMM(takeoffStart);
+        const tEnd = formatTimeHHMM(takeoffEnd);
+        const lStart = formatTimeHHMM(landingStart);
+        const lEnd = formatTimeHHMM(landingEnd);
 
         doc.setFont("helvetica", "bold");
         doc.setFontSize(18);
@@ -1300,101 +1328,94 @@
         doc.setFontSize(12);
         doc.setTextColor(50, 50, 50);
         doc.text(`Flight: ${depName} (${depFullName}) to ${destName} (${destFullName})`, PAGE_WIDTH / 2, cursorY, { align: "center" });
-        cursorY += 7;
-
-        doc.setFont("helvetica", "normal");
-        doc.setFontSize(9);
-        doc.text(`Planning Window (UTC): ${start} to ${end}`, PAGE_WIDTH / 2, cursorY, { align: "center" });
-        cursorY += 7;
-
-        doc.text(`Stations analyzed within ${MAX_ROUTE_DISTANCE_NM} NM of departure and arrival airports: ${results.length}`, PAGE_WIDTH / 2, cursorY, { align: "center" });
         cursorY += 10;
 
-        // Legend - Centered
-        doc.setFont("helvetica", "bold");
-        doc.setFontSize(10);
-        doc.text(`Worst Predicted Flight Category ${start} to ${end}`, PAGE_WIDTH / 2, cursorY, { align: "center" });
-        cursorY += 6;
+        // Helper to draw grid sections
+        const drawGridSection = (title, windowStr, items) => {
+             // Check if we need a page break for the header
+             if (cursorY + 20 > PAGE_HEIGHT - PAGE_MARGIN) {
+                 doc.addPage();
+                 cursorY = PAGE_MARGIN;
+             }
 
-        const legendItems = ['LIFR', 'IFR', 'MVFR', 'VFR', 'NODATA'];
+             doc.setFont("helvetica", "bold");
+             doc.setFontSize(14);
+             doc.setTextColor(30, 30, 30);
+             doc.text(title, PAGE_MARGIN, cursorY);
+             doc.setFont("courier", "normal");
+             doc.setFontSize(10);
+             doc.setTextColor(80, 80, 80);
+             doc.text(windowStr, PAGE_WIDTH - PAGE_MARGIN, cursorY, { align: "right" });
+             cursorY += 8;
 
-        // Calculate total width to center the block
-        const itemWidth = 25;
-        const totalWidth = legendItems.length * itemWidth;
-        const startX = (PAGE_WIDTH - totalWidth) / 2;
+             // Grid Settings
+             doc.setLineWidth(0.2);
+             doc.setDrawColor(200, 200, 200);
 
-        legendItems.forEach((cat, index) => {
-            const color = getCategoryColor(cat);
-            const x = startX + (index * itemWidth);
-            doc.setFillColor(...color);
-            doc.rect(x, cursorY, 4, 4, 'F');
-            doc.setFont("helvetica", "normal");
-            doc.setTextColor(30, 30, 30);
-            doc.text(cat, x + 5, cursorY + 3);
-        });
-        cursorY += 10;
+             let startTileX = PAGE_MARGIN;
+             const tileWidth = 30;
+             const tileHeight = 15;
+             const tileMargin = 5;
+             const maxTilesPerRow = Math.floor(USABLE_WIDTH / (tileWidth + tileMargin));
 
-        // Tiles
-        doc.setLineWidth(0.2);
-        doc.setDrawColor(200, 200, 200);
+             let col = 0;
+             let row = 0;
 
-        let startTileX = PAGE_MARGIN;
-        const tileWidth = 30;
-        const tileHeight = 15;
-        const tileMargin = 5;
-        const maxTilesPerRow = Math.floor(USABLE_WIDTH / (tileWidth + tileMargin));
+             if (items.length === 0) {
+                 doc.setFont("helvetica", "italic");
+                 doc.setFontSize(10);
+                 doc.text("No alternates found within range.", PAGE_MARGIN, cursorY);
+                 cursorY += 15;
+                 return;
+             }
 
-        let col = 0;
-        let row = 0;
+             for (const data of items) {
+                const color = getCategoryColor(data.worstCategory);
+                doc.setFillColor(...color);
 
-        for (const data of results) {
-            const color = getCategoryColor(data.worstCategory);
-            doc.setFillColor(...color);
+                let x = startTileX + col * (tileWidth + tileMargin);
+                let y = cursorY + row * (tileHeight + tileMargin);
 
-            let x = startTileX + col * (tileWidth + tileMargin);
-            let y = cursorY + row * (tileHeight + tileMargin);
+                // Check for new page within grid
+                if (y + tileHeight > PAGE_HEIGHT - PAGE_MARGIN) {
+                    doc.addPage();
+                    cursorY = PAGE_MARGIN;
+                    row = 0;
+                    col = 0;
+                    // Re-apply settings
+                    doc.setLineWidth(0.2);
+                    doc.setDrawColor(200, 200, 200);
+                    doc.setFillColor(...color);
 
-            if (y + tileHeight > PAGE_HEIGHT - PAGE_MARGIN) {
-                doc.addPage();
-                cursorY = PAGE_MARGIN;
-                row = 0;
-                col = 0;
+                    x = startTileX + col * (tileWidth + tileMargin);
+                    y = cursorY + row * (tileHeight + tileMargin);
+                }
 
-                // Re-apply styles as new pages might reset state in some PDF viewers
-                doc.setLineWidth(0.2);
-                doc.setDrawColor(200, 200, 200);
-                doc.setFillColor(...color); // Re-apply fill color as addPage might reset it
+                doc.rect(x, y, tileWidth, tileHeight, 'FD');
 
-                // Recalculate coordinates for the new page
-                x = startTileX + col * (tileWidth + tileMargin);
-                y = cursorY + row * (tileHeight + tileMargin);
-            }
+                const avgColor = (color[0] + color[1] + color[2]) / 3;
+                doc.setTextColor(avgColor > 128 ? 0 : 255, avgColor > 128 ? 0 : 255, avgColor > 128 ? 0 : 255);
 
-            doc.rect(x, y, tileWidth, tileHeight, 'FD');
+                doc.setFont("helvetica", "bold");
+                doc.setFontSize(9);
+                doc.text(data.id, x + tileWidth / 2, y + 5, { align: 'center' });
 
-            // Determine text color for contrast
-            const avgColor = (color[0] + color[1] + color[2]) / 3;
-            doc.setTextColor(avgColor > 128 ? 0 : 255, avgColor > 128 ? 0 : 255, avgColor > 128 ? 0 : 255);
+                doc.setFont("helvetica", "normal");
+                doc.setFontSize(6);
+                const infoText = `${data.worstCategory} / ${data.distance.toFixed(0)} NM`;
+                doc.text(infoText, x + tileWidth / 2, y + 10, { align: 'center' });
 
-            doc.setFont("helvetica", "bold");
-            doc.setFontSize(9);
-            doc.text(data.id, x + tileWidth / 2, y + 5, { align: 'center' });
+                col++;
+                if (col >= maxTilesPerRow) {
+                    col = 0;
+                    row++;
+                }
+             }
+             cursorY += (row + 1) * (tileHeight + tileMargin) + 5;
+        };
 
-            doc.setFont("helvetica", "normal");
-            doc.setFontSize(6);
-            const infoText = `${data.worstCategory} / ${data.minDistance.toFixed(0)} NM`;
-            doc.text(infoText, x + tileWidth / 2, y + 10, { align: 'center' });
-
-            col++;
-            if (col >= maxTilesPerRow) {
-                col = 0;
-                row++;
-            }
-        }
-
-        // Move cursor past the tiles for the next page
-        cursorY += (row + 1) * (tileHeight + tileMargin);
-        if (cursorY < 120) cursorY = 120; // Ensure enough space for the next section title
+        drawGridSection("Departure Alternates", `Window: ${tStart} - ${tEnd}`, depResults);
+        drawGridSection("Destination Alternates", `Window: ${lStart} - ${lEnd}`, destResults);
 
         return cursorY;
     }
