@@ -6,4 +6,12 @@ You can view in-browser or save a offline PDF.
 
 This app respects your privacy; see the [Privacy Policy here](https://github.com/Unpiloted0852/AvWx/blob/main/PRIVACY_POLICY.md).
 
+
+
+
+
+
+
+
+
 Coffee: https://ko-fi.com/unpiloted0852
