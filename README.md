@@ -4,6 +4,8 @@ The app pulls the METAR and TAF from every available station worldwide using cac
 
 You can view in-browser or save a offline PDF.
 
+Note: this app should be considered experimental and makes no accuracy guarantees. Use caution!
+
 This app respects your privacy; see the [Privacy Policy here](https://github.com/Unpiloted0852/AvWx/blob/main/PRIVACY_POLICY.md).
 
 
