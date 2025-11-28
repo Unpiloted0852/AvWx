@@ -1,9 +1,13 @@
 package com.example.htmlapp
 
 import android.content.Context
+import android.content.Intent
+import android.net.Uri
 import android.os.Build
 import android.os.Bundle
+import android.os.Environment
 import android.provider.MediaStore
+import android.util.Base64
 import android.webkit.JavascriptInterface
 import android.webkit.WebChromeClient
 import android.webkit.WebSettings
@@ -11,11 +15,8 @@ import android.webkit.WebView
 import android.webkit.WebViewClient
 import android.widget.Toast
 import androidx.activity.ComponentActivity
-import android.util.Base64
-import android.os.Environment
-import androidx.core.content.FileProvider
-import java.io.FileOutputStream
 import java.io.IOException
+
 
 class MainActivity : ComponentActivity() {
 
@@ -86,6 +87,15 @@ class MainActivity : ComponentActivity() {
             } catch (e: Exception) {
                 e.printStackTrace()
                 Toast.makeText(mContext, "An unexpected error occurred: ${e.message}", Toast.LENGTH_LONG).show()
+            }
+        }
+
+        @JavascriptInterface
+        fun launchUpdate(url: String?) {
+            if (url != null && !url.isEmpty()) {
+                val intent = Intent(Intent.ACTION_VIEW, Uri.parse(url))
+                intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                mContext.startActivity(intent)
             }
         }
     }
