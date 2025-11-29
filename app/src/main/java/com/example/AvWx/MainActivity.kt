@@ -1,4 +1,4 @@
-package com.example.htmlapp
+package com.example.AvWx
 
 import android.content.Context
 import android.content.Intent
