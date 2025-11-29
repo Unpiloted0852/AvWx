@@ -266,7 +266,7 @@
 <script>
     // --- APP UPDATE CONFIGURATION ---
     // IMPORTANT: Update this constant when releasing a new version!
-    const CURRENT_VERSION = 'v1.3.5';
+    const CURRENT_VERSION = 'v1.3.6';
     const GITHUB_REPO = 'Unpiloted0852/AvWx';
 
     // --- LIBRARIES ---
@@ -956,18 +956,24 @@
         for (const station of stationDataMap.values()) {
             if (station.latitude === null || station.longitude === null) continue;
             if (!station.taf) continue;
-            if (station.taf.validTo && station.taf.validTo < now) continue;
+            // Removed the generic 'validTo < now' check to prioritize the specific window checks below.
 
             const distToDep = haversineDistance(depCoords.lat, depCoords.lon, station.latitude, station.longitude);
             const distToDest = haversineDistance(destCoords.lat, destCoords.lon, station.latitude, station.longitude);
 
             if (distToDep <= MAX_ROUTE_DISTANCE_NM) {
-                 const cat = getWorstFlightCategoryFromTAF(station.taf.rawText, takeoffStart, takeoffEnd);
-                 depResults.push({ id: station.id, name: station.name, worstCategory: cat, distance: distToDep });
+                 // Check if TAF is valid for the start of the departure window
+                 if (!station.taf.validTo || station.taf.validTo >= takeoffStart) {
+                     const cat = getWorstFlightCategoryFromTAF(station.taf.rawText, takeoffStart, takeoffEnd);
+                     depResults.push({ id: station.id, name: station.name, worstCategory: cat, distance: distToDep });
+                 }
             }
             if (distToDest <= MAX_ROUTE_DISTANCE_NM) {
-                 const cat = getWorstFlightCategoryFromTAF(station.taf.rawText, landingStart, landingEnd);
-                 destResults.push({ id: station.id, name: station.name, worstCategory: cat, distance: distToDest });
+                 // Check if TAF is valid for the start of the destination window
+                 if (!station.taf.validTo || station.taf.validTo >= landingStart) {
+                     const cat = getWorstFlightCategoryFromTAF(station.taf.rawText, landingStart, landingEnd);
+                     destResults.push({ id: station.id, name: station.name, worstCategory: cat, distance: distToDest });
+                 }
             }
         }
 
@@ -1314,12 +1320,25 @@
                 doc.rect(x, y, tileWidth, tileHeight, 'FD');
                 const avgColor = (color[0] + color[1] + color[2]) / 3;
                 doc.setTextColor(avgColor > 128 ? 0 : 255, avgColor > 128 ? 0 : 255, avgColor > 128 ? 0 : 255);
+                
+                // ICAO
                 doc.setFont("helvetica", "bold");
                 doc.setFontSize(9);
-                doc.text(data.id, x + tileWidth / 2, y + 5, { align: 'center' });
+                doc.text(data.id, x + tileWidth / 2, y + 4, { align: 'center' });
+
+                // Station Name (truncated)
+                doc.setFont("helvetica", "normal");
+                doc.setFontSize(5);
+                let displayName = data.name || '';
+                // Adjusted truncation to ensure fit
+                if (displayName.length > 20) displayName = displayName.substring(0, 18) + '..';
+                doc.text(displayName, x + tileWidth / 2, y + 8, { align: 'center' });
+
+                // Stats
                 doc.setFont("helvetica", "normal");
                 doc.setFontSize(6);
-                doc.text(`${data.worstCategory} / ${data.distance.toFixed(0)} NM`, x + tileWidth / 2, y + 10, { align: 'center' });
+                doc.text(`${data.worstCategory} / ${data.distance.toFixed(0)} NM`, x + tileWidth / 2, y + 12, { align: 'center' });
+
                 col++;
                 if (col >= maxTilesPerRow) { col = 0; row++; }
              }
