@@ -1,13 +1,12 @@
 <!DOCTYPE html>
-<html lang="en" class="h-full">
+<html lang="en" class="h-full antialiased">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <meta name="color-scheme" content="light dark">
 
     <title>Aviation Weather Report (TAF & METAR)</title>
 
-    <!-- 2. JS THEME DETECTION & TOGGLE LOGIC -->
     <script>
         // Check local storage or system preference
         function getInitialTheme() {
@@ -28,14 +27,14 @@
             } else {
                 document.documentElement.classList.remove('dark');
             }
-            
+
             // Toggle Flatpickr Theme Manually (if loaded)
             const flatpickrDark = document.getElementById('flatpickr-dark-css');
             if (flatpickrDark) {
                 flatpickrDark.disabled = (theme !== 'dark');
             }
         }
-        
+
         // This function is called directly by the button onclick
         function toggleTheme() {
             const isDark = document.documentElement.classList.contains('dark');
@@ -50,18 +49,16 @@
 
         // Apply immediately on load
         applyTheme(getInitialTheme());
-        
+
         // Re-apply on DOMContentLoaded to ensure CSS links are ready
         document.addEventListener('DOMContentLoaded', () => {
              applyTheme(getInitialTheme());
         });
     </script>
 
-    <!-- Libraries -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pako/2.1.0/pako.min.js"></script>
 
-    <!-- Flatpickr -->
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
     <link id="flatpickr-dark-css" rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/themes/dark.css" disabled>
     <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
@@ -70,7 +67,10 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
     <style>
-        body { font-family: 'Inter', sans-serif; }
+        /* CRITICAL FIX: Ensure padding is included in width calculations */
+        *, ::before, ::after { box-sizing: border-box; border-width: 0; border-style: solid; border-color: #e5e7eb; }
+
+        body { font-family: 'Inter', sans-serif; -webkit-tap-highlight-color: transparent; }
         .font-mono { font-family: 'JetBrains Mono', 'Courier New', monospace; }
 
         /* Custom styles for the colored legend dots */
@@ -103,8 +103,8 @@
             to { transform: translateY(0); opacity: 1; }
         }
         .update-banner-enter { animation: slideDown 0.5s ease-out forwards; }
-        
-        /* Inline Tailwind utility styles for offline support */
+
+        /* Inline Tailwind utility styles for offline support - simplified for brevity */
         .bg-gray-100 { background-color: #f3f4f6; }
         .dark .dark\:bg-black { background-color: #000000; }
         .bg-blue-600 { background-color: #2563eb; }
@@ -192,27 +192,27 @@
         .dark .dark\:border { border-color: #1f2937; }
         .dark .dark\:border-gray-800 { border-color: #1f2937; }
 
-        .focus\:ring-2 {  
-          --tw-ring-offset-shadow: var(--tw-ring-inset) 0 0 0 var(--tw-ring-offset-width) var(--tw-ring-offset-color);  
-          --tw-ring-shadow: var(--tw-ring-inset) 0 0 0 calc(2px + var(--tw-ring-offset-width)) var(--tw-ring-color);  
-          box-shadow: var(--tw-ring-offset-shadow), var(--tw-ring-shadow), var(--tw-shadow, 0 0 #0000);  
-        }  
+        .focus\:ring-2 {
+          --tw-ring-offset-shadow: var(--tw-ring-inset) 0 0 0 var(--tw-ring-offset-width) var(--tw-ring-offset-color);
+          --tw-ring-shadow: var(--tw-ring-inset) 0 0 0 calc(2px + var(--tw-ring-offset-width)) var(--tw-ring-color);
+          box-shadow: var(--tw-ring-offset-shadow), var(--tw-ring-shadow), var(--tw-shadow, 0 0 #0000);
+        }
 
-        .focus\:ring-blue-500 {  
-          --tw-ring-color: #3b82f6;  
-        }  
+        .focus\:ring-blue-500 {
+          --tw-ring-color: #3b82f6;
+        }
 
-        .focus\:ring-yellow-500 {  
-          --tw-ring-color: #eab308;  
-        }  
+        .focus\:ring-yellow-500 {
+          --tw-ring-color: #eab308;
+        }
 
-        .focus\:ring-offset-2 {  
-          --tw-ring-offset-width: 2px;  
-        }  
+        .focus\:ring-offset-2 {
+          --tw-ring-offset-width: 2px;
+        }
 
-        .dark\:focus\:ring-offset-gray-900 {  
-          --tw-ring-offset-color: #111827;  
-        } 
+        .dark\:focus\:ring-offset-gray-900 {
+          --tw-ring-offset-color: #111827;
+        }
 
         .p-1 { padding: 0.25rem; }
         .p-2 { padding: 0.5rem; }
@@ -245,6 +245,7 @@
         .mx-auto { margin-left: auto; margin-right: auto; }
 
         .gap-1 { gap: 0.25rem; }
+        .gap-2 { gap: 0.5rem; }
         .gap-3 { gap: 0.75rem; }
         .gap-4 { gap: 1rem; }
         .gap-6 { gap: 1.5rem; }
@@ -272,6 +273,7 @@
         .items-center { align-items: center; }
         .items-baseline { align-items: baseline; }
         .items-end { align-items: flex-end; }
+        .self-center { align-self: center; }
         .justify-between { justify-content: space-between; }
         .justify-center { justify-content: center; }
         .sm\:items-baseline { @media (min-width: 640px) { align-items: baseline; } }
@@ -291,12 +293,13 @@
         .w-full { width: 100%; }
         .w-6 { width: 1.5rem; }
         .w-5 { width: 1.25rem; }
+        .w-24 { width: 6rem; }
         .w-auto { width: auto; }
         .max-w-5xl { max-width: 64rem; }
         .h-full { height: 100%; }
         .h-6 { height: 1.5rem; }
         .h-5 { height: 1.25rem; }
-        .max-h-[85vh] { max-height: 85vh; }
+        .max-h-\[85vh\] { max-height: 85vh; }
         .min-h-full { min-height: 100%; }
 
         .transition { transition-property: color, background-color, border-color, text-decoration-color, fill, stroke, opacity, box-shadow, transform, filter, backdrop-filter; transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1); transition-duration: 150ms; }
@@ -344,18 +347,23 @@
         .md\:top-8 { @media (min-width: 768px) { top: 2rem; } }
         .md\:right-8 { @media (min-width: 768px) { right: 2rem; } }
 
-        .z-[100] { z-index: 100; }
-        .z-[110] { z-index: 110; }
+        .z-\[100\] { z-index: 100; }
+        .z-\[110\] { z-index: 110; }
 
         .overflow-y-auto { overflow-y: auto; }
+        .overflow-x-hidden { overflow-x: hidden; }
 
         .cursor-pointer { cursor: pointer; }
         .cursor-default { cursor: default; }
+        .list-none { list-style-type: none; }
 
         .transform { transform: translate(var(--tw-translate-x), var(--tw-translate-y)) rotate(var(--tw-rotate)) skewX(var(--tw-skew-x)) skewY(var(--tw-skew-y)) scaleX(var(--tw-scale-x)) scaleY(var(--tw-scale-y)); }
 
-        .hover\:scale-[1.02]:hover { --tw-scale-x: 1.02; --tw-scale-y: 1.02; transform: translate(var(--tw-translate-x), var(--tw-translate-y)) rotate(var(--tw-rotate)) skewX(var(--tw-skew-x)) skewY(var(--tw-skew-y)) scaleX(var(--tw-scale-x)) scaleY(var(--tw-scale-y)); }
-        .hover\:scale-[1.05]:hover { --tw-scale-x: 1.05; --tw-scale-y: 1.05; transform: translate(var(--tw-translate-x), var(--tw-translate-y)) rotate(var(--tw-rotate)) skewX(var(--tw-skew-x)) skewY(var(--tw-skew-y)) scaleX(var(--tw-scale-x)) scaleY(var(--tw-scale-y)); }
+        .group-open\:rotate-180 { --tw-rotate: 180deg; }
+        details[open] summary svg { transform: rotate(180deg); }
+
+        .hover\:scale-\[1\.02\]:hover { --tw-scale-x: 1.02; --tw-scale-y: 1.02; transform: translate(var(--tw-translate-x), var(--tw-translate-y)) rotate(var(--tw-rotate)) skewX(var(--tw-skew-x)) skewY(var(--tw-skew-y)) scaleX(var(--tw-scale-x)) scaleY(var(--tw-scale-y)); }
+        .hover\:scale-\[1\.05\]:hover { --tw-scale-x: 1.05; --tw-scale-y: 1.05; transform: translate(var(--tw-translate-x), var(--tw-translate-y)) rotate(var(--tw-rotate)) skewX(var(--tw-skew-x)) skewY(var(--tw-skew-y)) scaleX(var(--tw-scale-x)) scaleY(var(--tw-scale-y)); }
 
         .opacity-70 { opacity: 0.7; }
         .opacity-80 { opacity: 0.8; }
@@ -375,13 +383,15 @@
         .space-y-1 > * + * { margin-top: 0.25rem; }
         .space-y-3 > * + * { margin-top: 0.75rem; }
         .space-y-6 > * + * { margin-top: 1.5rem; }
+
+        /* Mobile specific fix for wrapping long METAR text */
+        .break-words { overflow-wrap: break-word; word-break: break-word; }
+        .whitespace-pre-wrap { white-space: pre-wrap; }
     </style>
 </head>
 
-<!-- PURE BLACK THEME: bg-gray-100 (light) / bg-black (dark) -->
-<body class="bg-gray-100 dark:bg-black text-gray-900 dark:text-gray-100 min-h-full antialiased transition-colors duration-300">
+<body class="bg-gray-100 dark:bg-black text-gray-900 dark:text-gray-100 min-h-full antialiased transition-colors duration-300 overflow-x-hidden">
 
-<!-- Update Banner -->
 <div id="updateBanner" class="hidden fixed top-0 left-0 right-0 z-[110] p-4 bg-blue-600 text-white shadow-xl">
     <div class="container mx-auto max-w-5xl flex flex-col sm:flex-row items-center justify-between gap-4">
         <div class="flex items-center gap-3">
@@ -408,31 +418,27 @@
     </div>
 </div>
 
-<div class="container mx-auto p-4 md:p-8 max-w-5xl pt-8 mt-4">
+<div class="container mx-auto p-3 md:p-8 max-w-5xl pt-4 mt-2">
 
-    <!-- THEME TOGGLE BUTTON -->
-    <!-- DIRECT ONCLICK to ensure it works, z-[100] to sit above everything -->
-    <!-- THEME TOGGLE BUTTON (Sun Only) -->
     <button id="themeToggleBtn" type="button" onclick="toggleTheme()" aria-label="Toggle Dark Mode"
-            class="z-[100] absolute top-0 right-4 md:top-0 md:right-8 p-2 rounded-full
+            class="z-[100] absolute top-0 right-4 md:top-8 md:right-8 p-2 rounded-full
                bg-gray-200 dark:bg-gray-800 text-gray-700 dark:text-yellow-400
                hover:bg-gray-200 dark:hover:bg-gray-800
                active:bg-gray-200 dark:active:bg-gray-800
                shadow-sm cursor-pointer">
 
-        <!-- Sun Icon (Always Visible) -->
         <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                   d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z" />
         </svg>
     </button>
 
-    <header class="mb-8 text-center pt-16 md:pt-16">
-        <h1 class="text-3xl font-bold text-blue-600 dark:text-blue-400">Aviation Weather Report</h1>
-        <p class="text-gray-600 dark:text-gray-400 mt-2">
-            Generates a report of current METARs and TAFs, view in-app or download as PDF.
+    <header class="mb-6 text-center pt-12 md:pt-16">
+        <h1 class="text-2xl md:text-3xl font-bold text-blue-600 dark:text-blue-400">Aviation Weather Report</h1>
+        <p class="text-sm md:text-base text-gray-600 dark:text-gray-400 mt-2 px-4">
+            Generates a report of current METARs and TAFs.
         </p>
-        <div class="flex justify-center flex-wrap gap-x-4 mt-4 text-sm font-bold">
+        <div class="flex justify-center flex-wrap gap-x-4 gap-y-2 mt-4 text-xs md:text-sm font-bold">
             <span class="flex items-center gap-1"><span class="weather-dot vfr-dot"></span>VFR</span>
             <span class="flex items-center gap-1"><span class="weather-dot mvfr-dot"></span>MVFR</span>
             <span class="flex items-center gap-1"><span class="weather-dot ifr-dot"></span>IFR</span>
@@ -441,125 +447,115 @@
         </div>
     </header>
 
-    <!-- Main Settings Panel: Pure Black uses dark:bg-black and distinct borders -->
-    <div class="bg-white dark:bg-black border border-transparent dark:border-gray-800 p-6 rounded-xl shadow-lg mb-6 transition-colors duration-300">
+    <div class="bg-white dark:bg-black border border-transparent dark:border-gray-800 p-4 md:p-6 rounded-xl shadow-lg mb-6 transition-colors duration-300">
         <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            <!-- Output Mode Option -->
             <div>
                 <label for="outputMode" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                     Output Mode
                 </label>
-                <select id="outputMode" class="w-full p-4 border border-gray-300 dark:border-gray-700 rounded-lg bg-gray-50 dark:bg-gray-900 dark:text-gray-200 focus:ring-blue-500 focus:border-blue-500 transition duration-150">
+                <select id="outputMode" class="w-full p-3 md:p-4 text-base md:text-sm border border-gray-300 dark:border-gray-700 rounded-lg bg-gray-50 dark:bg-gray-900 dark:text-gray-200 focus:ring-blue-500 focus:border-blue-500 transition duration-150">
                     <option value="browser">View in App</option>
                     <option value="pdf">Download PDF</option>
                 </select>
             </div>
 
-            <!-- Home ICAO Input & Sorting Option -->
             <div class="md:col-span-1">
                 <label for="sortMode" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                     Sort Results By
                 </label>
-                <select id="sortMode" class="w-full p-4 border border-gray-300 dark:border-gray-700 rounded-lg bg-gray-50 dark:bg-gray-900 dark:text-gray-200 focus:ring-blue-500 focus:border-blue-500 transition duration-150">
+                <select id="sortMode" class="w-full p-3 md:p-4 text-base md:text-sm border border-gray-300 dark:border-gray-700 rounded-lg bg-gray-50 dark:bg-gray-900 dark:text-gray-200 focus:ring-blue-500 focus:border-blue-500 transition duration-150">
                     <option value="alpha">Alphabetical (ICAO)</option>
                     <option value="distance" disabled>Distance to Home Airport</option>
                 </select>
 
+                <!-- UPDATED LAYOUT FOR HOME AIRPORT -->
                 <div class="mt-3 p-3 bg-gray-50 dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-800">
                     <label for="icaoInput" class="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">
-                        Home Airport (Optional)
+                        Home Airport (Distance Reference)
                     </label>
-                    <input type="text" id="icaoInput" maxlength="4" placeholder="e.g. KOKC"
-                           class="uppercase w-12 p-2 text-sm border border-gray-300 dark:border-gray-700 rounded bg-white dark:bg-black dark:text-gray-100 focus:ring-blue-500 focus:border-blue-500 tracking-widest font-mono transition-colors">
-                    <p class="text-xs text-gray-400 mt-1">Enter 4 letter ICAO code to enable distance sorting.</p>
+                    <div class="flex items-center gap-3">
+                        <input type="text" id="icaoInput" maxlength="4" placeholder="KOKC"
+                               class="uppercase w-24 p-2 text-base md:text-sm border border-gray-300 dark:border-gray-700 rounded bg-white dark:bg-black dark:text-gray-100 focus:ring-blue-500 focus:border-blue-500 tracking-widest font-mono transition-colors">
+                        <p class="text-xs text-gray-400 self-center">Enter 4-letter ICAO code</p>
+                    </div>
                 </div>
             </div>
 
-            <!-- Advanced Planning Toggle -->
             <div class="md:col-span-1 flex items-end">
                 <div class="w-full">
                     <p class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Alternate Analysis</p>
                     <button id="toggleAdvanced"
-                            class="w-full bg-yellow-500 hover:bg-yellow-600 text-white font-bold py- px-4 rounded-lg shadow-md transition duration-150 focus:outline-none focus:ring-2 focus:ring-yellow-500 focus:ring-offset-2 dark:focus:ring-offset-gray-900">
+                            class="w-full bg-yellow-500 hover:bg-yellow-600 text-white font-bold py-3 px-4 rounded-lg shadow-md transition duration-150 focus:outline-none focus:ring-2 focus:ring-yellow-500 focus:ring-offset-2 dark:focus:ring-offset-gray-900 touch-manipulation">
                         Enable Alternate Planner
                     </button>
                 </div>
             </div>
         </div>
 
-        <!-- Advanced Planning Inputs (Initially Hidden) -->
         <div id="advancedInputs" class="hidden mt-6 pt-4 border-t border-gray-200 dark:border-gray-800">
             <h3 class="text-lg font-semibold text-blue-600 dark:text-blue-400 mb-4">Flight Plan Details</h3>
+            <p class="text-sm text-gray-500 mb-3">Enter either Departure or Destination to find alternates.</p>
             <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                <!-- Departure -->
                 <div>
                     <label for="depIcao" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                        Departure Airport (ICAO)
+                        Departure (ICAO)
                     </label>
-                    <input type="text" id="depIcao" maxlength="4" placeholder="e.g. KSEA"
-                           class="uppercase w-full p-2 border border-gray-300 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-900 dark:text-gray-100 focus:ring-blue-500 focus:border-blue-500 font-mono transition-colors">
+                    <input type="text" id="depIcao" maxlength="4" placeholder="KSEA"
+                           class="uppercase w-full p-2.5 text-base md:text-sm border border-gray-300 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-900 dark:text-gray-100 focus:ring-blue-500 focus:border-blue-500 font-mono transition-colors">
                 </div>
-                <!-- Destination -->
                 <div>
                     <label for="destIcao" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                        Destination Airport (ICAO)
+                        Destination (ICAO)
                     </label>
-                    <input type="text" id="destIcao" maxlength="4" placeholder="e.g. KSAN"
-                           class="uppercase w-full p-2 border border-gray-300 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-900 dark:text-gray-100 focus:ring-blue-500 focus:border-blue-500 font-mono transition-colors">
+                    <input type="text" id="destIcao" maxlength="4" placeholder="KSAN"
+                           class="uppercase w-full p-2.5 text-base md:text-sm border border-gray-300 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-900 dark:text-gray-100 focus:ring-blue-500 focus:border-blue-500 font-mono transition-colors">
                 </div>
-                <!-- Takeoff Time -->
                 <div>
                     <label for="takeOffTime" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                        Takeoff Time (UTC)
+                        Takeoff (UTC)
                     </label>
-                    <!-- Type text for Flatpickr -->
                     <input type="text" id="takeOffTime" placeholder="YYYY-MM-DD HH:MM" required
-                           class="w-full p-2 border border-gray-300 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-900 dark:text-gray-100 focus:ring-blue-500 focus:border-blue-500 transition-colors cursor-pointer">
+                           class="w-full p-2.5 text-base md:text-sm border border-gray-300 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-900 dark:text-gray-100 focus:ring-blue-500 focus:border-blue-500 transition-colors cursor-pointer">
                 </div>
-                <!-- Landing Time -->
                 <div>
                     <label for="landingTime" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                        Landing Time (UTC)
+                        Landing (UTC)
                     </label>
-                    <!-- Type text for Flatpickr -->
                     <input type="text" id="landingTime" placeholder="YYYY-MM-DD HH:MM" required
-                           class="w-full p-2 border border-gray-300 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-900 dark:text-gray-100 focus:ring-blue-500 focus:border-blue-500 transition-colors cursor-pointer">
+                           class="w-full p-2.5 text-base md:text-sm border border-gray-300 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-900 dark:text-gray-100 focus:ring-blue-500 focus:border-blue-500 transition-colors cursor-pointer">
                 </div>
             </div>
         </div>
 
         <div class="mt-6 text-center">
             <button id="generateButton"
-                    class="w-full md:w-auto bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-12 rounded-lg shadow-lg transform transition-transform hover:scale-[1.02] focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 dark:focus:ring-offset-gray-900">
+                    class="w-full md:w-auto bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-12 rounded-lg shadow-lg transform transition-transform hover:scale-[1.02] focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 dark:focus:ring-offset-gray-900 touch-manipulation">
                 Generate Report
             </button>
         </div>
     </div>
 
     <div id="status" class="hidden mt-6 p-4 text-center rounded-lg"></div>
-    <div id="details" class="hidden mt-2 text-sm text-gray-500 text-center font-mono"></div>
+    <div id="details" class="hidden mt-2 text-sm text-gray-500 text-center font-mono break-words"></div>
 
-    <!-- Results Container: Pure Black -->
-    <div id="resultsContainer" class="hidden mt-8 p-4 bg-white dark:bg-black border border-transparent dark:border-gray-800 rounded-xl shadow-inner max-h-[85vh] flex flex-col transition-colors duration-300">
+    <div id="resultsContainer" class="hidden mt-8 p-3 md:p-4 bg-white dark:bg-black border border-transparent dark:border-gray-800 rounded-xl shadow-inner md:max-h-[85vh] flex flex-col transition-colors duration-300 w-full max-w-full">
 
-        <!-- Updated Elegant Navigation Tabs -->
-        <div class="mb-4">
+        <div class="mb-4 shrink-0">
             <div class="flex p-1 space-x-1 bg-gray-200 dark:bg-gray-900 rounded-xl">
                 <button id="tabStandard"
-                        class="tab-button w-full py-2.5 text-sm font-medium leading-5 rounded-lg text-center transition-all duration-200 focus:outline-none bg-white dark:bg-gray-700 text-blue-700 dark:text-blue-200 shadow">
+                        class="tab-button w-full py-2.5 text-sm font-medium leading-5 rounded-lg text-center transition-all duration-200 focus:outline-none bg-blue-600 text-white shadow touch-manipulation">
                     Standard Report
                 </button>
                 <button id="tabRouteAnalysis"
-                        class="tab-button w-full py-2.5 text-sm font-medium leading-5 rounded-lg text-center transition-all duration-200 focus:outline-none text-gray-700 dark:text-gray-400 hover:bg-gray-300 dark:hover:bg-gray-800 hidden">
+                        class="tab-button w-full py-2.5 text-sm font-medium leading-5 rounded-lg text-center transition-all duration-200 focus:outline-none text-gray-700 dark:text-gray-400 hover:bg-gray-300 dark:hover:bg-gray-800 hidden touch-manipulation">
                     Alternate Analysis
                 </button>
             </div>
         </div>
 
-        <!-- Tab Content -->
-        <div class="flex-grow overflow-y-auto">
-            <div id="weatherList" class="space-y-6 tab-content"></div>
-            <div id="routeAnalysisView" class="hidden tab-content p-4"></div>
+        <div class="flex-grow overflow-y-auto w-full">
+            <div id="weatherList" class="space-y-6 tab-content w-full"></div>
+            <div id="routeAnalysisView" class="hidden tab-content p-2 md:p-4 w-full"></div>
         </div>
     </div>
 </div>
@@ -779,7 +775,9 @@ destIcaoInput.addEventListener('input', () => {
         }
     }
 
-    const TAB_ACTIVE_CLASSES = ['bg-white', 'dark:bg-gray-700', 'text-blue-700', 'dark:text-blue-200', 'shadow'];
+    // High contrast for active tab (Blue bg, White Text)
+    const TAB_ACTIVE_CLASSES = ['bg-blue-600', 'text-white', 'shadow'];
+    // Subtle look for inactive tab
     const TAB_INACTIVE_CLASSES = ['text-gray-700', 'dark:text-gray-400', 'hover:bg-gray-300', 'dark:hover:bg-gray-800'];
 
     function switchTab(tabId) {
@@ -1198,61 +1196,77 @@ destIcaoInput.addEventListener('input', () => {
     }
 
     function runRouteAnalysis(stationDataMap, depIcao, destIcao, takeOffTime, landingTime) {
-        const dep = depIcao.toUpperCase();
-        const dest = destIcao.toUpperCase();
-        const depCoords = getCoordsForICAO(dep, cachedStationMap);
-        const destCoords = getCoordsForICAO(dest, cachedStationMap);
+        const dep = depIcao ? depIcao.toUpperCase() : null;
+        const dest = destIcao ? destIcao.toUpperCase() : null;
 
-        if (!depCoords || !destCoords || depCoords.lat === null || destCoords.lat === null) {
-            throw new Error("Could not find coordinates for both Departure and Destination airports. Check ICAO codes.");
-        }
-
-        const toDate = parseUtcString(takeOffTime);
-        const lDate = parseUtcString(landingTime);
-        if (!toDate || !lDate) throw new Error("Invalid time format.");
-
-        const ONE_HOUR = 60 * 60 * 1000;
-        const takeoffStart = new Date(toDate.getTime() - ONE_HOUR);
-        const takeoffEnd = new Date(toDate.getTime() + ONE_HOUR);
-        const landingStart = new Date(lDate.getTime() - ONE_HOUR);
-        const landingEnd = new Date(lDate.getTime() + ONE_HOUR);
-        const now = new Date();
-
+        // MODIFIED: Allow independent calculation
         const depResults = [];
         const destResults = [];
+        const now = new Date();
+        const ONE_HOUR = 60 * 60 * 1000;
 
-        for (const station of stationDataMap.values()) {
-            if (station.latitude === null || station.longitude === null) continue;
-            if (!station.taf) continue;
-            // Removed the generic 'validTo < now' check to prioritize the specific window checks below.
+        let takeoffStart = null, takeoffEnd = null;
+        let landingStart = null, landingEnd = null;
+        let depName = 'N/A', destName = 'N/A';
 
-            const distToDep = haversineDistance(depCoords.lat, depCoords.lon, station.latitude, station.longitude);
-            const distToDest = haversineDistance(destCoords.lat, destCoords.lon, station.latitude, station.longitude);
+        // 1. Departure Analysis
+        if (dep) {
+            const depCoords = getCoordsForICAO(dep, cachedStationMap);
+            if (depCoords && depCoords.lat !== null) {
+                depName = stationDataMap.get(dep)?.name || dep;
+                const toDate = takeOffTime ? parseUtcString(takeOffTime) : null;
 
-            if (distToDep <= MAX_ROUTE_DISTANCE_NM) {
-                 if (!station.taf.validTo || station.taf.validTo >= takeoffStart) {
-                     const cat = getWorstFlightCategoryFromTAF(station.taf.rawText, takeoffStart, takeoffEnd);
-                     depResults.push({ id: station.id, name: station.name, worstCategory: cat, distance: distToDep });
-                 }
-            }
-            if (distToDest <= MAX_ROUTE_DISTANCE_NM) {
-                 if (!station.taf.validTo || station.taf.validTo >= landingStart) {
-                     const cat = getWorstFlightCategoryFromTAF(station.taf.rawText, landingStart, landingEnd);
-                     destResults.push({ id: station.id, name: station.name, worstCategory: cat, distance: distToDest });
-                 }
+                if (toDate) {
+                    takeoffStart = new Date(toDate.getTime() - ONE_HOUR);
+                    takeoffEnd = new Date(toDate.getTime() + ONE_HOUR);
+
+                    for (const station of stationDataMap.values()) {
+                        if (station.latitude === null || station.longitude === null || !station.taf) continue;
+                        const distToDep = haversineDistance(depCoords.lat, depCoords.lon, station.latitude, station.longitude);
+
+                        if (distToDep <= MAX_ROUTE_DISTANCE_NM) {
+                            if (!station.taf.validTo || station.taf.validTo >= takeoffStart) {
+                                const cat = getWorstFlightCategoryFromTAF(station.taf.rawText, takeoffStart, takeoffEnd);
+                                depResults.push({ id: station.id, name: station.name, worstCategory: cat, distance: distToDep });
+                            }
+                        }
+                    }
+                    depResults.sort((a, b) => a.distance - b.distance);
+                }
             }
         }
 
-        depResults.sort((a, b) => a.distance - b.distance);
-        destResults.sort((a, b) => a.distance - b.distance);
+        // 2. Destination Analysis
+        if (dest) {
+            const destCoords = getCoordsForICAO(dest, cachedStationMap);
+            if (destCoords && destCoords.lat !== null) {
+                destName = stationDataMap.get(dest)?.name || dest;
+                const lDate = landingTime ? parseUtcString(landingTime) : null;
 
-        const depName = stationDataMap.get(dep)?.name || 'Unknown';
-        const destName = stationDataMap.get(dest)?.name || 'Unknown';
+                if (lDate) {
+                    landingStart = new Date(lDate.getTime() - ONE_HOUR);
+                    landingEnd = new Date(lDate.getTime() + ONE_HOUR);
+
+                    for (const station of stationDataMap.values()) {
+                        if (station.latitude === null || station.longitude === null || !station.taf) continue;
+                        const distToDest = haversineDistance(destCoords.lat, destCoords.lon, station.latitude, station.longitude);
+
+                        if (distToDest <= MAX_ROUTE_DISTANCE_NM) {
+                            if (!station.taf.validTo || station.taf.validTo >= landingStart) {
+                                const cat = getWorstFlightCategoryFromTAF(station.taf.rawText, landingStart, landingEnd);
+                                destResults.push({ id: station.id, name: station.name, worstCategory: cat, distance: distToDest });
+                            }
+                        }
+                    }
+                    destResults.sort((a, b) => a.distance - b.distance);
+                }
+            }
+        }
 
         return {
             depResults, destResults,
             takeoffStart, takeoffEnd, landingStart, landingEnd,
-            depName: dep, destName: dest, depFullName: depName, destFullName: destName
+            depName: dep || 'N/A', destName: dest || 'N/A'
         };
     }
 
@@ -1279,11 +1293,13 @@ destIcaoInput.addEventListener('input', () => {
             const landingTime = landingTimeInput.value;
 
             if (routeAnalysisEnabled) {
-                if (depIcao.length < 3 || destIcao.length < 3) {
-                     showStatus("Route Error", true, "Please enter 3-4 letter ICAO codes for both Departure and Destination.");
+                // MODIFIED: Check that at least one is provided
+                if (depIcao.length < 3 && destIcao.length < 3) {
+                     showStatus("Route Error", true, "Please enter at least one ICAO code (Departure or Destination).");
                      return;
                 }
-                if (takeOffTime >= landingTime) {
+                // Time validation logic - only if we have both times
+                if (takeOffTime && landingTime && takeOffTime >= landingTime) {
                      showStatus("Time Error", true, "Landing time must be after Takeoff time.");
                      return;
                 }
@@ -1337,25 +1353,25 @@ destIcaoInput.addEventListener('input', () => {
     function renderRouteAnalysisBrowser(analysisResult) {
         const { depResults, destResults, takeoffStart, takeoffEnd, landingStart, landingEnd, depName, destName } = analysisResult;
         routeAnalysisViewEl.innerHTML = '';
-        const tStart = formatTimeHHMM(takeoffStart);
-        const tEnd = formatTimeHHMM(takeoffEnd);
-        const lStart = formatTimeHHMM(landingStart);
-        const lEnd = formatTimeHHMM(landingEnd);
+        const tStart = takeoffStart ? formatTimeHHMM(takeoffStart) : 'N/A';
+        const tEnd = takeoffEnd ? formatTimeHHMM(takeoffEnd) : 'N/A';
+        const lStart = landingStart ? formatTimeHHMM(landingStart) : 'N/A';
+        const lEnd = landingEnd ? formatTimeHHMM(landingEnd) : 'N/A';
 
         const headerHtml = `
             <div class="p-4 rounded-xl bg-blue-50 dark:bg-blue-900/30 mb-6 shadow-md text-center transition-colors duration-300">
                 <h3 class="text-xl font-bold text-blue-800 dark:text-blue-200">
-                    Alternate Analysis: ${depName} to ${destName}
+                    Alternate Analysis
                 </h3>
                 <p class="text-xs text-gray-500 dark:text-gray-400 mt-2 italic">
-                    Stations within ${MAX_ROUTE_DISTANCE_NM} NM. Colors represent worst-case category during the respective windows.
+                    Stations within ${MAX_ROUTE_DISTANCE_NM} NM. Colors represent worst-case category.
                 </p>
             </div>
         `;
         routeAnalysisViewEl.insertAdjacentHTML('beforeend', headerHtml);
 
         const generateGrid = (items) => {
-             if (items.length === 0) return `<div class="text-center p-4 text-gray-500 italic">No alternates found within range.</div>`;
+             if (!items || items.length === 0) return `<div class="text-center p-4 text-gray-500 italic">No alternates found within range.</div>`;
              const tiles = items.map(data => {
                 const className = getCategoryTileClassName(data.worstCategory);
                 const dotColor = getCategoryColor(data.worstCategory);
@@ -1364,7 +1380,7 @@ destIcaoInput.addEventListener('input', () => {
                     <div class="p-3 rounded-lg shadow-md ${className} flex flex-col items-center justify-center space-y-1 transition-transform hover:scale-[1.05] cursor-default"
                          title="${data.id} - ${data.name || 'Unknown'} | Worst Category: ${data.worstCategory} | Distance: ${data.distance.toFixed(0)} NM">
                         <span class="font-bold text-lg font-mono ${textColor}">${data.id}</span>
-                        <span class="text-xs ${textColor} opacity-80 text-center truncate w-full">${data.name || 'N/A'}</span>
+                        <span class="text-xs ${textColor} opacity-80 text-center w-full break-words">${data.name || 'N/A'}</span>
                         <span class="text-xs font-semibold ${textColor} opacity-90">${data.worstCategory}</span>
                         <span class="text-xs ${textColor} opacity-70">${data.distance.toFixed(0)} NM</span>
                     </div>
@@ -1373,31 +1389,50 @@ destIcaoInput.addEventListener('input', () => {
              return `<div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">${tiles}</div>`;
         };
 
-        const depSection = `
-            <div class="mb-8">
-                <div class="flex items-center justify-between mb-3 border-b border-gray-200 dark:border-gray-800 pb-2">
-                    <h4 class="text-lg font-bold text-gray-800 dark:text-gray-100">Departure Alternates</h4>
-                    <span class="text-xs font-mono bg-gray-200 dark:bg-gray-800 px-2 py-1 rounded text-gray-700 dark:text-gray-200">
-                        Window: ${tStart} - ${tEnd}
-                    </span>
-                </div>
-                ${generateGrid(depResults)}
-            </div>
-        `;
-        routeAnalysisViewEl.insertAdjacentHTML('beforeend', depSection);
+        // MODIFIED: Collapsible Sections using <details>
+        if (takeoffStart && depName !== 'N/A') {
+            const depSection = `
+                <details class="group bg-white dark:bg-gray-900 rounded-xl shadow-md border border-gray-200 dark:border-gray-800 mb-4 transition-all duration-300" open>
+                    <summary class="list-none flex items-center justify-between p-4 cursor-pointer focus:outline-none">
+                        <div class="flex flex-col">
+                            <h4 class="text-lg font-bold text-gray-800 dark:text-gray-100 flex items-center gap-2">
+                                Departure: ${depName}
+                            </h4>
+                            <span class="text-xs font-mono text-gray-500 dark:text-gray-400">Window: ${tStart} - ${tEnd}</span>
+                        </div>
+                        <svg class="w-6 h-6 text-gray-500 transform group-open:rotate-180 transition-transform duration-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+                        </svg>
+                    </summary>
+                    <div class="p-4 border-t border-gray-100 dark:border-gray-800">
+                        ${generateGrid(depResults)}
+                    </div>
+                </details>
+            `;
+            routeAnalysisViewEl.insertAdjacentHTML('beforeend', depSection);
+        }
 
-        const destSection = `
-            <div>
-                <div class="flex items-center justify-between mb-3 border-b border-gray-200 dark:border-gray-800 pb-2">
-                    <h4 class="text-lg font-bold text-gray-800 dark:text-gray-100">Destination Alternates</h4>
-                    <span class="text-xs font-mono bg-gray-200 dark:bg-gray-800 px-2 py-1 rounded text-gray-700 dark:text-gray-200">
-                        Window: ${lStart} - ${lEnd}
-                    </span>
-                </div>
-                ${generateGrid(destResults)}
-            </div>
-        `;
-        routeAnalysisViewEl.insertAdjacentHTML('beforeend', destSection);
+        if (landingStart && destName !== 'N/A') {
+            const destSection = `
+                <details class="group bg-white dark:bg-gray-900 rounded-xl shadow-md border border-gray-200 dark:border-gray-800 mb-4 transition-all duration-300" open>
+                    <summary class="list-none flex items-center justify-between p-4 cursor-pointer focus:outline-none">
+                        <div class="flex flex-col">
+                            <h4 class="text-lg font-bold text-gray-800 dark:text-gray-100 flex items-center gap-2">
+                                Destination: ${destName}
+                            </h4>
+                            <span class="text-xs font-mono text-gray-500 dark:text-gray-400">Window: ${lStart} - ${lEnd}</span>
+                        </div>
+                        <svg class="w-6 h-6 text-gray-500 transform group-open:rotate-180 transition-transform duration-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+                        </svg>
+                    </summary>
+                    <div class="p-4 border-t border-gray-100 dark:border-gray-800">
+                        ${generateGrid(destResults)}
+                    </div>
+                </details>
+            `;
+            routeAnalysisViewEl.insertAdjacentHTML('beforeend', destSection);
+        }
     }
 
     function renderInBrowser(stationsData, refName, routeAnalysisResult) {
@@ -1415,7 +1450,7 @@ destIcaoInput.addEventListener('input', () => {
             let metarHtml = '<div class="text-gray-500 dark:text-gray-400 italic">No METAR available.</div>';
             let tafHtml = '<div class="text-gray-500 dark:text-gray-400 italic">No TAF available.</div>';
             let headerText = data.id;
-            if (data.name) headerText += ` <span class="text-base font-normal text-gray-500 dark:text-gray-400 ml-2">${data.name}</span>`;
+            if (data.name) headerText += ` <span class="text-base font-normal text-gray-500 dark:text-gray-400 ml-2 block sm:inline">${data.name}</span>`;
             let infoTextParts = [];
 
             if (metar) {
@@ -1431,9 +1466,9 @@ destIcaoInput.addEventListener('input', () => {
                     'lifr-dot': 'border-pink-500'
                 };
                 const borderColorClass = dotClassToBorderColor[className] || 'border-gray-500';
-                metarHtml = `<div class="bg-gray-100 dark:bg-gray-900 p-2 rounded-lg border-l-4 ${borderColorClass} transition-colors duration-300">
+                metarHtml = `<div class="bg-gray-100 dark:bg-gray-900 p-2 rounded-lg border-l-4 ${borderColorClass} transition-colors duration-300 w-full overflow-hidden">
                                 <h4 class="font-bold mb-1 text-sm text-gray-600 dark:text-gray-300">METAR</h4>
-                                <p class="font-mono text-xs md:text-sm leading-relaxed">${formatRawText(metar.rawText)}</p>
+                                <div class="font-mono text-xs md:text-sm leading-relaxed break-words whitespace-pre-wrap">${formatRawText(metar.rawText)}</div>
                              </div>`;
             } else if (data.distanceNM !== null) {
                 infoTextParts.push(`Distance: ${data.distanceNM.toFixed(0)} NM`);
@@ -1444,7 +1479,7 @@ destIcaoInput.addEventListener('input', () => {
                 if (taf.age !== null) notes.push(`Issued ${formatAge(taf.age)}`);
                 if (taf.periodHours !== null) notes.push(`Forecast period ends in ${taf.periodHours} hours`);
                 let noteHtml = notes.length > 0 ? `<p class="text-xs text-gray-500 dark:text-gray-400 mt-2">${notes.join(' • ')}</p>` : '';
-                tafHtml = `<div class="bg-gray-100 dark:bg-gray-900 p-2 rounded-lg transition-colors duration-300">
+                tafHtml = `<div class="bg-gray-100 dark:bg-gray-900 p-2 rounded-lg transition-colors duration-300 w-full overflow-hidden">
                             <h4 class="font-bold mb-1 text-sm text-gray-600 dark:text-gray-300">TAF</h4>
                             <div class="space-y-1">${formatRawText(taf.rawText)}</div>
                             ${noteHtml}
@@ -1453,13 +1488,14 @@ destIcaoInput.addEventListener('input', () => {
 
             const stationEntry = document.createElement('div');
             // PURE BLACK CARD
-            stationEntry.className = 'border border-gray-200 dark:border-gray-800 rounded-lg p-4 shadow-md bg-white dark:bg-black transition-colors duration-300';
+            stationEntry.className = 'border border-gray-200 dark:border-gray-800 rounded-lg p-4 shadow-md bg-white dark:bg-black transition-colors duration-300 w-full max-w-full';
+            // MODIFIED: Changed flex layout to column and removed justify-between to stack name and details
             stationEntry.innerHTML = `
-                <div class="flex flex-col sm:flex-row sm:items-baseline justify-between mb-3 border-b dark:border-gray-800 pb-2">
+                <div class="flex flex-col items-start mb-3 border-b dark:border-gray-800 pb-2">
                     <h3 class="text-xl font-extrabold text-gray-900 dark:text-gray-100 flex items-baseline flex-wrap">${headerText}</h3>
-                    <p class="text-xs text-gray-500 dark:text-gray-400 font-medium">${infoTextParts.join(' • ')}</p>
+                    <p class="text-xs text-gray-500 dark:text-gray-400 font-medium mt-1">${infoTextParts.join(' • ')}</p>
                 </div>
-                <div class="space-y-3">${metarHtml}${tafHtml}</div>
+                <div class="space-y-3 w-full">${metarHtml}${tafHtml}</div>
             `;
             weatherListEl.appendChild(stationEntry);
         });
@@ -1490,7 +1526,8 @@ destIcaoInput.addEventListener('input', () => {
                 'ifr-dot': 'bg-red-600',
                 'lifr-dot': 'bg-pink-600'
             }[className] || 'bg-gray-500';
-            html += `<div class="font-mono text-xs md:text-sm leading-relaxed p-1 rounded-md text-white ${bgClass}">${highlightedLine}</div>`;
+            // Added break-words and whitespace-pre-wrap to force wrapping on mobile
+            html += `<div class="font-mono text-xs md:text-sm leading-relaxed p-1 rounded-md text-white ${bgClass} break-words whitespace-pre-wrap">${highlightedLine}</div>`;
         }
         return html;
     }
@@ -1519,10 +1556,10 @@ destIcaoInput.addEventListener('input', () => {
     function drawRouteAnalysisPDFPage(doc, analysisResult) {
         const { depResults, destResults, takeoffStart, takeoffEnd, landingStart, landingEnd, depName, destName, depFullName, destFullName } = analysisResult;
         let cursorY = PAGE_MARGIN;
-        const tStart = formatTimeHHMM(takeoffStart);
-        const tEnd = formatTimeHHMM(takeoffEnd);
-        const lStart = formatTimeHHMM(landingStart);
-        const lEnd = formatTimeHHMM(landingEnd);
+        const tStart = takeoffStart ? formatTimeHHMM(takeoffStart) : 'N/A';
+        const tEnd = takeoffEnd ? formatTimeHHMM(takeoffEnd) : 'N/A';
+        const lStart = landingStart ? formatTimeHHMM(landingStart) : 'N/A';
+        const lEnd = landingEnd ? formatTimeHHMM(landingEnd) : 'N/A';
 
         doc.setFont("helvetica", "bold");
         doc.setFontSize(18);
@@ -1531,7 +1568,13 @@ destIcaoInput.addEventListener('input', () => {
         cursorY += 10;
         doc.setFontSize(12);
         doc.setTextColor(50, 50, 50);
-        doc.text(`Flight: ${depName} (${depFullName}) to ${destName} (${destFullName})`, PAGE_WIDTH / 2, cursorY, { align: "center" });
+
+        let headerText = "Flight Plan";
+        if (depName !== 'N/A' && destName !== 'N/A') headerText = `Flight: ${depName} to ${destName}`;
+        else if (depName !== 'N/A') headerText = `Departure: ${depName}`;
+        else if (destName !== 'N/A') headerText = `Destination: ${destName}`;
+
+        doc.text(headerText, PAGE_WIDTH / 2, cursorY, { align: "center" });
         cursorY += 10;
 
         const drawGridSection = (title, windowStr, items) => {
@@ -1555,7 +1598,7 @@ destIcaoInput.addEventListener('input', () => {
              const maxTilesPerRow = Math.floor(USABLE_WIDTH / (tileWidth + tileMargin));
              let col = 0; let row = 0;
 
-             if (items.length === 0) {
+             if (!items || items.length === 0) {
                  doc.setFont("helvetica", "italic");
                  doc.setFontSize(10);
                  doc.text("No alternates found within range.", PAGE_MARGIN, cursorY);
@@ -1601,8 +1644,14 @@ destIcaoInput.addEventListener('input', () => {
              }
              cursorY += (row + 1) * (tileHeight + tileMargin) + 5;
         };
-        drawGridSection("Departure Alternates", `Window: ${tStart} - ${tEnd}`, depResults);
-        drawGridSection("Destination Alternates", `Window: ${lStart} - ${lEnd}`, destResults);
+
+        if (takeoffStart && depName !== 'N/A') {
+            drawGridSection("Departure Alternates", `Window: ${tStart} - ${tEnd}`, depResults);
+        }
+        if (landingStart && destName !== 'N/A') {
+            drawGridSection("Destination Alternates", `Window: ${lStart} - ${lEnd}`, destResults);
+        }
+
         return cursorY;
     }
 
