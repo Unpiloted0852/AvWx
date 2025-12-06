@@ -495,7 +495,7 @@
         <div id="advancedInputs" class="hidden mt-6 pt-4 border-t border-gray-200 dark:border-gray-800">
             <h3 class="text-lg font-semibold text-blue-600 dark:text-blue-400 mb-4">Flight Plan Details</h3>
             <p class="text-sm text-gray-500 mb-3">Enter either Departure or Destination to find alternates.</p>
-            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
                 <div>
                     <label for="depIcao" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                         Departure (ICAO)
@@ -509,6 +509,13 @@
                     </label>
                     <input type="text" id="destIcao" maxlength="4" placeholder="KSAN"
                            class="uppercase w-full p-2.5 text-base md:text-sm border border-gray-300 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-900 dark:text-gray-100 focus:ring-blue-500 focus:border-blue-500 font-mono transition-colors">
+                </div>
+                <div>
+                    <label for="searchRadius" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                        Search Radius (NM)
+                    </label>
+                    <input type="number" id="searchRadius" placeholder="220" value="220" min="1" max="999"
+                           class="w-full p-2.5 text-base md:text-sm border border-gray-300 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-900 dark:text-gray-100 focus:ring-blue-500 focus:border-blue-500 transition-colors">
                 </div>
                 <div>
                     <label for="takeOffTime" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
@@ -562,7 +569,7 @@
 
 <script>
     // --- APP UPDATE CONFIGURATION ---
-    const CURRENT_VERSION = 'v1.3.7';
+    const CURRENT_VERSION = 'v1.3.8';
     const GITHUB_REPO = 'Unpiloted0852/AvWx';
 
     // --- LIBRARIES SAFE LOADING ---
@@ -596,6 +603,7 @@
     const destIcaoInput = document.getElementById('destIcao');
     const takeOffTimeInput = document.getElementById('takeOffTime');
     const landingTimeInput = document.getElementById('landingTime');
+    const searchRadiusInput = document.getElementById('searchRadius');
 
     // URLs
     const TAF_DATA_URL = 'https://aviationweather.gov/data/cache/tafs.cache.xml.gz';
@@ -696,6 +704,7 @@
             const savedHome = localStorage.getItem('homeIcao');
             const savedDep = localStorage.getItem('depIcao');
             const savedDest = localStorage.getItem('destIcao');
+            const savedRadius = localStorage.getItem('searchRadius');
 
             if (savedHome) {
                 icaoInput.value = savedHome;
@@ -703,36 +712,41 @@
             }
             if (savedDep) depIcaoInput.value = savedDep;
             if (savedDest) destIcaoInput.value = savedDest;
+            if (savedRadius) searchRadiusInput.value = savedRadius;
         } catch(e) {
             console.log("Localstorage read failed", e);
         }
     }
 
-   icaoInput.addEventListener('input', () => {
-    icaoInput.value = icaoInput.value.toUpperCase();  // Add this line to convert to uppercase
-    isMirroringHome = false;
-    try { localStorage.setItem('homeIcao', icaoInput.value); } catch(e){}
-    updateSortOptions();
-});
+    icaoInput.addEventListener('input', () => {
+        icaoInput.value = icaoInput.value.toUpperCase();
+        isMirroringHome = false;
+        try { localStorage.setItem('homeIcao', icaoInput.value); } catch(e){}
+        updateSortOptions();
+    });
 
-depIcaoInput.addEventListener('input', () => {
-    depIcaoInput.value = depIcaoInput.value.toUpperCase();  // Add this line to convert to uppercase
-    const val = depIcaoInput.value;
-    try {
-        localStorage.setItem('depIcao', val);
-        if (!icaoInput.value.trim()) isMirroringHome = true;
-        if (isMirroringHome) {
-            icaoInput.value = val;
-            localStorage.setItem('homeIcao', val);
-            updateSortOptions();
-        }
-    } catch(e){}
-});
+    depIcaoInput.addEventListener('input', () => {
+        depIcaoInput.value = depIcaoInput.value.toUpperCase();
+        const val = depIcaoInput.value;
+        try {
+            localStorage.setItem('depIcao', val);
+            if (!icaoInput.value.trim()) isMirroringHome = true;
+            if (isMirroringHome) {
+                icaoInput.value = val;
+                localStorage.setItem('homeIcao', val);
+                updateSortOptions();
+            }
+        } catch(e){}
+    });
 
-destIcaoInput.addEventListener('input', () => {
-    destIcaoInput.value = destIcaoInput.value.toUpperCase();  // Add this line to convert to uppercase
-    try { localStorage.setItem('destIcao', destIcaoInput.value); } catch(e){}
-});
+    destIcaoInput.addEventListener('input', () => {
+        destIcaoInput.value = destIcaoInput.value.toUpperCase();
+        try { localStorage.setItem('destIcao', destIcaoInput.value); } catch(e){}
+    });
+
+    searchRadiusInput.addEventListener('change', () => {
+        try { localStorage.setItem('searchRadius', searchRadiusInput.value); } catch(e){}
+    });
 
     loadSavedInputs();
     updateSortOptions();
@@ -1052,7 +1066,7 @@ destIcaoInput.addEventListener('input', () => {
     }
 
     function getWorstFlightCategoryFromTAF(tafRawText, forecastStart, forecastEnd) {
-        if (!tafRawText) return 'NODATA';
+        if (!tafRawText) return { category: 'NODATA', rawText: '' };
         const tafValidMatch = tafRawText.match(/(\d{6})Z/);
         const now = new Date();
         let issueTime = new Date(now);
@@ -1064,6 +1078,7 @@ destIcaoInput.addEventListener('input', () => {
 
         const tokens = tafRawText.split(/\s(?=(FM\d{6}|BECMG|TEMPO|PROB\d{2}))/);
         let worstCategory = 'VFR';
+        let worstToken = '';
         const winStart = forecastStart.getTime();
         const winEnd = forecastEnd.getTime();
         let baseStart = issueTime.getTime();
@@ -1101,12 +1116,116 @@ destIcaoInput.addEventListener('input', () => {
 
             if (chunkStart < winEnd && chunkEnd > winStart) {
                 const cat = analyzeCondition(cleanToken);
-                if (getCategoryPriority(cat) > getCategoryPriority(worstCategory)) {
+                const currentPrio = getCategoryPriority(cat);
+                const worstPrio = getCategoryPriority(worstCategory);
+
+                if (currentPrio > worstPrio) {
                     worstCategory = cat;
+                    worstToken = cleanToken;
+                } else if (currentPrio === worstPrio && worstCategory !== 'VFR') {
+                     // Keep the first found significant weather condition for tie-breaking
+                     if (!worstToken) worstToken = cleanToken;
                 }
             }
         }
-        return worstCategory;
+        return { category: worstCategory, rawText: worstToken };
+    }
+
+    function extractConditionString(text) {
+        if (!text) return "";
+        let clean = text;
+
+        // --- PRE-CLEANING ---
+        // 1. Strip Header info
+        clean = clean.replace(/^(TAF|AMD|COR)\s+/g, '');
+        clean = clean.replace(/^[A-Z]{4}\s+/g, ''); // Station
+        clean = clean.replace(/^\d{6}Z\s+/g, ''); // Time
+        clean = clean.replace(/^\d{4}\/\d{4}\s+/g, ''); // Validity
+
+        // 2. Strip Change tokens
+        clean = clean.replace(/\b(FM\d{6}|BECMG|TEMPO|PROB\d{2}(\s+TEMPO)?|PROB\d{2})\b/g, '');
+
+        // 3. Strip Time ranges (isolated)
+        clean = clean.replace(/\b\d{4}\/\d{4}\b/g, '');
+
+        // 4. Strip Wind (e.g., 36010KT, VRB02KT)
+        clean = clean.replace(/\b([0-9]{3}|VRB|[/]{3})[0-9]{2,3}(G[0-9]{2,3})?KT\b/g, '');
+        clean = clean.replace(/\b([0-9]{3}|VRB|[/]{3})[0-9]{2,3}MPS\b/g, ''); // Metric wind
+
+        // 5. Strip Temperatures (TX..., TN...) if present in TAF
+        clean = clean.replace(/\bT[XN].+?\b/g, '');
+
+        // 6. Strip Pressure (QNH..., A..., Q...)
+        clean = clean.replace(/\b(QNH|Q|A)[0-9]{4}(INS)?\b/g, '');
+
+        // 7. Strip Shear
+        clean = clean.replace(/\bWS\d{3}\/\d{5}KT\b/g, '');
+
+        // --- TOKEN FILTERING ---
+        const tokens = clean.split(/\s+/).filter(t => t.trim() !== '');
+        const significant = [];
+
+        for (const t of tokens) {
+            // A. Visibility
+            // SM format
+            if (/^(M)?(\d+(\/\d+)?)SM$/.test(t)) {
+                let numPart = t.replace('SM','').replace('M','');
+                let val = 0;
+                if (numPart.includes('/')) {
+                    const parts = numPart.split('/');
+                    val = parseInt(parts[0]) / parseInt(parts[1]);
+                } else {
+                    val = parseFloat(numPart);
+                }
+                // If M is present, it's "less than", so definitely low. Keep.
+                if (t.startsWith('M')) {
+                    significant.push(t);
+                } else if (val <= 5) {
+                    significant.push(t);
+                }
+                continue;
+            }
+
+            if (t === 'P6SM') continue; // Always drop
+
+            // Meter format (4 digits)
+            if (/^\d{4}$/.test(t)) {
+                const val = parseInt(t);
+                if (val < 9999) significant.push(t); // 9999 is "10km or more".
+                continue;
+            }
+
+            // B. Clouds
+            // Matches FEW, SCT, BKN, OVC, VV followed by 3 digits
+            const cloudMatch = t.match(/^([A-Z]{2,3})(\d{3})([A-Z]{2,3})?$/);
+            if (cloudMatch) {
+                const type = cloudMatch[1];
+                const height = parseInt(cloudMatch[2]);
+
+                if (type === 'VV') {
+                    significant.push(t); // Vertical visibility always significant
+                } else if (['BKN', 'OVC'].includes(type)) {
+                    // Only keep if ceiling is non-VFR (< 3000 ft aka 030)
+                    if (height < 30) {
+                        significant.push(t);
+                    }
+                }
+                // FEW and SCT are discarded
+                continue;
+            }
+
+            // C. Weather Codes
+            // Standard METAR weather codes
+            if (/^([-+]|VC)?(RA|SN|DZ|SG|IC|PL|GR|GS|UP|TS|SH|FZ|BR|FG|HZ|FU|VA|DU|SA|HZ|PY|PO|SQ|FC|SS|DS)+$/.test(t)) {
+                significant.push(t);
+                continue;
+            }
+
+            // D. Keep NSW?
+            if (t === 'NSW') continue; // "No Significant Weather" -> Drop it, we want the bad stuff.
+        }
+
+        return significant.join(' ');
     }
 
 
@@ -1195,9 +1314,10 @@ destIcaoInput.addEventListener('input', () => {
         return { stations, refName, stationDataMap };
     }
 
-    function runRouteAnalysis(stationDataMap, depIcao, destIcao, takeOffTime, landingTime) {
+    function runRouteAnalysis(stationDataMap, depIcao, destIcao, takeOffTime, landingTime, maxDistanceInput) {
         const dep = depIcao ? depIcao.toUpperCase() : null;
         const dest = destIcao ? destIcao.toUpperCase() : null;
+        const distLimit = maxDistanceInput || MAX_ROUTE_DISTANCE_NM;
 
         // MODIFIED: Allow independent calculation
         const depResults = [];
@@ -1224,10 +1344,17 @@ destIcaoInput.addEventListener('input', () => {
                         if (station.latitude === null || station.longitude === null || !station.taf) continue;
                         const distToDep = haversineDistance(depCoords.lat, depCoords.lon, station.latitude, station.longitude);
 
-                        if (distToDep <= MAX_ROUTE_DISTANCE_NM) {
+                        if (distToDep <= distLimit) {
                             if (!station.taf.validTo || station.taf.validTo >= takeoffStart) {
-                                const cat = getWorstFlightCategoryFromTAF(station.taf.rawText, takeoffStart, takeoffEnd);
-                                depResults.push({ id: station.id, name: station.name, worstCategory: cat, distance: distToDep });
+                                const analysis = getWorstFlightCategoryFromTAF(station.taf.rawText, takeoffStart, takeoffEnd);
+                                const conditionText = (analysis.category !== 'VFR' && analysis.category !== 'NODATA') ? extractConditionString(analysis.rawText) : '';
+                                depResults.push({
+                                    id: station.id,
+                                    name: station.name,
+                                    worstCategory: analysis.category,
+                                    conditionText: conditionText,
+                                    distance: distToDep
+                                });
                             }
                         }
                     }
@@ -1251,10 +1378,17 @@ destIcaoInput.addEventListener('input', () => {
                         if (station.latitude === null || station.longitude === null || !station.taf) continue;
                         const distToDest = haversineDistance(destCoords.lat, destCoords.lon, station.latitude, station.longitude);
 
-                        if (distToDest <= MAX_ROUTE_DISTANCE_NM) {
+                        if (distToDest <= distLimit) {
                             if (!station.taf.validTo || station.taf.validTo >= landingStart) {
-                                const cat = getWorstFlightCategoryFromTAF(station.taf.rawText, landingStart, landingEnd);
-                                destResults.push({ id: station.id, name: station.name, worstCategory: cat, distance: distToDest });
+                                const analysis = getWorstFlightCategoryFromTAF(station.taf.rawText, landingStart, landingEnd);
+                                const conditionText = (analysis.category !== 'VFR' && analysis.category !== 'NODATA') ? extractConditionString(analysis.rawText) : '';
+                                destResults.push({
+                                    id: station.id,
+                                    name: station.name,
+                                    worstCategory: analysis.category,
+                                    conditionText: conditionText,
+                                    distance: distToDest
+                                });
                             }
                         }
                     }
@@ -1266,7 +1400,8 @@ destIcaoInput.addEventListener('input', () => {
         return {
             depResults, destResults,
             takeoffStart, takeoffEnd, landingStart, landingEnd,
-            depName: dep || 'N/A', destName: dest || 'N/A'
+            depName: dep || 'N/A', destName: dest || 'N/A',
+            searchDistance: distLimit
         };
     }
 
@@ -1291,6 +1426,9 @@ destIcaoInput.addEventListener('input', () => {
             const destIcao = destIcaoInput.value.trim().toUpperCase();
             const takeOffTime = takeOffTimeInput.value;
             const landingTime = landingTimeInput.value;
+
+            const radiusInputVal = parseInt(searchRadiusInput.value);
+            const searchDist = (!isNaN(radiusInputVal) && radiusInputVal > 0) ? radiusInputVal : MAX_ROUTE_DISTANCE_NM;
 
             if (routeAnalysisEnabled) {
                 // MODIFIED: Check that at least one is provided
@@ -1325,7 +1463,7 @@ destIcaoInput.addEventListener('input', () => {
 
             if (routeAnalysisEnabled) {
                 showStatus("Running Alternate Analysis...");
-                routeAnalysisResult = runRouteAnalysis(stationDataMap, depIcao, destIcao, takeOffTime, landingTime);
+                routeAnalysisResult = runRouteAnalysis(stationDataMap, depIcao, destIcao, takeOffTime, landingTime, searchDist);
             }
 
             if (routeAnalysisEnabled) tabRouteAnalysis.classList.remove('hidden');
@@ -1351,7 +1489,7 @@ destIcaoInput.addEventListener('input', () => {
     }
 
     function renderRouteAnalysisBrowser(analysisResult) {
-        const { depResults, destResults, takeoffStart, takeoffEnd, landingStart, landingEnd, depName, destName } = analysisResult;
+        const { depResults, destResults, takeoffStart, takeoffEnd, landingStart, landingEnd, depName, destName, searchDistance } = analysisResult;
         routeAnalysisViewEl.innerHTML = '';
         const tStart = takeoffStart ? formatTimeHHMM(takeoffStart) : 'N/A';
         const tEnd = takeoffEnd ? formatTimeHHMM(takeoffEnd) : 'N/A';
@@ -1364,7 +1502,7 @@ destIcaoInput.addEventListener('input', () => {
                     Alternate Analysis
                 </h3>
                 <p class="text-xs text-gray-500 dark:text-gray-400 mt-2 italic">
-                    Stations within ${MAX_ROUTE_DISTANCE_NM} NM. Colors represent worst-case category.
+                    Stations within ${searchDistance} NM. Colors represent worst-case category.
                 </p>
             </div>
         `;
@@ -1376,17 +1514,23 @@ destIcaoInput.addEventListener('input', () => {
                 const className = getCategoryTileClassName(data.worstCategory);
                 const dotColor = getCategoryColor(data.worstCategory);
                 const textColor = (dotColor[0] + dotColor[1] + dotColor[2]) > 300 ? 'text-gray-900' : 'text-white';
+                // Only show condition text if it exists (i.e. worse than VFR)
+                const conditionHtml = data.conditionText ? `<span class="text-[10px] font-mono ${textColor} opacity-90 text-center break-words leading-tight px-1">${data.conditionText}</span>` : '';
+
                 return `
-                    <div class="p-3 rounded-lg shadow-md ${className} flex flex-col items-center justify-center space-y-1 transition-transform hover:scale-[1.05] cursor-default"
+                    <div class="p-2 rounded-lg shadow-md ${className} flex flex-col items-center justify-center space-y-1 transition-transform hover:scale-[1.05] cursor-default min-h-[100px]"
                          title="${data.id} - ${data.name || 'Unknown'} | Worst Category: ${data.worstCategory} | Distance: ${data.distance.toFixed(0)} NM">
                         <span class="font-bold text-lg font-mono ${textColor}">${data.id}</span>
-                        <span class="text-xs ${textColor} opacity-80 text-center w-full break-words">${data.name || 'N/A'}</span>
-                        <span class="text-xs font-semibold ${textColor} opacity-90">${data.worstCategory}</span>
-                        <span class="text-xs ${textColor} opacity-70">${data.distance.toFixed(0)} NM</span>
+                        <span class="text-xs ${textColor} opacity-80 text-center w-full truncate px-1">${data.name || 'N/A'}</span>
+                        <div class="flex flex-col items-center">
+                             <span class="text-xs font-bold ${textColor} opacity-100">${data.worstCategory}</span>
+                             ${conditionHtml}
+                        </div>
+                        <span class="text-[10px] ${textColor} opacity-70 mt-auto pt-1">${data.distance.toFixed(0)} NM</span>
                     </div>
                 `;
              }).join('');
-             return `<div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">${tiles}</div>`;
+             return `<div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">${tiles}</div>`;
         };
 
         // MODIFIED: Collapsible Sections using <details>
@@ -1593,7 +1737,7 @@ destIcaoInput.addEventListener('input', () => {
 
              let startTileX = PAGE_MARGIN;
              const tileWidth = 30;
-             const tileHeight = 15;
+             const tileHeight = 20; // Increased height for extra text
              const tileMargin = 5;
              const maxTilesPerRow = Math.floor(USABLE_WIDTH / (tileWidth + tileMargin));
              let col = 0; let row = 0;
@@ -1635,9 +1779,22 @@ destIcaoInput.addEventListener('input', () => {
                 if (displayName.length > 20) displayName = displayName.substring(0, 18) + '..';
                 doc.text(displayName, x + tileWidth / 2, y + 8, { align: 'center' });
 
-                doc.setFont("helvetica", "normal");
+                doc.setFont("helvetica", "bold");
                 doc.setFontSize(6);
-                doc.text(`${data.worstCategory} / ${data.distance.toFixed(0)} NM`, x + tileWidth / 2, y + 12, { align: 'center' });
+                doc.text(`${data.worstCategory}`, x + tileWidth / 2, y + 12, { align: 'center' });
+
+                // Draw condition text if it exists (worse than VFR)
+                if (data.conditionText) {
+                    doc.setFont("courier", "normal");
+                    doc.setFontSize(5);
+                    const condSplit = doc.splitTextToSize(data.conditionText, tileWidth - 2);
+                    doc.text(condSplit, x + tileWidth / 2, y + 15, { align: 'center' });
+                }
+
+                doc.setFont("helvetica", "normal");
+                doc.setFontSize(5);
+                // Move distance to bottom
+                doc.text(`${data.distance.toFixed(0)} NM`, x + tileWidth / 2, y + tileHeight - 2, { align: 'center' });
 
                 col++;
                 if (col >= maxTilesPerRow) { col = 0; row++; }
