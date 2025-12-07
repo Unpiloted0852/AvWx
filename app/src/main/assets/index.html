@@ -104,6 +104,12 @@
         }
         .update-banner-enter { animation: slideDown 0.5s ease-out forwards; }
 
+        @keyframes fadeIn {
+            from { opacity: 0; transform: scale(0.95); }
+            to { opacity: 1; transform: scale(1); }
+        }
+        .modal-enter { animation: fadeIn 0.2s ease-out forwards; }
+
         /* Inline Tailwind utility styles for offline support - simplified for brevity */
         .bg-gray-100 { background-color: #f3f4f6; }
         .dark .dark\:bg-black { background-color: #000000; }
@@ -112,6 +118,8 @@
         .bg-gray-50 { background-color: #f9fafb; }
         .bg-white { background-color: #ffffff; }
         .bg-white\/20 { background-color: rgba(255,255,255,0.2); }
+        .bg-white\/30 { background-color: rgba(255,255,255,0.3); }
+        .bg-white\/10 { background-color: rgba(255,255,255,0.1); }
         .bg-yellow-500 { background-color: #eab308; }
         .bg-blue-50 { background-color: #eff6ff; }
         .bg-blue-900\/30 { background-color: rgba(30,58,138,0.3); }
@@ -148,6 +156,8 @@
         .hover\:bg-yellow-600:hover { background-color: #ca8a04; }
         .dark .dark\:hover\:bg-gray-700:hover { background-color: #374151; }
         .dark .dark\:hover\:bg-gray-800:hover { background-color: #1f2937; }
+        .hover\:bg-white\/20:hover { background-color: rgba(255, 255, 255, 0.2); }
+        .bg-white\/25 { background-color: rgba(255, 255, 255, 0.25); }
 
         .text-gray-900 { color: #111827; }
         .dark .dark\:text-gray-100 { color: #f3f4f6; }
@@ -185,6 +195,10 @@
         .border-blue-500 { border-color: #3b82f6; }
         .border-red-500 { border-color: #ef4444; }
         .border-pink-500 { border-color: #ec4899; }
+        .border-white\/40 { border-color: rgba(255,255,255,0.4); }
+        .border-black\/20 { border-color: rgba(0,0,0,0.2); }
+        .border-none { border-style: none; }
+
         .border-l-4 { border-left-width: 4px; }
         .border-b { border-bottom-width: 1px; }
         .border-t { border-top-width: 1px; }
@@ -206,6 +220,10 @@
           --tw-ring-color: #eab308;
         }
 
+        .focus\:ring-white\/50 {
+             --tw-ring-color: rgba(255,255,255,0.5);
+        }
+
         .focus\:ring-offset-2 {
           --tw-ring-offset-width: 2px;
         }
@@ -225,9 +243,11 @@
         .py-2.5 { padding-top: 0.625rem; padding-bottom: 0.625rem; }
         .py-3 { padding-top: 0.75rem; padding-bottom: 0.75rem; }
         .px-2 { padding-left: 0.5rem; padding-right: 0.5rem; }
+        .px-3 { padding-left: 0.75rem; padding-right: 0.75rem; }
         .px-4 { padding-left: 1rem; padding-right: 1rem; }
         .px-6 { padding-left: 1.5rem; padding-right: 1.5rem; }
         .px-12 { padding-left: 3rem; padding-right: 3rem; }
+        .pr-2 { padding-right: 0.5rem; }
 
         .mt-1 { margin-top: 0.25rem; }
         .mt-2 { margin-top: 0.5rem; }
@@ -243,6 +263,7 @@
         .mb-8 { margin-bottom: 2rem; }
         .ml-2 { margin-left: 0.5rem; }
         .mx-auto { margin-left: auto; margin-right: auto; }
+        .m-4 { margin: 1rem; }
 
         .gap-1 { gap: 0.25rem; }
         .gap-2 { gap: 0.5rem; }
@@ -263,6 +284,7 @@
         .shadow-md { box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1), 0 2px 4px -2px rgba(0,0,0,0.1); }
         .shadow-sm { box-shadow: 0 1px 2px 0 rgba(0,0,0,0.05); }
         .shadow-xl { box-shadow: 0 20px 25px -5px rgba(0,0,0,0.1), 0 8px 10px -6px rgba(0,0,0,0.1); }
+        .shadow-2xl { box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25); }
 
         .flex { display: flex; }
         .flex-col { flex-direction: column; }
@@ -273,12 +295,15 @@
         .items-center { align-items: center; }
         .items-baseline { align-items: baseline; }
         .items-end { align-items: flex-end; }
+        .items-start { align-items: flex-start; }
         .self-center { align-self: center; }
         .justify-between { justify-content: space-between; }
         .justify-center { justify-content: center; }
+        .justify-end { justify-content: flex-end; }
         .sm\:items-baseline { @media (min-width: 640px) { align-items: baseline; } }
         .sm\:flex-none { @media (min-width: 640px) { flex: 0 1 auto; } }
         .sm\:w-auto { @media (min-width: 640px) { width: auto; } }
+        .inline-block { display: inline-block; }
 
         .grid { display: grid; }
         .grid-cols-1 { grid-template-columns: repeat(1, minmax(0, 1fr)); }
@@ -289,17 +314,22 @@
         .lg\:grid-cols-4 { @media (min-width: 1024px) { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
         .lg\:grid-cols-5 { @media (min-width: 1024px) { grid-template-columns: repeat(5, minmax(0, 1fr)); } }
         .sm\:grid-cols-3 { @media (min-width: 640px) { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+        .col-span-full { grid-column: 1 / -1; }
 
         .w-full { width: 100%; }
         .w-6 { width: 1.5rem; }
+        .w-8 { width: 2rem; }
         .w-5 { width: 1.25rem; }
         .w-24 { width: 6rem; }
         .w-auto { width: auto; }
         .max-w-5xl { max-width: 64rem; }
+        .max-w-2xl { max-width: 42rem; }
         .h-full { height: 100%; }
         .h-6 { height: 1.5rem; }
+        .h-8 { height: 2rem; }
         .h-5 { height: 1.25rem; }
         .max-h-\[85vh\] { max-height: 85vh; }
+        .max-h-\[90vh\] { max-height: 90vh; }
         .min-h-full { min-height: 100%; }
 
         .transition { transition-property: color, background-color, border-color, text-decoration-color, fill, stroke, opacity, box-shadow, transform, filter, backdrop-filter; transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1); transition-duration: 150ms; }
@@ -319,17 +349,22 @@
 
         .leading-relaxed { line-height: 1.625; }
         .leading-5 { line-height: 1.25rem; }
+        .leading-tight { line-height: 1.25; }
 
         .tracking-widest { letter-spacing: 0.1em; }
+        .tracking-wider { letter-spacing: 0.05em; }
 
         .text-3xl { font-size: 1.875rem; line-height: 2.25rem; }
+        .text-4xl { font-size: 2.25rem; line-height: 2.5rem; }
         .text-base { font-size: 1rem; line-height: 1.5rem; }
         .text-lg { font-size: 1.125rem; line-height: 1.75rem; }
         .text-sm { font-size: 0.875rem; line-height: 1.25rem; }
         .text-xl { font-size: 1.25rem; line-height: 1.75rem; }
         .text-xs { font-size: 0.75rem; line-height: 1rem; }
+        .text-\[10px\] { font-size: 10px; }
 
         .text-center { text-align: center; }
+        .text-left { text-align: left; }
 
         .hidden { display: none; }
         .block { display: block; }
@@ -338,6 +373,7 @@
         .absolute { position: absolute; }
         .fixed { position: fixed; }
         .relative { position: relative; }
+        .inset-0 { top: 0; right: 0; bottom: 0; left: 0; }
 
         .left-0 { left: 0; }
         .right-0 { right: 0; }
@@ -349,9 +385,14 @@
 
         .z-\[100\] { z-index: 100; }
         .z-\[110\] { z-index: 110; }
+        .z-50 { z-index: 50; }
 
         .overflow-y-auto { overflow-y: auto; }
         .overflow-x-hidden { overflow-x: hidden; }
+        .custom-scrollbar::-webkit-scrollbar { width: 6px; }
+        .custom-scrollbar::-webkit-scrollbar-track { background: rgba(0,0,0,0.1); border-radius: 10px; }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: rgba(0,0,0,0.2); border-radius: 10px; }
+        .text-white .custom-scrollbar::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.3); }
 
         .cursor-pointer { cursor: pointer; }
         .cursor-default { cursor: default; }
@@ -369,6 +410,10 @@
         .opacity-80 { opacity: 0.8; }
         .opacity-90 { opacity: 0.9; }
         .opacity-50 { opacity: 0.5; }
+        .opacity-100 { opacity: 1; }
+        .opacity-60 { opacity: 0.6; }
+
+        .backdrop-blur-sm { backdrop-filter: blur(4px); -webkit-backdrop-filter: blur(4px); }
 
         .antialiased { -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; }
 
@@ -387,11 +432,13 @@
         /* Mobile specific fix for wrapping long METAR text */
         .break-words { overflow-wrap: break-word; word-break: break-word; }
         .whitespace-pre-wrap { white-space: pre-wrap; }
+        .truncate { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
     </style>
 </head>
 
 <body class="bg-gray-100 dark:bg-black text-gray-900 dark:text-gray-100 min-h-full antialiased transition-colors duration-300 overflow-x-hidden">
 
+<!-- Update Banner -->
 <div id="updateBanner" class="hidden fixed top-0 left-0 right-0 z-[110] p-4 bg-blue-600 text-white shadow-xl">
     <div class="container mx-auto max-w-5xl flex flex-col sm:flex-row items-center justify-between gap-4">
         <div class="flex items-center gap-3">
@@ -415,6 +462,14 @@
                 </svg>
             </button>
         </div>
+    </div>
+</div>
+
+<!-- Modal Overlay for TAF Details -->
+<div id="tileModal" class="hidden fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4 transition-opacity duration-300" onclick="handleModalClick(event)">
+    <div class="rounded-xl shadow-2xl w-full max-w-2xl max-h-[90vh] flex flex-col modal-enter transition-all transform border-none" onclick="event.stopPropagation()">
+        <!-- Content injected via JS -->
+        <div id="modalContent"></div>
     </div>
 </div>
 
@@ -448,6 +503,7 @@
     </header>
 
     <div class="bg-white dark:bg-black border border-transparent dark:border-gray-800 p-4 md:p-6 rounded-xl shadow-lg mb-6 transition-colors duration-300">
+        <!-- Input fields (same as before) -->
         <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             <div>
                 <label for="outputMode" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
@@ -468,7 +524,6 @@
                     <option value="distance" disabled>Distance to Home Airport</option>
                 </select>
 
-                <!-- UPDATED LAYOUT FOR HOME AIRPORT -->
                 <div class="mt-3 p-3 bg-gray-50 dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-800">
                     <label for="icaoInput" class="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">
                         Home Airport (Distance Reference)
@@ -568,9 +623,15 @@
 </div>
 
 <script>
-    // --- APP UPDATE CONFIGURATION ---
-    const CURRENT_VERSION = 'v1.3.8';
+    // --- APP CONFIG ---
+    const CURRENT_VERSION = 'v1.4.0';
     const GITHUB_REPO = 'Unpiloted0852/AvWx';
+
+    // Global Data Storage for Modal Access
+    let g_analysisData = {
+        dep: { results: [], start: null, end: null },
+        dest: { results: [], start: null, end: null }
+    };
 
     // --- LIBRARIES SAFE LOADING ---
     let jsPDF = null;
@@ -604,6 +665,7 @@
     const takeOffTimeInput = document.getElementById('takeOffTime');
     const landingTimeInput = document.getElementById('landingTime');
     const searchRadiusInput = document.getElementById('searchRadius');
+    const modal = document.getElementById('tileModal');
 
     // URLs
     const TAF_DATA_URL = 'https://aviationweather.gov/data/cache/tafs.cache.xml.gz';
@@ -623,14 +685,7 @@
     let cachedStationMap = null;
     let routeAnalysisEnabled = false;
 
-    const CATEGORY_ORDER = {
-        'LIFR': 4,
-        'IFR': 3,
-        'MVFR': 2,
-        'VFR': 1,
-        'NODATA': 0 // Lowest priority
-    };
-
+    const CATEGORY_ORDER = { 'LIFR': 4, 'IFR': 3, 'MVFR': 2, 'VFR': 1, 'NODATA': 0 };
     const COLORS = {
         VFR: [0, 170, 0],
         MVFR: [0, 50, 160],
@@ -640,7 +695,6 @@
     };
 
     // --- INITIALIZATION ---
-    // (Button listener handled via onclick attribute)
 
     function formatUtcForInput(date) {
         const Y = date.getUTCFullYear();
@@ -658,7 +712,6 @@
 
     function initializeTimeInputs() {
         const now = new Date();
-        // 1. Calculate Takeoff: 1 hour in future, rounded up
         let takeoffTime = new Date(now.getTime() + 60 * 60 * 1000);
         if (takeoffTime.getUTCMinutes() > 0) {
             takeoffTime.setUTCHours(takeoffTime.getUTCHours() + 1);
@@ -666,8 +719,6 @@
         }
         takeoffTime.setUTCSeconds(0);
         takeoffTime.setUTCMilliseconds(0);
-
-        // 2. Calculate Landing: 7 hours after Takeoff
         const landingTime = new Date(takeoffTime.getTime() + 7 * 60 * 60 * 1000);
 
         const commonConfig = {
@@ -678,7 +729,6 @@
             minuteIncrement: 1,
             static: true
         };
-
         flatpickr("#takeOffTime", { ...commonConfig, defaultDate: formatUtcForInput(takeoffTime) });
         flatpickr("#landingTime", { ...commonConfig, defaultDate: formatUtcForInput(landingTime) });
     }
@@ -696,7 +746,17 @@
     tabStandard.addEventListener('click', () => switchTab('standard'));
     tabRouteAnalysis.addEventListener('click', () => switchTab('route-analysis'));
 
-    // --- PERSISTENCE & AUTO-FILL LOGIC ---
+    // --- MODAL LOGIC ---
+    function handleModalClick(event) {
+        if (event.target === modal) closeTileModal();
+    }
+
+    function closeTileModal() {
+        modal.classList.add('hidden');
+        document.body.style.overflow = ''; // Restore scrolling
+    }
+
+    // --- PERSISTENCE & AUTO-FILL ---
     let isMirroringHome = false;
 
     function loadSavedInputs() {
@@ -713,9 +773,7 @@
             if (savedDep) depIcaoInput.value = savedDep;
             if (savedDest) destIcaoInput.value = savedDest;
             if (savedRadius) searchRadiusInput.value = savedRadius;
-        } catch(e) {
-            console.log("Localstorage read failed", e);
-        }
+        } catch(e) {}
     }
 
     icaoInput.addEventListener('input', () => {
@@ -789,9 +847,7 @@
         }
     }
 
-    // High contrast for active tab (Blue bg, White Text)
     const TAB_ACTIVE_CLASSES = ['bg-blue-600', 'text-white', 'shadow'];
-    // Subtle look for inactive tab
     const TAB_INACTIVE_CLASSES = ['text-gray-700', 'dark:text-gray-400', 'hover:bg-gray-300', 'dark:hover:bg-gray-800'];
 
     function switchTab(tabId) {
@@ -814,22 +870,16 @@
         }
     }
 
-    // --- UPDATE CHECKER LOGIC ---
-
     async function checkForUpdates() {
         try {
             const response = await fetch(`https://api.github.com/repos/${GITHUB_REPO}/releases/latest`);
             if (!response.ok) return;
-
             const data = await response.json();
             const latestVersion = data.tag_name;
-
             if (isNewerVersion(CURRENT_VERSION, latestVersion)) {
                 showUpdateBanner(latestVersion, data);
             }
-        } catch (error) {
-            console.warn("Failed to check for updates:", error);
-        }
+        } catch (error) {}
     }
 
     function isNewerVersion(current, latest) {
@@ -868,8 +918,6 @@
     }
     checkForUpdates();
 
-    // --- UTILS ---
-
     function showStatus(message, isError = false, details = "") {
         resultsContainerEl.classList.add('hidden');
         statusEl.textContent = message;
@@ -900,7 +948,7 @@
                   Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) *
                   Math.sin(dLon / 2) * Math.sin(dLon / 2);
         const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-        return (R * c) * 0.539957; // Convert km to NM
+        return (R * c) * 0.539957;
     }
 
     function calculateAgeInMinutes(isoTimestamp) {
@@ -935,24 +983,14 @@
     function getCategoryClassName(cat) {
         if (!cat) return 'vfr-dot';
         const c = cat.toUpperCase().trim();
-        const map = {
-            'LIFR': 'lifr-dot',
-            'IFR': 'ifr-dot',
-            'MVFR': 'mvfr-dot',
-            'NODATA': 'nodata-tile'
-        };
+        const map = { 'LIFR': 'lifr-dot', 'IFR': 'ifr-dot', 'MVFR': 'mvfr-dot', 'NODATA': 'nodata-tile' };
         return map[c] || 'vfr-dot';
     }
 
     function getCategoryTileClassName(cat) {
         if (!cat) return 'vfr-tile';
         const c = cat.toUpperCase().trim();
-        const map = {
-            'LIFR': 'lifr-tile',
-            'IFR': 'ifr-tile',
-            'MVFR': 'mvfr-tile',
-            'NODATA': 'nodata-tile'
-        };
+        const map = { 'LIFR': 'lifr-tile', 'IFR': 'ifr-tile', 'MVFR': 'mvfr-tile', 'NODATA': 'nodata-tile' };
         return map[c] || 'vfr-tile';
     }
 
@@ -962,7 +1000,6 @@
         return CATEGORY_ORDER[c] || CATEGORY_ORDER.VFR;
     }
 
-    // --- PARSING & GENERATION ---
     function calculateTempFAndRH(metarNode) {
         const tempC = parseFloat(metarNode.querySelector("temp_c")?.textContent);
         const dewpointC = parseFloat(metarNode.querySelector("dewpoint_c")?.textContent);
@@ -1123,7 +1160,6 @@
                     worstCategory = cat;
                     worstToken = cleanToken;
                 } else if (currentPrio === worstPrio && worstCategory !== 'VFR') {
-                     // Keep the first found significant weather condition for tie-breaking
                      if (!worstToken) worstToken = cleanToken;
                 }
             }
@@ -1134,40 +1170,21 @@
     function extractConditionString(text) {
         if (!text) return "";
         let clean = text;
-
-        // --- PRE-CLEANING ---
-        // 1. Strip Header info
         clean = clean.replace(/^(TAF|AMD|COR)\s+/g, '');
-        clean = clean.replace(/^[A-Z]{4}\s+/g, ''); // Station
-        clean = clean.replace(/^\d{6}Z\s+/g, ''); // Time
-        clean = clean.replace(/^\d{4}\/\d{4}\s+/g, ''); // Validity
-
-        // 2. Strip Change tokens
+        clean = clean.replace(/^[A-Z]{4}\s+/g, '');
+        clean = clean.replace(/^\d{6}Z\s+/g, '');
+        clean = clean.replace(/^\d{4}\/\d{4}\s+/g, '');
         clean = clean.replace(/\b(FM\d{6}|BECMG|TEMPO|PROB\d{2}(\s+TEMPO)?|PROB\d{2})\b/g, '');
-
-        // 3. Strip Time ranges (isolated)
         clean = clean.replace(/\b\d{4}\/\d{4}\b/g, '');
-
-        // 4. Strip Wind (e.g., 36010KT, VRB02KT)
         clean = clean.replace(/\b([0-9]{3}|VRB|[/]{3})[0-9]{2,3}(G[0-9]{2,3})?KT\b/g, '');
-        clean = clean.replace(/\b([0-9]{3}|VRB|[/]{3})[0-9]{2,3}MPS\b/g, ''); // Metric wind
-
-        // 5. Strip Temperatures (TX..., TN...) if present in TAF
+        clean = clean.replace(/\b([0-9]{3}|VRB|[/]{3})[0-9]{2,3}MPS\b/g, '');
         clean = clean.replace(/\bT[XN].+?\b/g, '');
-
-        // 6. Strip Pressure (QNH..., A..., Q...)
         clean = clean.replace(/\b(QNH|Q|A)[0-9]{4}(INS)?\b/g, '');
-
-        // 7. Strip Shear
         clean = clean.replace(/\bWS\d{3}\/\d{5}KT\b/g, '');
-
-        // --- TOKEN FILTERING ---
         const tokens = clean.split(/\s+/).filter(t => t.trim() !== '');
         const significant = [];
 
         for (const t of tokens) {
-            // A. Visibility
-            // SM format
             if (/^(M)?(\d+(\/\d+)?)SM$/.test(t)) {
                 let numPart = t.replace('SM','').replace('M','');
                 let val = 0;
@@ -1177,54 +1194,27 @@
                 } else {
                     val = parseFloat(numPart);
                 }
-                // If M is present, it's "less than", so definitely low. Keep.
-                if (t.startsWith('M')) {
-                    significant.push(t);
-                } else if (val <= 5) {
-                    significant.push(t);
-                }
+                if (t.startsWith('M') || val <= 5) significant.push(t);
                 continue;
             }
-
-            if (t === 'P6SM') continue; // Always drop
-
-            // Meter format (4 digits)
+            if (t === 'P6SM') continue;
             if (/^\d{4}$/.test(t)) {
-                const val = parseInt(t);
-                if (val < 9999) significant.push(t); // 9999 is "10km or more".
+                if (parseInt(t) < 9999) significant.push(t);
                 continue;
             }
-
-            // B. Clouds
-            // Matches FEW, SCT, BKN, OVC, VV followed by 3 digits
             const cloudMatch = t.match(/^([A-Z]{2,3})(\d{3})([A-Z]{2,3})?$/);
             if (cloudMatch) {
                 const type = cloudMatch[1];
                 const height = parseInt(cloudMatch[2]);
-
-                if (type === 'VV') {
-                    significant.push(t); // Vertical visibility always significant
-                } else if (['BKN', 'OVC'].includes(type)) {
-                    // Only keep if ceiling is non-VFR (< 3000 ft aka 030)
-                    if (height < 30) {
-                        significant.push(t);
-                    }
-                }
-                // FEW and SCT are discarded
+                if (type === 'VV' || (['BKN', 'OVC'].includes(type) && height < 30)) significant.push(t);
                 continue;
             }
-
-            // C. Weather Codes
-            // Standard METAR weather codes
             if (/^([-+]|VC)?(RA|SN|DZ|SG|IC|PL|GR|GS|UP|TS|SH|FZ|BR|FG|HZ|FU|VA|DU|SA|HZ|PY|PO|SQ|FC|SS|DS)+$/.test(t)) {
                 significant.push(t);
                 continue;
             }
-
-            // D. Keep NSW?
-            if (t === 'NSW') continue; // "No Significant Weather" -> Drop it, we want the bad stuff.
+            if (t === 'NSW') continue;
         }
-
         return significant.join(' ');
     }
 
@@ -1319,7 +1309,6 @@
         const dest = destIcao ? destIcao.toUpperCase() : null;
         const distLimit = maxDistanceInput || MAX_ROUTE_DISTANCE_NM;
 
-        // MODIFIED: Allow independent calculation
         const depResults = [];
         const destResults = [];
         const now = new Date();
@@ -1329,21 +1318,17 @@
         let landingStart = null, landingEnd = null;
         let depName = 'N/A', destName = 'N/A';
 
-        // 1. Departure Analysis
         if (dep) {
             const depCoords = getCoordsForICAO(dep, cachedStationMap);
             if (depCoords && depCoords.lat !== null) {
                 depName = stationDataMap.get(dep)?.name || dep;
                 const toDate = takeOffTime ? parseUtcString(takeOffTime) : null;
-
                 if (toDate) {
                     takeoffStart = new Date(toDate.getTime() - ONE_HOUR);
                     takeoffEnd = new Date(toDate.getTime() + ONE_HOUR);
-
                     for (const station of stationDataMap.values()) {
                         if (station.latitude === null || station.longitude === null || !station.taf) continue;
                         const distToDep = haversineDistance(depCoords.lat, depCoords.lon, station.latitude, station.longitude);
-
                         if (distToDep <= distLimit) {
                             if (!station.taf.validTo || station.taf.validTo >= takeoffStart) {
                                 const analysis = getWorstFlightCategoryFromTAF(station.taf.rawText, takeoffStart, takeoffEnd);
@@ -1353,7 +1338,8 @@
                                     name: station.name,
                                     worstCategory: analysis.category,
                                     conditionText: conditionText,
-                                    distance: distToDep
+                                    distance: distToDep,
+                                    tafRawText: station.taf.rawText
                                 });
                             }
                         }
@@ -1363,21 +1349,17 @@
             }
         }
 
-        // 2. Destination Analysis
         if (dest) {
             const destCoords = getCoordsForICAO(dest, cachedStationMap);
             if (destCoords && destCoords.lat !== null) {
                 destName = stationDataMap.get(dest)?.name || dest;
                 const lDate = landingTime ? parseUtcString(landingTime) : null;
-
                 if (lDate) {
                     landingStart = new Date(lDate.getTime() - ONE_HOUR);
                     landingEnd = new Date(lDate.getTime() + ONE_HOUR);
-
                     for (const station of stationDataMap.values()) {
                         if (station.latitude === null || station.longitude === null || !station.taf) continue;
                         const distToDest = haversineDistance(destCoords.lat, destCoords.lon, station.latitude, station.longitude);
-
                         if (distToDest <= distLimit) {
                             if (!station.taf.validTo || station.taf.validTo >= landingStart) {
                                 const analysis = getWorstFlightCategoryFromTAF(station.taf.rawText, landingStart, landingEnd);
@@ -1387,7 +1369,8 @@
                                     name: station.name,
                                     worstCategory: analysis.category,
                                     conditionText: conditionText,
-                                    distance: distToDest
+                                    distance: distToDest,
+                                    tafRawText: station.taf.rawText
                                 });
                             }
                         }
@@ -1426,17 +1409,14 @@
             const destIcao = destIcaoInput.value.trim().toUpperCase();
             const takeOffTime = takeOffTimeInput.value;
             const landingTime = landingTimeInput.value;
-
             const radiusInputVal = parseInt(searchRadiusInput.value);
             const searchDist = (!isNaN(radiusInputVal) && radiusInputVal > 0) ? radiusInputVal : MAX_ROUTE_DISTANCE_NM;
 
             if (routeAnalysisEnabled) {
-                // MODIFIED: Check that at least one is provided
                 if (depIcao.length < 3 && destIcao.length < 3) {
                      showStatus("Route Error", true, "Please enter at least one ICAO code (Departure or Destination).");
                      return;
                 }
-                // Time validation logic - only if we have both times
                 if (takeOffTime && landingTime && takeOffTime >= landingTime) {
                      showStatus("Time Error", true, "Landing time must be after Takeoff time.");
                      return;
@@ -1488,8 +1468,144 @@
         }
     }
 
+    // --- MODAL TAF DISPLAY LOGIC ---
+    function formatAnalyzedTaf(tafRawText, windowStart, windowEnd) {
+        if (!tafRawText) return 'No TAF Data';
+
+        const tafValidMatch = tafRawText.match(/(\d{6})Z/);
+        const now = new Date();
+        let issueTime = new Date(now);
+        if (tafValidMatch) {
+            const day = parseInt(tafValidMatch[1].substring(0, 2));
+            const hour = parseInt(tafValidMatch[1].substring(2, 4));
+            issueTime = resolveTafDate(now, day, hour);
+        }
+
+        // CRITICAL FIX: Non-capturing group (?:...) prevents regex from returning delimiters as tokens
+        const rawTokens = tafRawText.split(/\s(?=(?:FM\d{6}|BECMG|TEMPO|PROB\d{2}))/);
+
+        // Merge PROBxx with following TEMPO
+        const tokens = [];
+        for (let i = 0; i < rawTokens.length; i++) {
+            const t = rawTokens[i].trim();
+            if (/^PROB\d{2}$/.test(t) && rawTokens[i+1] && rawTokens[i+1].trim().startsWith('TEMPO')) {
+                 tokens.push(t + " " + rawTokens[i+1].trim());
+                 i++; // Skip the next token as we just merged it
+            } else {
+                 tokens.push(t);
+            }
+        }
+
+        let htmlParts = [];
+        const winStart = windowStart.getTime();
+        const winEnd = windowEnd.getTime();
+        let baseStart = issueTime.getTime();
+
+        for (const token of tokens) {
+            const cleanToken = token.trim();
+            if (!cleanToken) continue;
+            let chunkStart = baseStart;
+            let chunkEnd = 4102444800000;
+
+            if (cleanToken.startsWith('FM')) {
+                const d = parseInt(cleanToken.substring(2, 4));
+                const h = parseInt(cleanToken.substring(4, 6));
+                const m = parseInt(cleanToken.substring(6, 8));
+                const fmDate = resolveTafDate(issueTime, d, h);
+                fmDate.setUTCMinutes(m);
+                chunkStart = fmDate.getTime();
+                baseStart = chunkStart;
+            } else if (/^(BECMG)/.test(cleanToken)) {
+                const timeMatch = cleanToken.match(/(\d{2})(\d{2})\/(\d{2})(\d{2})/);
+                if (timeMatch) {
+                    const [_, sd, sh, ed, eh] = timeMatch;
+                    chunkStart = resolveTafDate(issueTime, parseInt(sd), parseInt(sh)).getTime();
+                }
+            } else if (/^(TEMPO|PROB)/.test(cleanToken)) {
+                const timeMatch = cleanToken.match(/(\d{2})(\d{2})\/(\d{2})(\d{2})/);
+                if (timeMatch) {
+                    const [_, sd, sh, ed, eh] = timeMatch;
+                    chunkStart = resolveTafDate(issueTime, parseInt(sd), parseInt(sh)).getTime();
+                    chunkEnd = resolveTafDate(issueTime, parseInt(ed), parseInt(eh)).getTime();
+                } else {
+                    chunkStart = baseStart;
+                }
+            }
+
+            const isOverlap = chunkStart < winEnd && chunkEnd > winStart;
+
+            // Simplified styling for colored background
+            const styleClass = isOverlap
+                ? 'font-bold bg-white/25 rounded px-2 py-1 shadow-sm'
+                : 'opacity-70 px-2 py-0.5';
+
+            const highlightedToken = cleanToken.split(' ').map(word => {
+                return isPrecipOrTS(word) ? `<span class="underline decoration-2">${word}</span>` : word;
+            }).join(' ');
+
+            htmlParts.push(`<div class="mb-1 transition-all ${styleClass}">${highlightedToken}</div>`);
+        }
+        return htmlParts.join('');
+    }
+
+    function openTileModal(stationId, type) {
+        const dataSet = g_analysisData[type];
+        if (!dataSet) return;
+
+        const station = dataSet.results.find(s => s.id === stationId);
+        if (!station) return;
+
+        // Calculate colors based on worst category
+        const cat = station.worstCategory;
+        const tileClass = getCategoryTileClassName(cat);
+        const dotColor = getCategoryColor(cat);
+        const textColor = (dotColor[0] + dotColor[1] + dotColor[2]) > 300 ? 'text-gray-900' : 'text-white';
+
+        // Apply tile colors to modal container
+        const modalContainer = document.querySelector('#tileModal > div');
+        modalContainer.className = `rounded-xl shadow-2xl w-full max-w-2xl max-h-[90vh] flex flex-col modal-enter transition-all transform border-none ${tileClass} ${textColor}`;
+
+        // Generate Simplified Content (Large Tile Look)
+        const tafHtml = formatAnalyzedTaf(station.tafRawText, dataSet.start, dataSet.end);
+
+        const contentEl = document.getElementById('modalContent');
+
+        // Reset container to just this content (removing old header/footer structure if any)
+        modalContainer.innerHTML = `
+            <div class="relative p-6 flex flex-col h-full" onclick="event.stopPropagation()">
+                <button onclick="closeTileModal()" class="absolute top-4 right-4 p-2 rounded-full hover:bg-white/20 transition-colors focus:outline-none z-50">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8 ${textColor}" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                </button>
+
+                <div class="flex flex-col items-start mb-6 shrink-0">
+                    <h3 class="text-4xl font-bold font-mono tracking-wider">${station.id}</h3>
+                    <p class="text-lg opacity-80 font-medium">${station.name || 'Unknown'}</p>
+                    <div class="mt-2 inline-block px-3 py-1 rounded border ${textColor === 'text-white' ? 'border-white/40' : 'border-black/20'} text-sm font-bold">
+                        ${cat}
+                    </div>
+                </div>
+
+                <div class="flex-grow overflow-y-auto pr-2 custom-scrollbar">
+                    <div class="font-mono text-base whitespace-pre-wrap leading-relaxed">
+                        ${tafHtml}
+                    </div>
+                </div>
+            </div>
+        `;
+
+        modal.classList.remove('hidden');
+        document.body.style.overflow = 'hidden';
+    }
+
     function renderRouteAnalysisBrowser(analysisResult) {
         const { depResults, destResults, takeoffStart, takeoffEnd, landingStart, landingEnd, depName, destName, searchDistance } = analysisResult;
+
+        // Update Global Data for Modal
+        g_analysisData.dep = { results: depResults, start: takeoffStart, end: takeoffEnd };
+        g_analysisData.dest = { results: destResults, start: landingStart, end: landingEnd };
+
         routeAnalysisViewEl.innerHTML = '';
         const tStart = takeoffStart ? formatTimeHHMM(takeoffStart) : 'N/A';
         const tEnd = takeoffEnd ? formatTimeHHMM(takeoffEnd) : 'N/A';
@@ -1502,24 +1618,26 @@
                     Alternate Analysis
                 </h3>
                 <p class="text-xs text-gray-500 dark:text-gray-400 mt-2 italic">
-                    Stations within ${searchDistance} NM. Colors represent worst-case category.
+                    Stations within ${searchDistance} NM. Click a tile for details.
                 </p>
             </div>
         `;
         routeAnalysisViewEl.insertAdjacentHTML('beforeend', headerHtml);
 
-        const generateGrid = (items) => {
+        const generateGrid = (items, type) => {
              if (!items || items.length === 0) return `<div class="text-center p-4 text-gray-500 italic">No alternates found within range.</div>`;
+
              const tiles = items.map(data => {
                 const className = getCategoryTileClassName(data.worstCategory);
                 const dotColor = getCategoryColor(data.worstCategory);
                 const textColor = (dotColor[0] + dotColor[1] + dotColor[2]) > 300 ? 'text-gray-900' : 'text-white';
-                // Only show condition text if it exists (i.e. worse than VFR)
                 const conditionHtml = data.conditionText ? `<span class="text-[10px] font-mono ${textColor} opacity-90 text-center break-words leading-tight px-1">${data.conditionText}</span>` : '';
 
                 return `
-                    <div class="p-2 rounded-lg shadow-md ${className} flex flex-col items-center justify-center space-y-1 transition-transform hover:scale-[1.05] cursor-default min-h-[100px]"
-                         title="${data.id} - ${data.name || 'Unknown'} | Worst Category: ${data.worstCategory} | Distance: ${data.distance.toFixed(0)} NM">
+                    <button class="w-full text-left p-2 rounded-lg shadow-md ${className} flex flex-col items-center justify-start space-y-1 transition-all duration-200 cursor-pointer min-h-[100px] hover:scale-[1.05] hover:shadow-xl focus:outline-none focus:ring-2 focus:ring-white/50"
+                         onclick="openTileModal('${data.id}', '${type}')"
+                         aria-label="View details for ${data.id}">
+
                         <span class="font-bold text-lg font-mono ${textColor}">${data.id}</span>
                         <span class="text-xs ${textColor} opacity-80 text-center w-full truncate px-1">${data.name || 'N/A'}</span>
                         <div class="flex flex-col items-center">
@@ -1527,13 +1645,12 @@
                              ${conditionHtml}
                         </div>
                         <span class="text-[10px] ${textColor} opacity-70 mt-auto pt-1">${data.distance.toFixed(0)} NM</span>
-                    </div>
+                    </button>
                 `;
              }).join('');
-             return `<div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">${tiles}</div>`;
+             return `<div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3 transition-all">${tiles}</div>`;
         };
 
-        // MODIFIED: Collapsible Sections using <details>
         if (takeoffStart && depName !== 'N/A') {
             const depSection = `
                 <details class="group bg-white dark:bg-gray-900 rounded-xl shadow-md border border-gray-200 dark:border-gray-800 mb-4 transition-all duration-300" open>
@@ -1549,7 +1666,7 @@
                         </svg>
                     </summary>
                     <div class="p-4 border-t border-gray-100 dark:border-gray-800">
-                        ${generateGrid(depResults)}
+                        ${generateGrid(depResults, 'dep')}
                     </div>
                 </details>
             `;
@@ -1571,7 +1688,7 @@
                         </svg>
                     </summary>
                     <div class="p-4 border-t border-gray-100 dark:border-gray-800">
-                        ${generateGrid(destResults)}
+                        ${generateGrid(destResults, 'dest')}
                     </div>
                 </details>
             `;
