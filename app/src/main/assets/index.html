@@ -517,7 +517,7 @@
     </header>
 
     <div class="bg-white dark:bg-black border border-transparent dark:border-gray-800 p-4 md:p-6 rounded-xl shadow-lg mb-6 transition-colors duration-300">
-        <!-- Input fields (same as before) -->
+        <!-- Input fields -->
         <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             <div>
                 <label for="outputMode" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
@@ -538,14 +538,20 @@
                     <option value="distance" disabled>Distance to Home Airport</option>
                 </select>
 
-                <div class="mt-3 p-3 bg-gray-50 dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-800">
-                    <label for="icaoInput" class="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">
-                        Home Airport (Distance Reference)
-                    </label>
-                    <div class="flex items-center gap-3">
+                <div class="mt-3 grid grid-cols-2 gap-3">
+                    <div class="p-3 bg-gray-50 dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-800">
+                        <label for="icaoInput" class="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">
+                            Home Airport
+                        </label>
                         <input type="text" id="icaoInput" maxlength="4" placeholder="KOKC"
-                               class="uppercase w-24 p-2 text-base md:text-sm border border-gray-300 dark:border-gray-700 rounded bg-white dark:bg-black dark:text-gray-100 focus:ring-blue-500 focus:border-blue-500 tracking-widest font-mono transition-colors">
-                        <p class="text-xs text-gray-400 self-center">Enter 4-letter ICAO code</p>
+                               class="uppercase w-full p-2 text-base md:text-sm border border-gray-300 dark:border-gray-700 rounded bg-white dark:bg-black dark:text-gray-100 focus:ring-blue-500 focus:border-blue-500 tracking-widest font-mono transition-colors">
+                    </div>
+                    <div class="p-3 bg-gray-50 dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-800">
+                        <label for="minRunway" class="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">
+                            Min Rwy (ft)
+                        </label>
+                        <input type="number" id="minRunway" placeholder="0" min="0" step="100"
+                               class="w-full p-2 text-base md:text-sm border border-gray-300 dark:border-gray-700 rounded bg-white dark:bg-black dark:text-gray-100 focus:ring-blue-500 focus:border-blue-500 font-mono transition-colors">
                     </div>
                 </div>
             </div>
@@ -638,7 +644,7 @@
 
 <script>
     // --- APP CONFIG ---
-    const CURRENT_VERSION = 'v1.4.2';
+    const CURRENT_VERSION = 'v1.4.3';
     const GITHUB_REPO = 'Unpiloted0852/AvWx';
 
     // Global Data Storage for Modal Access
@@ -679,12 +685,14 @@
     const takeOffTimeInput = document.getElementById('takeOffTime');
     const landingTimeInput = document.getElementById('landingTime');
     const searchRadiusInput = document.getElementById('searchRadius');
+    const minRunwayInput = document.getElementById('minRunway');
     const modal = document.getElementById('tileModal');
 
     // URLs
     const TAF_DATA_URL = 'https://aviationweather.gov/data/cache/tafs.cache.xml.gz';
     const METAR_DATA_URL = 'https://aviationweather.gov/data/cache/metars.cache.xml.gz';
     const STATIONS_DATA_URL = 'https://aviationweather.gov/data/cache/stations.cache.xml.gz';
+    const RUNWAY_DATA_URL = 'https://raw.githubusercontent.com/davidmegginson/ourairports-data/main/runways.csv';
     const PROXY_URL = 'https://corsproxy.io/?';
 
     const MAX_RETRIES = 3;
@@ -697,6 +705,7 @@
 
     // Cache
     let cachedStationMap = null;
+    let cachedRunwayMap = null;
     let routeAnalysisEnabled = false;
 
     const CATEGORY_ORDER = { 'LIFR': 4, 'IFR': 3, 'MVFR': 2, 'VFR': 1, 'NODATA': 0 };
@@ -779,6 +788,7 @@
             const savedDep = localStorage.getItem('depIcao');
             const savedDest = localStorage.getItem('destIcao');
             const savedRadius = localStorage.getItem('searchRadius');
+            const savedRunway = localStorage.getItem('minRunway');
 
             if (savedHome) {
                 icaoInput.value = savedHome;
@@ -787,6 +797,7 @@
             if (savedDep) depIcaoInput.value = savedDep;
             if (savedDest) destIcaoInput.value = savedDest;
             if (savedRadius) searchRadiusInput.value = savedRadius;
+            if (savedRunway) minRunwayInput.value = savedRunway;
         } catch(e) {}
     }
 
@@ -818,6 +829,10 @@
 
     searchRadiusInput.addEventListener('change', () => {
         try { localStorage.setItem('searchRadius', searchRadiusInput.value); } catch(e){}
+    });
+
+    minRunwayInput.addEventListener('change', () => {
+        try { localStorage.setItem('minRunway', minRunwayInput.value); } catch(e){}
     });
 
     loadSavedInputs();
@@ -1116,6 +1131,44 @@
         }
     }
 
+    async function getRunwayData() {
+        if (cachedRunwayMap) return cachedRunwayMap;
+
+        // Direct fetch from GitHub usually supports CORS, if not, we use proxy
+        const response = await fetch(RUNWAY_DATA_URL).catch(() => fetch(PROXY_URL + encodeURIComponent(RUNWAY_DATA_URL)));
+
+        if (!response.ok) throw new Error("Failed to download runway database");
+
+        const text = await response.text();
+        const map = new Map();
+
+        // Simple CSV parser
+        // Format: "id","airport_ref","airport_ident","length_ft",...
+        // We need index 2 (ident) and index 3 (length_ft)
+        const lines = text.split('\n');
+
+        // Start at 1 to skip header
+        for (let i = 1; i < lines.length; i++) {
+            const parts = lines[i].split(',');
+            if (parts.length < 4) continue;
+
+            // Remove quotes if present
+            const ident = parts[2].replace(/"/g, '').trim().toUpperCase();
+            const lenStr = parts[3].replace(/"/g, '').trim();
+            const len = parseInt(lenStr);
+
+            if (ident && !isNaN(len)) {
+                const currentMax = map.get(ident) || 0;
+                if (len > currentMax) {
+                    map.set(ident, len);
+                }
+            }
+        }
+
+        cachedRunwayMap = map;
+        return map;
+    }
+
     function getCoordsForICAO(icao, stationMap) {
         const data = stationMap.get(icao.toUpperCase());
         return data ? { lat: data.latitude, lon: data.longitude } : null;
@@ -1380,7 +1433,7 @@
     }
 
 
-    function processData(tafDoc, metarDoc, stationMap, homeIcao) {
+    function processData(tafDoc, metarDoc, stationMap, homeIcao, runwayMap, minRunwayLen) {
         const stationDataMap = new Map();
         const getOrCreateStation = (id) => {
             if (!stationDataMap.has(id)) {
@@ -1451,6 +1504,16 @@
         }
 
         let stations = Array.from(stationDataMap.values());
+
+        // Filter by Runway Length
+        if (runwayMap && minRunwayLen > 0) {
+            stations = stations.filter(s => {
+                const maxLen = runwayMap.get(s.id);
+                // Keep if we have data and it's long enough. If not in DB, exclude it when filter is active.
+                return maxLen && maxLen >= minRunwayLen;
+            });
+        }
+
         const sortMode = sortModeSelect.value;
         if (sortMode === 'distance' && refLat !== null) {
             stations.sort((a, b) => {
@@ -1465,7 +1528,7 @@
         return { stations, refName, stationDataMap };
     }
 
-    function runRouteAnalysis(stationDataMap, depIcao, destIcao, takeOffTime, landingTime, maxDistanceInput) {
+    function runRouteAnalysis(stationDataMap, depIcao, destIcao, takeOffTime, landingTime, maxDistanceInput, runwayMap, minRunwayLen) {
         const dep = depIcao ? depIcao.toUpperCase() : null;
         const dest = destIcao ? destIcao.toUpperCase() : null;
         const distLimit = maxDistanceInput || MAX_ROUTE_DISTANCE_NM;
@@ -1479,6 +1542,13 @@
         let landingStart = null, landingEnd = null;
         let depName = 'N/A', destName = 'N/A';
 
+        // Helper to check runway
+        const meetsRunwayReq = (id) => {
+            if (!runwayMap || minRunwayLen <= 0) return true;
+            const len = runwayMap.get(id);
+            return len && len >= minRunwayLen;
+        };
+
         if (dep) {
             const depCoords = getCoordsForICAO(dep, cachedStationMap);
             if (depCoords && depCoords.lat !== null) {
@@ -1488,7 +1558,7 @@
                     takeoffStart = new Date(toDate.getTime() - ONE_HOUR);
                     takeoffEnd = new Date(toDate.getTime() + ONE_HOUR);
                     for (const station of stationDataMap.values()) {
-                        if (station.latitude === null || station.longitude === null || !station.taf) continue;
+                        if (station.latitude === null || station.longitude === null || !station.taf || !meetsRunwayReq(station.id)) continue;
                         const distToDep = haversineDistance(depCoords.lat, depCoords.lon, station.latitude, station.longitude);
                         if (distToDep <= distLimit) {
                             if (!station.taf.validTo || station.taf.validTo >= takeoffStart) {
@@ -1519,7 +1589,7 @@
                     landingStart = new Date(lDate.getTime() - ONE_HOUR);
                     landingEnd = new Date(lDate.getTime() + ONE_HOUR);
                     for (const station of stationDataMap.values()) {
-                        if (station.latitude === null || station.longitude === null || !station.taf) continue;
+                        if (station.latitude === null || station.longitude === null || !station.taf || !meetsRunwayReq(station.id)) continue;
                         const distToDest = haversineDistance(destCoords.lat, destCoords.lon, station.latitude, station.longitude);
                         if (distToDest <= distLimit) {
                             if (!station.taf.validTo || station.taf.validTo >= landingStart) {
@@ -1559,6 +1629,7 @@
             const outputMode = outputModeSelect.value;
             const sortMode = sortModeSelect.value;
             const homeIcao = icaoInput.value.trim().toUpperCase();
+            const minRunwayLen = parseInt(minRunwayInput.value) || 0;
             let routeAnalysisResult = null;
 
             if (sortMode === 'distance' && homeIcao.length < 3) {
@@ -1590,21 +1661,32 @@
             showStatus("Fetching METAR, TAF, and Station Database...", false);
             resultsContainerEl.classList.add('hidden');
 
-            const [tafDoc, metarDoc, stationMap] = await Promise.all([
+            const promises = [
                 fetchAndParse(TAF_DATA_URL),
                 fetchAndParse(METAR_DATA_URL),
                 getStationMap()
-            ]);
+            ];
+
+            if (minRunwayLen > 0) {
+                showStatus("Fetching METAR, TAF, Stations, and Runway Data...", false);
+                promises.push(getRunwayData());
+            }
+
+            const results = await Promise.all(promises);
+            const tafDoc = results[0];
+            const metarDoc = results[1];
+            const stationMap = results[2];
+            const runwayMap = (minRunwayLen > 0) ? results[3] : null;
 
             showStatus("Processing stations...");
-            const processResult = processData(tafDoc, metarDoc, stationMap, homeIcao);
+            const processResult = processData(tafDoc, metarDoc, stationMap, homeIcao, runwayMap, minRunwayLen);
             const stationsData = processResult.stations;
             const stationDataMap = processResult.stationDataMap;
             const usedRef = processResult.refName;
 
             if (routeAnalysisEnabled) {
                 showStatus("Running Alternate Analysis...");
-                routeAnalysisResult = runRouteAnalysis(stationDataMap, depIcao, destIcao, takeOffTime, landingTime, searchDist);
+                routeAnalysisResult = runRouteAnalysis(stationDataMap, depIcao, destIcao, takeOffTime, landingTime, searchDist, runwayMap, minRunwayLen);
             }
 
             if (routeAnalysisEnabled) tabRouteAnalysis.classList.remove('hidden');
