@@ -675,7 +675,7 @@
 
 <script>
     // --- APP CONFIG ---
-    const CURRENT_VERSION = 'v2.0.0';
+    const CURRENT_VERSION = 'v2.0.1';
     const GITHUB_REPO = 'Unpiloted0852/AvWx';
 
     // Global Data Storage for Modal Access
@@ -687,6 +687,7 @@
     // Map Globals
     let mapInstance = null;
     let markerLayerGroup = null;
+    let mapRenderer = null;
     let currentStationsData = []; // Store data globally to render map on tab switch
 
     // --- LIBRARIES SAFE LOADING ---
@@ -966,6 +967,9 @@
         // Initialize Map with preferCanvas: true for performance
         mapInstance = L.map('weatherMap', { preferCanvas: true }).setView([39.8283, -98.5795], 4);
 
+        // Increase touch tolerance (hit detection) without changing visual radius
+        mapRenderer = L.canvas({ tolerance: 20 });
+
         // CartoDB Dark Matter Tiles (Sleek, Dark, Free)
         L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
             attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>',
@@ -1013,6 +1017,7 @@
 
             // Circle Marker style - efficient canvas rendering
             const marker = L.circleMarker([station.latitude, station.longitude], {
+                renderer: mapRenderer, // Use the high-tolerance renderer
                 radius: 5,
                 fillColor: colorHex,
                 color: '#000', // Black border for contrast on dark map
