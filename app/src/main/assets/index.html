@@ -63,6 +63,10 @@
     <link id="flatpickr-dark-css" rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/themes/dark.css" disabled>
     <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
 
+    <!-- Leaflet Map Library -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin=""/>
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
@@ -97,6 +101,23 @@
         .nodata-tile { background-color: rgb(150, 150, 150); }
 
         .flatpickr-calendar { font-family: 'Inter', sans-serif; }
+
+        /* Leaflet Dark Theme Overrides */
+        .leaflet-container { font-family: 'Inter', sans-serif; background: #111; }
+        .leaflet-popup-content-wrapper, .leaflet-popup-tip {
+            background-color: #1f2937; /* Tailwind gray-800 */
+            color: #f3f4f6;
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.5);
+            border: 1px solid #374151;
+            border-radius: 0.5rem;
+            min-width: 300px;
+        }
+        .leaflet-popup-content { margin: 12px; line-height: 1.5; min-width: 280px; max-height: 300px; overflow-y: auto; }
+        .leaflet-container a.leaflet-popup-close-button { color: #9ca3af; padding: 8px; }
+        .leaflet-container a.leaflet-popup-close-button:hover { color: #fff; }
+
+        /* Map container height */
+        #weatherMap { height: 60vh; min-height: 400px; width: 100%; border-radius: 0.75rem; z-index: 0; }
 
         @keyframes slideDown {
             from { transform: translateY(-100%); opacity: 0; }
@@ -623,20 +644,30 @@
     <div id="resultsContainer" class="hidden mt-8 p-3 md:p-4 bg-white dark:bg-black border border-transparent dark:border-gray-800 rounded-xl shadow-inner md:max-h-[85vh] flex flex-col transition-colors duration-300 w-full max-w-full">
 
         <div class="mb-4 shrink-0">
-            <div class="flex p-1 space-x-1 bg-gray-200 dark:bg-gray-900 rounded-xl">
+            <div class="flex p-1 space-x-1 bg-gray-200 dark:bg-gray-900 rounded-xl overflow-x-auto">
                 <button id="tabStandard"
-                        class="tab-button w-full py-2.5 text-sm font-medium leading-5 rounded-lg text-center transition-all duration-200 focus:outline-none bg-blue-600 text-white shadow touch-manipulation">
-                    Standard Report
+                        class="tab-button flex-1 py-2.5 px-2 text-sm font-medium leading-5 rounded-lg text-center transition-all duration-200 focus:outline-none bg-blue-600 text-white shadow touch-manipulation whitespace-nowrap">
+                    List Report
+                </button>
+                <button id="tabMap"
+                        class="tab-button flex-1 py-2.5 px-2 text-sm font-medium leading-5 rounded-lg text-center transition-all duration-200 focus:outline-none text-gray-700 dark:text-gray-400 hover:bg-gray-300 dark:hover:bg-gray-800 touch-manipulation whitespace-nowrap">
+                    Map View
                 </button>
                 <button id="tabRouteAnalysis"
-                        class="tab-button w-full py-2.5 text-sm font-medium leading-5 rounded-lg text-center transition-all duration-200 focus:outline-none text-gray-700 dark:text-gray-400 hover:bg-gray-300 dark:hover:bg-gray-800 hidden touch-manipulation">
+                        class="tab-button flex-1 py-2.5 px-2 text-sm font-medium leading-5 rounded-lg text-center transition-all duration-200 focus:outline-none text-gray-700 dark:text-gray-400 hover:bg-gray-300 dark:hover:bg-gray-800 hidden touch-manipulation whitespace-nowrap">
                     Alternate Analysis
                 </button>
             </div>
         </div>
 
-        <div class="flex-grow overflow-y-auto w-full">
+        <div class="flex-grow overflow-y-auto w-full relative">
             <div id="weatherList" class="space-y-6 tab-content w-full"></div>
+
+            <!-- NEW MAP CONTAINER -->
+            <div id="mapView" class="hidden tab-content w-full h-full">
+                <div id="weatherMap"></div>
+            </div>
+
             <div id="routeAnalysisView" class="hidden tab-content p-2 md:p-4 w-full"></div>
         </div>
     </div>
@@ -644,7 +675,7 @@
 
 <script>
     // --- APP CONFIG ---
-    const CURRENT_VERSION = 'v1.4.3';
+    const CURRENT_VERSION = 'v2.0.0';
     const GITHUB_REPO = 'Unpiloted0852/AvWx';
 
     // Global Data Storage for Modal Access
@@ -652,6 +683,11 @@
         dep: { results: [], start: null, end: null },
         dest: { results: [], start: null, end: null }
     };
+
+    // Map Globals
+    let mapInstance = null;
+    let markerLayerGroup = null;
+    let currentStationsData = []; // Store data globally to render map on tab switch
 
     // --- LIBRARIES SAFE LOADING ---
     let jsPDF = null;
@@ -677,6 +713,7 @@
     const toggleAdvancedButton = document.getElementById('toggleAdvanced');
     const advancedInputsEl = document.getElementById('advancedInputs');
     const tabStandard = document.getElementById('tabStandard');
+    const tabMap = document.getElementById('tabMap');
     const tabRouteAnalysis = document.getElementById('tabRouteAnalysis');
     const nodataLegendEl = document.getElementById('nodata-legend');
 
@@ -716,6 +753,165 @@
         LIFR: [255, 20, 147],
         NODATA: [150, 150, 150]
     };
+
+    // --- PDF HELPERS DEFINED AT GLOBAL SCOPE ---
+    function drawStyledText(doc, lineText, x, y, baseColor) {
+        const words = lineText.split(' ');
+        let currentX = x;
+        doc.setTextColor(...baseColor);
+        doc.setFont("courier", "normal");
+        doc.setFontSize(9);
+        const spaceWidth = doc.getTextWidth(" ");
+        for (let word of words) {
+            const shouldBold = isPrecipOrTS(word);
+            doc.setFont("courier", shouldBold ? "bold" : "normal");
+            doc.text(word, currentX, y);
+            currentX += doc.getTextWidth(word) + spaceWidth;
+        }
+    }
+
+    function drawPdfLegend(doc, cursorY) {
+        doc.setFont("helvetica", "bold");
+        doc.setFontSize(10);
+        doc.text("METAR Flight Categories", PAGE_WIDTH / 2, cursorY, { align: "center" });
+        cursorY += 6;
+        const legendItems = [
+            { label: "VFR", color: COLORS.VFR },
+            { label: "MVFR", color: COLORS.MVFR },
+            { label: "IFR", color: COLORS.IFR },
+            { label: "LIFR", color: COLORS.LIFR },
+            { label: "NODATA", color: COLORS.NODATA }
+        ];
+        const itemWidth = 30;
+        const totalLegendWidth = legendItems.length * itemWidth;
+        const startX = (PAGE_WIDTH - totalLegendWidth) / 2;
+        const boxSize = 4;
+        const padding = 4;
+        for (let i = 0; i < legendItems.length; i++) {
+            const x = startX + i * itemWidth;
+            const item = legendItems[i];
+            doc.setFillColor(...item.color);
+            doc.rect(x, cursorY - 3, boxSize, boxSize, 'F');
+            doc.setFont("helvetica", "normal");
+            doc.setFontSize(8);
+            doc.setTextColor(30, 30, 30);
+            doc.text(item.label, x + boxSize + padding, cursorY);
+        }
+        return cursorY + 6;
+    }
+
+    function drawRouteAnalysisPDFPage(doc, analysisResult) {
+        const { depResults, destResults, takeoffStart, takeoffEnd, landingStart, landingEnd, depName, destName } = analysisResult;
+        let cursorY = PAGE_MARGIN;
+        const tStart = takeoffStart ? formatTimeHHMM(takeoffStart) : 'N/A';
+        const tEnd = takeoffEnd ? formatTimeHHMM(takeoffEnd) : 'N/A';
+        const lStart = landingStart ? formatTimeHHMM(landingStart) : 'N/A';
+        const lEnd = landingEnd ? formatTimeHHMM(landingEnd) : 'N/A';
+
+        doc.setFont("helvetica", "bold");
+        doc.setFontSize(18);
+        doc.setTextColor(30, 30, 30);
+        doc.text("Alternate Weather Analysis", PAGE_WIDTH / 2, cursorY, { align: "center" });
+        cursorY += 10;
+        doc.setFontSize(12);
+        doc.setTextColor(50, 50, 50);
+
+        let headerText = "Flight Plan";
+        if (depName !== 'N/A' && destName !== 'N/A') headerText = `Flight: ${depName} to ${destName}`;
+        else if (depName !== 'N/A') headerText = `Departure: ${depName}`;
+        else if (destName !== 'N/A') headerText = `Destination: ${destName}`;
+
+        doc.text(headerText, PAGE_WIDTH / 2, cursorY, { align: "center" });
+        cursorY += 10;
+
+        const drawGridSection = (title, windowStr, items) => {
+             if (cursorY + 20 > PAGE_HEIGHT - PAGE_MARGIN) { doc.addPage(); cursorY = PAGE_MARGIN; }
+             doc.setFont("helvetica", "bold");
+             doc.setFontSize(14);
+             doc.setTextColor(30, 30, 30);
+             doc.text(title, PAGE_MARGIN, cursorY);
+             doc.setFont("courier", "normal");
+             doc.setFontSize(10);
+             doc.setTextColor(80, 80, 80);
+             doc.text(windowStr, PAGE_WIDTH - PAGE_MARGIN, cursorY, { align: "right" });
+             cursorY += 8;
+             doc.setLineWidth(0.2);
+             doc.setDrawColor(200, 200, 200);
+
+             let startTileX = PAGE_MARGIN;
+             const tileWidth = 30;
+             const tileHeight = 20;
+             const tileMargin = 5;
+             const maxTilesPerRow = Math.floor(USABLE_WIDTH / (tileWidth + tileMargin));
+             let col = 0; let row = 0;
+
+             if (!items || items.length === 0) {
+                 doc.setFont("helvetica", "italic");
+                 doc.setFontSize(10);
+                 doc.text("No alternates found within range.", PAGE_MARGIN, cursorY);
+                 cursorY += 15;
+                 return;
+             }
+
+             for (const data of items) {
+                const color = getCategoryColor(data.worstCategory);
+                doc.setFillColor(...color);
+                let x = startTileX + col * (tileWidth + tileMargin);
+                let y = cursorY + row * (tileHeight + tileMargin);
+                if (y + tileHeight > PAGE_HEIGHT - PAGE_MARGIN) {
+                    doc.addPage();
+                    cursorY = PAGE_MARGIN;
+                    row = 0; col = 0;
+                    doc.setLineWidth(0.2);
+                    doc.setDrawColor(200, 200, 200);
+                    doc.setFillColor(...color);
+                    x = startTileX + col * (tileWidth + tileMargin);
+                    y = cursorY + row * (tileHeight + tileMargin);
+                }
+                doc.rect(x, y, tileWidth, tileHeight, 'FD');
+                const avgColor = (color[0] + color[1] + color[2]) / 3;
+                doc.setTextColor(avgColor > 128 ? 0 : 255, avgColor > 128 ? 0 : 255, avgColor > 128 ? 0 : 255);
+
+                doc.setFont("helvetica", "bold");
+                doc.setFontSize(9);
+                doc.text(data.id, x + tileWidth / 2, y + 4, { align: 'center' });
+
+                doc.setFont("helvetica", "normal");
+                doc.setFontSize(5);
+                let displayName = data.name || '';
+                if (displayName.length > 20) displayName = displayName.substring(0, 18) + '..';
+                doc.text(displayName, x + tileWidth / 2, y + 8, { align: 'center' });
+
+                doc.setFont("helvetica", "bold");
+                doc.setFontSize(6);
+                doc.text(`${data.worstCategory}`, x + tileWidth / 2, y + 12, { align: 'center' });
+
+                if (data.conditionText) {
+                    doc.setFont("courier", "normal");
+                    doc.setFontSize(5);
+                    const condSplit = doc.splitTextToSize(data.conditionText, tileWidth - 2);
+                    doc.text(condSplit, x + tileWidth / 2, y + 15, { align: 'center' });
+                }
+
+                doc.setFont("helvetica", "normal");
+                doc.setFontSize(5);
+                doc.text(`${data.distance.toFixed(0)} NM`, x + tileWidth / 2, y + tileHeight - 2, { align: 'center' });
+
+                col++;
+                if (col >= maxTilesPerRow) { col = 0; row++; }
+             }
+             cursorY += (row + 1) * (tileHeight + tileMargin) + 5;
+        };
+
+        if (takeoffStart && depName !== 'N/A') {
+            drawGridSection("Departure Alternates", `Window: ${tStart} - ${tEnd}`, depResults);
+        }
+        if (landingStart && destName !== 'N/A') {
+            drawGridSection("Destination Alternates", `Window: ${lStart} - ${lEnd}`, destResults);
+        }
+
+        return cursorY;
+    }
 
     // --- INITIALIZATION ---
 
@@ -763,10 +959,115 @@
         return `${h}:${m}Z`;
     }
 
+    // --- MAP FUNCTIONS ---
+    function initMap() {
+        if (mapInstance) return;
+
+        // Initialize Map with preferCanvas: true for performance
+        mapInstance = L.map('weatherMap', { preferCanvas: true }).setView([39.8283, -98.5795], 4);
+
+        // CartoDB Dark Matter Tiles (Sleek, Dark, Free)
+        L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+            attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>',
+            subdomains: 'abcd',
+            maxZoom: 19
+        }).addTo(mapInstance);
+
+        markerLayerGroup = L.layerGroup().addTo(mapInstance);
+    }
+
+    function rgbToHex(rgbArray) {
+        // Helper to convert your RGB arrays [0, 170, 0] to Hex strings for Leaflet
+        return "#" + ((1 << 24) + (rgbArray[0] << 16) + (rgbArray[1] << 8) + rgbArray[2]).toString(16).slice(1);
+    }
+
+    function renderMap(stations) {
+        if (!mapInstance) initMap();
+        markerLayerGroup.clearLayers();
+
+        // 1. Center Map on Home Airport
+        const homeInput = document.getElementById('icaoInput').value.trim().toUpperCase();
+        if (homeInput.length >= 3 && cachedStationMap) {
+             const homeCoords = getCoordsForICAO(homeInput, cachedStationMap);
+             if (homeCoords && homeCoords.lat !== null) {
+                 mapInstance.setView([homeCoords.lat, homeCoords.lon], 6); // Set to 6 for state/region view
+             } else {
+                 mapInstance.setView([39.8283, -98.5795], 4);
+             }
+        }
+
+        const markers = [];
+
+        stations.forEach(station => {
+            // Skip if no coordinates
+            if (station.latitude === null || station.longitude === null) return;
+
+            // CRITICAL FIX: Skip stations with no valid METAR (removes grey dots/clutter/lag)
+            if (!station.metar || !station.metar.category || station.metar.category === 'NODATA') return;
+
+            // Determine Color based on METAR category ONLY
+            let cat = station.metar.category;
+
+            const colorRgb = COLORS[cat] || COLORS.NODATA;
+            const colorHex = rgbToHex(colorRgb);
+
+            // Circle Marker style - efficient canvas rendering
+            const marker = L.circleMarker([station.latitude, station.longitude], {
+                radius: 5,
+                fillColor: colorHex,
+                color: '#000', // Black border for contrast on dark map
+                weight: 1,
+                opacity: 0.8,
+                fillOpacity: 0.8
+            });
+
+            // LAZY POPUP: Use a function to return HTML string.
+            // This prevents generating 5000 HTML strings on load, fixing performance.
+            marker.bindPopup(function() {
+                // Prepare colored HTML for Popup using existing formatRawText logic
+                let metarHtml = '<div class="text-xs italic text-gray-500">No METAR available</div>';
+                if (station.metar) {
+                    metarHtml = `<div class="space-y-0.5">${formatRawText(station.metar.rawText)}</div>`;
+                    metarHtml += `<div class="mt-1 text-xs text-gray-400">${station.metar.tempF} • ${station.metar.rh} • Age: ${formatAge(station.metar.age)}</div>`;
+                }
+
+                let tafHtml = '<div class="text-xs italic text-gray-500">No TAF available</div>';
+                if (station.taf) {
+                    tafHtml = `<div class="space-y-0.5">${formatRawText(station.taf.rawText)}</div>`;
+                     if (station.taf.age !== null) tafHtml += `<div class="mt-1 text-xs text-gray-400">Issued: ${formatAge(station.taf.age)}</div>`;
+                }
+
+                // Popup Content
+                return `
+                    <div class="font-sans">
+                        <div class="flex items-baseline justify-between mb-2 pb-1 border-b border-gray-700">
+                            <span class="font-bold text-lg text-blue-400">${station.id}</span>
+                            <span class="text-xs text-gray-300 ml-2 truncate" style="max-width: 150px;">${station.name || ''}</span>
+                        </div>
+
+                        <div class="mb-2">
+                            <span class="text-xs font-bold text-gray-400 uppercase tracking-wider block mb-1">METAR</span>
+                            ${metarHtml}
+                        </div>
+
+                        <div class="mb-1">
+                            <span class="text-xs font-bold text-gray-400 uppercase tracking-wider block mb-1">TAF</span>
+                            ${tafHtml}
+                        </div>
+                    </div>
+                `;
+            });
+
+            markers.push(marker);
+            markerLayerGroup.addLayer(marker);
+        });
+    }
+
     // --- EVENT LISTENERS ---
     generateButton.addEventListener('click', handleGenerateClick);
     toggleAdvancedButton.addEventListener('click', toggleAdvancedPanel);
     tabStandard.addEventListener('click', () => switchTab('standard'));
+    tabMap.addEventListener('click', () => switchTab('map'));
     tabRouteAnalysis.addEventListener('click', () => switchTab('route-analysis'));
 
     // --- MODAL LOGIC ---
@@ -882,7 +1183,11 @@
     function switchTab(tabId) {
         const contents = document.querySelectorAll('.tab-content');
         const buttons = document.querySelectorAll('.tab-button');
+
+        // Hide all contents
         contents.forEach(el => el.classList.add('hidden'));
+
+        // Reset all buttons
         buttons.forEach(btn => {
             btn.classList.remove(...TAB_ACTIVE_CLASSES);
             btn.classList.add(...TAB_INACTIVE_CLASSES);
@@ -892,7 +1197,24 @@
             weatherListEl.classList.remove('hidden');
             tabStandard.classList.remove(...TAB_INACTIVE_CLASSES);
             tabStandard.classList.add(...TAB_ACTIVE_CLASSES);
-        } else if (tabId === 'route-analysis') {
+        }
+        else if (tabId === 'map') {
+            document.getElementById('mapView').classList.remove('hidden');
+            tabMap.classList.remove(...TAB_INACTIVE_CLASSES);
+            tabMap.classList.add(...TAB_ACTIVE_CLASSES);
+
+            // Critical: Leaflet needs to know its container size changed
+            if (mapInstance) {
+                setTimeout(() => {
+                    mapInstance.invalidateSize();
+                    // If we have data, ensure markers are drawn
+                    if (currentStationsData.length > 0 && markerLayerGroup.getLayers().length === 0) {
+                         renderMap(currentStationsData);
+                    }
+                }, 10);
+            }
+        }
+        else if (tabId === 'route-analysis') {
             routeAnalysisViewEl.classList.remove('hidden');
             tabRouteAnalysis.classList.remove(...TAB_INACTIVE_CLASSES);
             tabRouteAnalysis.classList.add(...TAB_ACTIVE_CLASSES);
@@ -1108,14 +1430,14 @@
             const stationsDoc = await fetchAndParse(STATIONS_DATA_URL);
             const map = new Map();
             stationsDoc.querySelectorAll("Station").forEach(node => {
-                const id = node.querySelector("station_id")?.textContent;
-                const site = node.querySelector("site")?.textContent;
-                const state = node.querySelector("state")?.textContent;
-                const country = node.querySelector("country")?.textContent;
+                const id = node.querySelector("station_id")?.textContent?.trim();
+                const site = node.querySelector("site")?.textContent?.trim();
+                const state = node.querySelector("state")?.textContent?.trim();
+                const country = node.querySelector("country")?.textContent?.trim();
                 const lat = parseFloat(node.querySelector("latitude")?.textContent);
                 const lon = parseFloat(node.querySelector("longitude")?.textContent);
                 if (id && site) {
-                    const cleanSite = site.trim().replace(/\/INTL$/, '').replace(/\//g, ' ');
+                    const cleanSite = site.replace(/\/INTL$/, '').replace(/\//g, ' ');
                     let label = cleanSite;
                     if (country === 'US' && state) label += `, ${state}`;
                     else if (country) label += `, ${country}`;
@@ -1452,22 +1774,22 @@
         };
 
         metarDoc.querySelectorAll("METAR").forEach(node => {
-            const stationId = node.querySelector("station_id")?.textContent;
+            const stationId = node.querySelector("station_id")?.textContent?.trim();
             if (!stationId) return;
             const station = getOrCreateStation(stationId);
             const { tempF, rh } = calculateTempFAndRH(node);
-            const rawText = node.querySelector("raw_text")?.textContent || 'N/A';
-            const category = node.querySelector("flight_category")?.textContent || analyzeCondition(rawText);
+            const rawText = node.querySelector("raw_text")?.textContent?.trim() || 'N/A';
+            const category = node.querySelector("flight_category")?.textContent?.trim() || analyzeCondition(rawText);
             const obsTimeText = node.querySelector("observation_time")?.textContent;
             const metarAgeMinutes = calculateAgeInMinutes(obsTimeText);
             station.metar = { rawText, category, tempF, rh, age: metarAgeMinutes, obsTime: obsTimeText };
         });
 
         tafDoc.querySelectorAll("TAF").forEach(node => {
-            const stationId = node.querySelector("station_id")?.textContent;
+            const stationId = node.querySelector("station_id")?.textContent?.trim();
             if (!stationId) return;
             const station = getOrCreateStation(stationId);
-            const rawText = node.querySelector("raw_text")?.textContent || 'N/A';
+            const rawText = node.querySelector("raw_text")?.textContent?.trim() || 'N/A';
             const validToText = node.querySelector("valid_time_to")?.textContent;
             const issueTimeText = node.querySelector("issue_time")?.textContent;
             const tafAgeMinutes = calculateAgeInMinutes(issueTimeText);
@@ -1570,7 +1892,9 @@
                                     worstCategory: analysis.category,
                                     conditionText: conditionText,
                                     distance: distToDep,
-                                    tafRawText: station.taf.rawText
+                                    tafRawText: station.taf.rawText,
+                                    latitude: station.latitude,
+                                    longitude: station.longitude
                                 });
                             }
                         }
@@ -1601,7 +1925,9 @@
                                     worstCategory: analysis.category,
                                     conditionText: conditionText,
                                     distance: distToDest,
-                                    tafRawText: station.taf.rawText
+                                    tafRawText: station.taf.rawText,
+                                    latitude: station.latitude,
+                                    longitude: station.longitude
                                 });
                             }
                         }
@@ -1899,6 +2225,13 @@
 
     function renderInBrowser(stationsData, refName, routeAnalysisResult) {
         weatherListEl.innerHTML = '';
+
+        // --- MAP DATA HANDLER ---
+        currentStationsData = stationsData;
+        // Render Map immediately (it will handle its own visibility)
+        renderMap(currentStationsData);
+        // --- END MAP DATA HANDLER ---
+
         if (refName && sortModeSelect.value === 'distance') {
             const refHeader = document.createElement('div');
             refHeader.className = "bg-blue-50 dark:bg-blue-900/30 p-3 rounded-lg mb-4 text-center text-sm font-bold text-blue-800 dark:text-blue-200 transition-colors duration-300";
