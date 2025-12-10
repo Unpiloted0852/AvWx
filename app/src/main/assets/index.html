@@ -119,6 +119,39 @@
         /* Map container height */
         #weatherMap { height: 60vh; min-height: 400px; width: 100%; border-radius: 0.75rem; z-index: 0; }
 
+        /* --- MAP LABELS STYLING --- */
+        /* By default, hide these labels. We reveal them with JS when zoomed in. */
+        .leaflet-tooltip.icao-label {
+            display: none;
+            background-color: transparent;
+            border: none;
+            box-shadow: none;
+            font-family: 'JetBrains Mono', monospace;
+            font-weight: 700;
+            font-size: 11px;
+            padding: 0;
+            margin: 0;
+            text-shadow: 1px 1px 0 #000, -1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000, 1px 1px 0 #000; /* Outline for readability */
+        }
+
+        /* Remove the default Leaflet triangle/arrow */
+        .leaflet-tooltip.icao-label::before {
+            display: none;
+        }
+
+        /* When the map container has 'show-labels' class (zoom >= 7), display them */
+        .leaflet-container.show-labels .leaflet-tooltip.icao-label {
+            display: block;
+        }
+
+        /* Label Colors matching dots */
+        .label-vfr { color: rgb(0, 170, 0); }
+        .label-mvfr { color: rgb(0, 50, 160); }
+        .label-ifr { color: rgb(200, 0, 0); }
+        .label-lifr { color: rgb(255, 20, 147); }
+        .label-nodata { color: rgb(150, 150, 150); }
+        /* -------------------------- */
+
         @keyframes slideDown {
             from { transform: translateY(-100%); opacity: 0; }
             to { transform: translateY(0); opacity: 1; }
@@ -675,7 +708,7 @@
 
 <script>
     // --- APP CONFIG ---
-    const CURRENT_VERSION = 'v2.0.1';
+    const CURRENT_VERSION = 'v2.0.2';
     const GITHUB_REPO = 'Unpiloted0852/AvWx';
 
     // Global Data Storage for Modal Access
@@ -978,6 +1011,17 @@
         }).addTo(mapInstance);
 
         markerLayerGroup = L.layerGroup().addTo(mapInstance);
+
+        // Add Zoom Listener for Labels
+        mapInstance.on('zoomend', function() {
+            const zoom = mapInstance.getZoom();
+            const container = mapInstance.getContainer();
+            if (zoom >= 7) {
+                container.classList.add('show-labels');
+            } else {
+                container.classList.remove('show-labels');
+            }
+        });
     }
 
     function rgbToHex(rgbArray) {
@@ -1024,6 +1068,15 @@
                 weight: 1,
                 opacity: 0.8,
                 fillOpacity: 0.8
+            });
+
+            // Bind the Label Tooltip (Text only, colored)
+            const labelClass = `icao-label label-${cat.toLowerCase()}`;
+            marker.bindTooltip(station.id, {
+                permanent: true,
+                direction: 'bottom',
+                className: labelClass,
+                offset: [0, 6] // Just below the circle
             });
 
             // LAZY POPUP: Use a function to return HTML string.
