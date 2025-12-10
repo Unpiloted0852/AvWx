@@ -69,7 +69,7 @@
 
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
     <style>
         /* CRITICAL FIX: Ensure padding is included in width calculations */
         *, ::before, ::after { box-sizing: border-box; border-width: 0; border-style: solid; border-color: #e5e7eb; }
@@ -119,29 +119,19 @@
         /* Map container height */
         #weatherMap { height: 60vh; min-height: 400px; width: 100%; border-radius: 0.75rem; z-index: 0; }
 
-        /* --- MAP LABELS STYLING --- */
-        /* By default, hide these labels. We reveal them with JS when zoomed in. */
-        .leaflet-tooltip.icao-label {
-            display: none;
-            background-color: transparent;
+        /* --- MAP LABELS STYLING (Optimized for divIcon) --- */
+        .leaflet-div-icon {
+            background: transparent;
             border: none;
-            box-shadow: none;
+        }
+
+        .map-icao-label {
             font-family: 'JetBrains Mono', monospace;
             font-weight: 700;
             font-size: 11px;
-            padding: 0;
-            margin: 0;
-            text-shadow: 1px 1px 0 #000, -1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000, 1px 1px 0 #000; /* Outline for readability */
-        }
-
-        /* Remove the default Leaflet triangle/arrow */
-        .leaflet-tooltip.icao-label::before {
-            display: none;
-        }
-
-        /* When the map container has 'show-labels' class (zoom >= 7), display them */
-        .leaflet-container.show-labels .leaflet-tooltip.icao-label {
-            display: block;
+            text-align: center;
+            text-shadow: 1.5px 1.5px 0 #000, -1.5px -1.5px 0 #000, 1.5px -1.5px 0 #000, -1.5px 1.5px 0 #000, 1.5px 1.5px 0 #000;
+            white-space: nowrap;
         }
 
         /* Label Colors matching dots */
@@ -212,6 +202,7 @@
         .dark .dark\:hover\:bg-gray-800:hover { background-color: #1f2937; }
         .hover\:bg-white\/20:hover { background-color: rgba(255, 255, 255, 0.2); }
         .bg-white\/25 { background-color: rgba(255, 255, 255, 0.25); }
+        .hover\:bg-green-700:hover { background-color: #15803d; }
 
         .text-gray-900 { color: #111827; }
         .dark .dark\:text-gray-100 { color: #f3f4f6; }
@@ -274,6 +265,10 @@
 
         .focus\:ring-yellow-500 {
           --tw-ring-color: #eab308;
+        }
+
+        .focus\:ring-green-500 {
+          --tw-ring-color: #16a34a;
         }
 
         .focus\:ring-white\/50 {
@@ -557,7 +552,10 @@
     </button>
 
     <header class="mb-6 text-center pt-12 md:pt-16">
-        <h1 class="text-2xl md:text-3xl font-bold text-blue-600 dark:text-blue-400">Aviation Weather Report</h1>
+        <h1 class="text-2xl md:text-3xl font-bold text-blue-600 dark:text-blue-400 flex justify-center items-center">
+            Aviation Weather Report
+            <span class="text-xs text-gray-400 dark:text-gray-500 font-normal ml-2 tracking-wide self-center" id="appVersionDisplay"></span>
+        </h1>
         <p class="text-sm md:text-base text-gray-600 dark:text-gray-400 mt-2 px-4">
             Generates a report of current METARs and TAFs. Warning: this app should be considered experimental--use at your own risk!
         </p>
@@ -572,16 +570,7 @@
 
     <div class="bg-white dark:bg-black border border-transparent dark:border-gray-800 p-4 md:p-6 rounded-xl shadow-lg mb-6 transition-colors duration-300">
         <!-- Input fields -->
-        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            <div>
-                <label for="outputMode" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                    Output Mode
-                </label>
-                <select id="outputMode" class="w-full p-3 md:p-4 text-base md:text-sm border border-gray-300 dark:border-gray-700 rounded-lg bg-gray-50 dark:bg-gray-900 dark:text-gray-200 focus:ring-blue-500 focus:border-blue-500 transition duration-150">
-                    <option value="browser">View in App</option>
-                    <option value="pdf">Download PDF</option>
-                </select>
-            </div>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
 
             <div class="md:col-span-1">
                 <label for="sortMode" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
@@ -676,8 +665,8 @@
 
     <div id="resultsContainer" class="hidden mt-8 p-3 md:p-4 bg-white dark:bg-black border border-transparent dark:border-gray-800 rounded-xl shadow-inner md:max-h-[85vh] flex flex-col transition-colors duration-300 w-full max-w-full">
 
-        <div class="mb-4 shrink-0">
-            <div class="flex p-1 space-x-1 bg-gray-200 dark:bg-gray-900 rounded-xl overflow-x-auto">
+        <div class="mb-4 shrink-0 flex flex-col sm:flex-row justify-between items-stretch sm:items-center gap-3">
+            <div class="flex p-1 space-x-1 bg-gray-200 dark:bg-gray-900 rounded-xl overflow-x-auto flex-grow sm:flex-grow-0 sm:min-w-[300px]">
                 <button id="tabStandard"
                         class="tab-button flex-1 py-2.5 px-2 text-sm font-medium leading-5 rounded-lg text-center transition-all duration-200 focus:outline-none bg-blue-600 text-white shadow touch-manipulation whitespace-nowrap">
                     List Report
@@ -688,9 +677,18 @@
                 </button>
                 <button id="tabRouteAnalysis"
                         class="tab-button flex-1 py-2.5 px-2 text-sm font-medium leading-5 rounded-lg text-center transition-all duration-200 focus:outline-none text-gray-700 dark:text-gray-400 hover:bg-gray-300 dark:hover:bg-gray-800 hidden touch-manipulation whitespace-nowrap">
-                    Alternate Analysis
+                    Analysis
                 </button>
             </div>
+
+            <!-- PDF Download Button -->
+            <button id="downloadPdfBtn" disabled
+                    class="flex items-center justify-center gap-2 bg-green-600 hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed text-white text-sm font-bold py-2.5 px-4 rounded-xl shadow-sm transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2 dark:focus:ring-offset-gray-900 whitespace-nowrap">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                </svg>
+                Download PDF
+            </button>
         </div>
 
         <div class="flex-grow overflow-y-auto w-full relative">
@@ -708,7 +706,7 @@
 
 <script>
     // --- APP CONFIG ---
-    const CURRENT_VERSION = 'v2.1.0';
+    const CURRENT_VERSION = 'v2.1.1';
     const GITHUB_REPO = 'Unpiloted0852/AvWx';
 
     // Global Data Storage for Modal Access
@@ -717,9 +715,17 @@
         dest: { results: [], start: null, end: null }
     };
 
+    // Store current report data for PDF generation
+    let currentReportData = {
+        stationsData: [],
+        refName: null,
+        routeAnalysisResult: null
+    };
+
     // Map Globals
     let mapInstance = null;
     let markerLayerGroup = null;
+    let labelLayerGroup = null; // Optimized layer for text
     let mapRenderer = null;
     let currentStationsData = []; // Store data globally to render map on tab switch
 
@@ -736,7 +742,7 @@
     }
 
     const generateButton = document.getElementById('generateButton');
-    const outputModeSelect = document.getElementById('outputMode');
+    const downloadPdfBtn = document.getElementById('downloadPdfBtn');
     const sortModeSelect = document.getElementById('sortMode');
     const icaoInput = document.getElementById('icaoInput');
     const statusEl = document.getElementById('status');
@@ -758,6 +764,9 @@
     const searchRadiusInput = document.getElementById('searchRadius');
     const minRunwayInput = document.getElementById('minRunway');
     const modal = document.getElementById('tileModal');
+
+    // Set Version in UI
+    document.getElementById('appVersionDisplay').textContent = CURRENT_VERSION;
 
     // URLs
     const TAF_DATA_URL = 'https://aviationweather.gov/data/cache/tafs.cache.xml.gz';
@@ -1011,17 +1020,64 @@
         }).addTo(mapInstance);
 
         markerLayerGroup = L.layerGroup().addTo(mapInstance);
+        labelLayerGroup = L.layerGroup().addTo(mapInstance); // New separate layer for labels
 
-        // Add Zoom Listener for Labels
-        mapInstance.on('zoomend', function() {
-            const zoom = mapInstance.getZoom();
-            const container = mapInstance.getContainer();
-            if (zoom >= 7) {
-                container.classList.add('show-labels');
-            } else {
-                container.classList.remove('show-labels');
+        // Events for Optimized Label Rendering
+        mapInstance.on('zoomend', updateMapLabels);
+        mapInstance.on('moveend', updateMapLabels);
+    }
+
+    // --- OPTIMIZED LABEL RENDERING ---
+    // Instead of creating 5000 DOM elements (tooltip) which kills performance,
+    // we only draw labels for stations currently inside the viewport, and only when zoomed in.
+    function updateMapLabels() {
+        if (!mapInstance || !labelLayerGroup) return;
+
+        // 1. Clear existing labels immediately to free memory
+        labelLayerGroup.clearLayers();
+
+        // 2. Check zoom level (Only show if >= 7)
+        const zoom = mapInstance.getZoom();
+        if (zoom < 7) return;
+
+        // 3. Get current map bounds
+        const bounds = mapInstance.getBounds();
+
+        // 4. Filter visible stations (Limit to max 150 to prevent freezing)
+        let count = 0;
+        const maxLabels = 150;
+
+        for (const station of currentStationsData) {
+            if (count >= maxLabels) break;
+
+            // Basic coordinate check
+            if (station.latitude === null || station.longitude === null) continue;
+
+            // Check if inside viewport
+            const latLng = L.latLng(station.latitude, station.longitude);
+            if (bounds.contains(latLng)) {
+
+                // Determine label color based on category
+                let cat = station.metar ? station.metar.category : 'NODATA';
+                const labelClass = `map-icao-label label-${cat.toLowerCase()}`;
+
+                // Create lightweight DivIcon
+                const labelIcon = L.divIcon({
+                    className: labelClass,
+                    html: station.id,
+                    iconSize: [40, 14],
+                    iconAnchor: [20, -5] // Offset to appear below the dot
+                });
+
+                L.marker(latLng, {
+                    icon: labelIcon,
+                    interactive: false, // Labels don't need clicks, dots handle that
+                    zIndexOffset: -100  // Keep labels below dots/popups
+                }).addTo(labelLayerGroup);
+
+                count++;
             }
-        });
+        }
     }
 
     // --- GREAT CIRCLE MATH ---
@@ -1061,6 +1117,7 @@
     function renderMap(stations) {
         if (!mapInstance) initMap();
         markerLayerGroup.clearLayers();
+        labelLayerGroup.clearLayers(); // Clear labels on new render
 
         // 1. Center Map on Home Airport
         const homeInput = document.getElementById('icaoInput').value.trim().toUpperCase();
@@ -1145,14 +1202,8 @@
                 fillOpacity: 0.8
             });
 
-            // Bind the Label Tooltip (Text only, colored)
-            const labelClass = `icao-label label-${cat.toLowerCase()}`;
-            marker.bindTooltip(station.id, {
-                permanent: true,
-                direction: 'bottom',
-                className: labelClass,
-                offset: [0, 6] // Just below the circle
-            });
+            // REMOVED PERMANENT TOOLTIP BINDING HERE FOR PERFORMANCE
+            // Labels are now handled by updateMapLabels()
 
             // LAZY POPUP: Use a function to return HTML string.
             // This prevents generating 5000 HTML strings on load, fixing performance.
@@ -1194,10 +1245,18 @@
             markers.push(marker);
             markerLayerGroup.addLayer(marker);
         });
+
+        // Initial label update if zoomed in
+        updateMapLabels();
     }
 
     // --- EVENT LISTENERS ---
     generateButton.addEventListener('click', handleGenerateClick);
+    downloadPdfBtn.addEventListener('click', () => {
+        if(currentReportData && currentReportData.stationsData.length > 0) {
+            generatePDF(currentReportData.stationsData, currentReportData.refName, currentReportData.routeAnalysisResult);
+        }
+    });
     toggleAdvancedButton.addEventListener('click', toggleAdvancedPanel);
     tabStandard.addEventListener('click', () => switchTab('standard'));
     tabMap.addEventListener('click', () => switchTab('map'));
@@ -2085,7 +2144,9 @@
         }
 
         try {
-            const outputMode = outputModeSelect.value;
+            // Disabled PDF button until new data is ready
+            downloadPdfBtn.disabled = true;
+
             const sortMode = sortModeSelect.value;
             const homeIcao = icaoInput.value.trim().toUpperCase();
             const minRunwayLen = parseInt(minRunwayInput.value) || 0;
@@ -2148,17 +2209,20 @@
                 routeAnalysisResult = runRouteAnalysis(stationDataMap, depIcao, destIcao, takeOffTime, landingTime, searchDist, runwayMap, minRunwayLen);
             }
 
+            // Save data for PDF Generation
+            currentReportData = {
+                stationsData: stationsData,
+                refName: usedRef,
+                routeAnalysisResult: routeAnalysisResult
+            };
+
             if (routeAnalysisEnabled) tabRouteAnalysis.classList.remove('hidden');
             else tabRouteAnalysis.classList.add('hidden');
 
-            if (outputMode === 'pdf') {
-                if (typeof jsPDF === 'undefined') throw new Error("jsPDF library missing");
-                generatePDF(stationsData, usedRef, routeAnalysisResult);
-                showSuccess(`PDF generated – ${stationsData.length} stations`);
-            } else {
-                renderInBrowser(stationsData, usedRef, routeAnalysisResult);
-                showSuccess(`Report displayed – ${stationsData.length} stations`);
-            }
+            // Render to browser and enable PDF button
+            renderInBrowser(stationsData, usedRef, routeAnalysisResult);
+            showSuccess(`Report displayed – ${stationsData.length} stations`);
+            downloadPdfBtn.disabled = false;
 
         } catch (error) {
             console.error(error);
