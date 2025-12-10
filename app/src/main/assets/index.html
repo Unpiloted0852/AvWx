@@ -358,7 +358,9 @@
         .justify-end { justify-content: flex-end; }
         .justify-start { justify-content: flex-start; }
         .sm\:items-baseline { @media (min-width: 640px) { align-items: baseline; } }
+        .sm\:items-center { @media (min-width: 640px) { align-items: center; } }
         .sm\:flex-none { @media (min-width: 640px) { flex: 0 1 auto; } }
+        .sm\:flex-nowrap { @media (min-width: 640px) { flex-wrap: nowrap; } }
         .sm\:w-auto { @media (min-width: 640px) { width: auto; } }
         .inline-block { display: inline-block; }
 
@@ -390,6 +392,7 @@
         .max-h-\[90vh\] { max-height: 90vh; }
         .min-h-full { min-height: 100%; }
         .min-h-\[100px\] { min-height: 100px; }
+        .min-w-\[200px\] { min-width: 200px; }
 
         .transition { transition-property: color, background-color, border-color, text-decoration-color, fill, stroke, opacity, box-shadow, transform, filter, backdrop-filter; transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1); transition-duration: 150ms; }
         .transition-colors { transition-property: color, background-color, border-color, text-decoration-color, fill, stroke; transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1); transition-duration: 150ms; }
@@ -572,16 +575,8 @@
         <!-- Input fields -->
         <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
 
-            <div class="md:col-span-1">
-                <label for="sortMode" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                    Sort Results By
-                </label>
-                <select id="sortMode" class="w-full p-3 md:p-4 text-base md:text-sm border border-gray-300 dark:border-gray-700 rounded-lg bg-gray-50 dark:bg-gray-900 dark:text-gray-200 focus:ring-blue-500 focus:border-blue-500 transition duration-150">
-                    <option value="alpha">Alphabetical (ICAO)</option>
-                    <option value="distance" disabled>Distance to Home Airport</option>
-                </select>
-
-                <div class="mt-3 grid grid-cols-2 gap-3">
+            <div class="md:col-span-1 flex flex-col justify-end">
+                <div class="grid grid-cols-2 gap-3">
                     <div class="p-3 bg-gray-50 dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-800">
                         <label for="icaoInput" class="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">
                             Home Airport
@@ -665,8 +660,9 @@
 
     <div id="resultsContainer" class="hidden mt-8 p-3 md:p-4 bg-white dark:bg-black border border-transparent dark:border-gray-800 rounded-xl shadow-inner md:max-h-[85vh] flex flex-col transition-colors duration-300 w-full max-w-full">
 
-        <div class="mb-4 shrink-0 flex flex-col sm:flex-row justify-between items-stretch sm:items-center gap-3">
-            <div class="flex p-1 space-x-1 bg-gray-200 dark:bg-gray-900 rounded-xl overflow-x-auto flex-grow sm:flex-grow-0 sm:min-w-[300px]">
+        <!-- FIX: Updated Layout for Tab/Button Container -->
+        <div class="mb-4 shrink-0 flex flex-wrap sm:flex-nowrap justify-between items-center gap-3">
+            <div class="flex p-1 space-x-1 bg-gray-200 dark:bg-gray-900 rounded-xl overflow-x-auto flex-grow sm:flex-grow-0 sm:min-w-[300px] min-w-[200px] w-full sm:w-auto">
                 <button id="tabStandard"
                         class="tab-button flex-1 py-2.5 px-2 text-sm font-medium leading-5 rounded-lg text-center transition-all duration-200 focus:outline-none bg-blue-600 text-white shadow touch-manipulation whitespace-nowrap">
                     List Report
@@ -681,13 +677,13 @@
                 </button>
             </div>
 
-            <!-- PDF Download Button -->
+            <!-- FIX: Compact Button -->
             <button id="downloadPdfBtn" disabled
-                    class="flex items-center justify-center gap-2 bg-green-600 hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed text-white text-sm font-bold py-2.5 px-4 rounded-xl shadow-sm transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2 dark:focus:ring-offset-gray-900 whitespace-nowrap">
+                    class="flex-none w-auto flex items-center justify-center gap-2 bg-green-600 hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed text-white text-xs sm:text-sm font-bold py-2 px-3 sm:px-4 rounded-xl shadow-sm transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2 dark:focus:ring-offset-gray-900 whitespace-nowrap">
                 <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                 </svg>
-                Download PDF
+                PDF
             </button>
         </div>
 
@@ -706,7 +702,7 @@
 
 <script>
     // --- APP CONFIG ---
-    const CURRENT_VERSION = 'v2.1.1';
+    const CURRENT_VERSION = 'v2.1.2';
     const GITHUB_REPO = 'Unpiloted0852/AvWx';
 
     // Global Data Storage for Modal Access
@@ -743,7 +739,6 @@
 
     const generateButton = document.getElementById('generateButton');
     const downloadPdfBtn = document.getElementById('downloadPdfBtn');
-    const sortModeSelect = document.getElementById('sortMode');
     const icaoInput = document.getElementById('icaoInput');
     const statusEl = document.getElementById('status');
     const detailsEl = document.getElementById('details');
@@ -1007,7 +1002,8 @@
         if (mapInstance) return;
 
         // Initialize Map with preferCanvas: true for performance
-        mapInstance = L.map('weatherMap', { preferCanvas: true }).setView([39.8283, -98.5795], 4);
+        // FIX: Add worldCopyJump: true to enable seamless scrolling around the world
+        mapInstance = L.map('weatherMap', { preferCanvas: true, worldCopyJump: true }).setView([39.8283, -98.5795], 4);
 
         // Increase touch tolerance (hit detection) without changing visual radius
         mapRenderer = L.canvas({ tolerance: 20 });
@@ -1145,15 +1141,21 @@
         }
 
         if (depCoords && depCoords.lat !== null && destCoords && destCoords.lat !== null) {
-            // Draw Dashed Line (Great Circle)
-            const pathPoints = getGreatCircleRoute(depCoords.lat, depCoords.lon, destCoords.lat, destCoords.lon);
-            L.polyline(pathPoints, {
-                color: '#fbbf24', // Tailwind amber-400
-                weight: 2,
-                opacity: 0.8,
-                dashArray: '5, 10',
-                lineCap: 'round'
-            }).addTo(markerLayerGroup);
+            // FIX: Check if coordinates are the same to avoid NaN error in Great Circle calculation
+            // Using a small epsilon for float comparison just in case
+            const isSameStation = (Math.abs(depCoords.lat - destCoords.lat) < 0.0001 && Math.abs(depCoords.lon - destCoords.lon) < 0.0001);
+
+            if (!isSameStation) {
+                // Draw Dashed Line (Great Circle) only if stations are different
+                const pathPoints = getGreatCircleRoute(depCoords.lat, depCoords.lon, destCoords.lat, destCoords.lon);
+                L.polyline(pathPoints, {
+                    color: '#fbbf24', // Tailwind amber-400
+                    weight: 2,
+                    opacity: 0.8,
+                    dashArray: '5, 10',
+                    lineCap: 'round'
+                }).addTo(markerLayerGroup);
+            }
 
             // Highlight Departure (Ring)
             L.circleMarker([depCoords.lat, depCoords.lon], {
@@ -1165,15 +1167,17 @@
                 interactive: false // Let clicks pass through to the dot below
             }).addTo(markerLayerGroup);
 
-            // Highlight Destination (Ring)
-            L.circleMarker([destCoords.lat, destCoords.lon], {
-                renderer: mapRenderer,
-                radius: 12,
-                fill: false,
-                color: '#ffffff',
-                weight: 2,
-                interactive: false
-            }).addTo(markerLayerGroup);
+            // Highlight Destination (Ring) - Only if different from Departure to avoid double drawing
+            if (!isSameStation) {
+                L.circleMarker([destCoords.lat, destCoords.lon], {
+                    renderer: mapRenderer,
+                    radius: 12,
+                    fill: false,
+                    color: '#ffffff',
+                    weight: 2,
+                    interactive: false
+                }).addTo(markerLayerGroup);
+            }
         }
 
         const markers = [];
@@ -1285,7 +1289,6 @@
 
             if (savedHome) {
                 icaoInput.value = savedHome;
-                updateSortOptions();
             }
             if (savedDep) depIcaoInput.value = savedDep;
             if (savedDest) destIcaoInput.value = savedDest;
@@ -1298,7 +1301,6 @@
         icaoInput.value = icaoInput.value.toUpperCase();
         isMirroringHome = false;
         try { localStorage.setItem('homeIcao', icaoInput.value); } catch(e){}
-        updateSortOptions();
     });
 
     depIcaoInput.addEventListener('input', () => {
@@ -1310,7 +1312,6 @@
             if (isMirroringHome) {
                 icaoInput.value = val;
                 localStorage.setItem('homeIcao', val);
-                updateSortOptions();
             }
         } catch(e){}
     });
@@ -1329,25 +1330,6 @@
     });
 
     loadSavedInputs();
-    updateSortOptions();
-
-    function updateSortOptions() {
-        const hasICAO = icaoInput.value.trim().length >= 3;
-        const distOption = sortModeSelect.querySelector('option[value="distance"]');
-
-        if (hasICAO) {
-            const wasDisabled = distOption.disabled;
-            distOption.disabled = false;
-            if (wasDisabled || sortModeSelect.value === 'alpha') {
-                sortModeSelect.value = 'distance';
-            }
-        } else {
-            distOption.disabled = true;
-            if (sortModeSelect.value === 'distance') {
-                sortModeSelect.value = 'alpha';
-            }
-        }
-    }
 
     function toggleAdvancedPanel() {
         const isHidden = advancedInputsEl.classList.contains('hidden');
@@ -1998,14 +1980,22 @@
             station.taf = { rawText, periodHours, age: tafAgeMinutes, issueTime: issueTimeText, validTo: validToDate };
         });
 
+        // AUTO-SORT LOGIC REPLACEMENT
+        // Priority: Home -> Dep -> Dest -> Null
+        let refIcao = null;
+        if (homeIcao && homeIcao.length >= 3) refIcao = homeIcao;
+        else if (document.getElementById('depIcao').value.trim().length >= 3) refIcao = document.getElementById('depIcao').value.trim();
+        else if (document.getElementById('destIcao').value.trim().length >= 3) refIcao = document.getElementById('destIcao').value.trim();
+
         let refLat = null, refLon = null, refName = null;
-        if (homeIcao && homeIcao.length >= 3) {
-            const homeStationData = getCoordsForICAO(homeIcao, stationMap);
-            if (homeStationData && homeStationData.lat !== null) {
-                refLat = homeStationData.lat;
-                refLon = homeStationData.lon;
-                const homeStation = stationDataMap.get(homeIcao.toUpperCase());
-                refName = `${homeIcao.toUpperCase()} (${(homeStation && homeStation.name) || 'Unknown'})`;
+
+        if (refIcao) {
+            const refStationData = getCoordsForICAO(refIcao, stationMap);
+            if (refStationData && refStationData.lat !== null) {
+                refLat = refStationData.lat;
+                refLon = refStationData.lon;
+                const refStationName = stationDataMap.get(refIcao.toUpperCase());
+                refName = `${refIcao.toUpperCase()} (${(refStationName && refStationName.name) || 'Unknown'})`;
             }
         }
 
@@ -2023,13 +2013,12 @@
         if (runwayMap && minRunwayLen > 0) {
             stations = stations.filter(s => {
                 const maxLen = runwayMap.get(s.id);
-                // Keep if we have data and it's long enough. If not in DB, exclude it when filter is active.
                 return maxLen && maxLen >= minRunwayLen;
             });
         }
 
-        const sortMode = sortModeSelect.value;
-        if (sortMode === 'distance' && refLat !== null) {
+        if (refLat !== null) {
+            // Sort by Distance
             stations.sort((a, b) => {
                 if (a.distanceNM === null && b.distanceNM === null) return a.id.localeCompare(b.id);
                 if (a.distanceNM === null) return 1;
@@ -2037,8 +2026,10 @@
                 return a.distanceNM - b.distanceNM;
             });
         } else {
+            // Sort Alphabetically
             stations.sort((a, b) => a.id.localeCompare(b.id));
         }
+
         return { stations, refName, stationDataMap };
     }
 
@@ -2147,15 +2138,10 @@
             // Disabled PDF button until new data is ready
             downloadPdfBtn.disabled = true;
 
-            const sortMode = sortModeSelect.value;
+            // REMOVED: Sort Mode select logic
             const homeIcao = icaoInput.value.trim().toUpperCase();
             const minRunwayLen = parseInt(minRunwayInput.value) || 0;
             let routeAnalysisResult = null;
-
-            if (sortMode === 'distance' && homeIcao.length < 3) {
-                showStatus("Sort Error", true, "To sort by distance, please enter a Home ICAO.");
-                return;
-            }
 
             const depIcao = depIcaoInput.value.trim().toUpperCase();
             const destIcao = destIcaoInput.value.trim().toUpperCase();
@@ -2429,7 +2415,7 @@
         renderMap(currentStationsData);
         // --- END MAP DATA HANDLER ---
 
-        if (refName && sortModeSelect.value === 'distance') {
+        if (refName) {
             const refHeader = document.createElement('div');
             refHeader.className = "bg-blue-50 dark:bg-blue-900/30 p-3 rounded-lg mb-4 text-center text-sm font-bold text-blue-800 dark:text-blue-200 transition-colors duration-300";
             refHeader.textContent = `Distances calculated from: ${refName}`;
@@ -2712,9 +2698,9 @@
         doc.text(`Generated (UTC): ${utc} Z`, PAGE_WIDTH / 2, cursorY + 5, { align: "center" });
         doc.text(`Total Stations: ${stationsData.length}`, PAGE_WIDTH / 2, cursorY + 10, { align: "center" });
         cursorY += 15;
-        const sortMode = sortModeSelect.value;
+        // Updated sorting logic for PDF
         let sortDetail = "Sorted Alphabetically by Station ID";
-        if (sortMode === 'distance' && refName) sortDetail = `Sorted by Distance from ${refName}`;
+        if (refName) sortDetail = `Sorted by Distance from ${refName}`;
         doc.text(sortDetail, PAGE_WIDTH / 2, cursorY, { align: "center" });
         cursorY += 10;
         cursorY = drawPdfLegend(doc, cursorY);
