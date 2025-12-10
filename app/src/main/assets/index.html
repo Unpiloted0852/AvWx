@@ -117,7 +117,65 @@
         .leaflet-container a.leaflet-popup-close-button:hover { color: #fff; }
 
         /* Map container height */
-        #weatherMap { height: 60vh; min-height: 400px; width: 100%; border-radius: 0.75rem; z-index: 0; }
+        #weatherMap { height: 100%; width: 100%; z-index: 0; }
+
+        /* --- MAP STATES --- */
+
+        /* 1. Embedded State (Default) */
+        #mapView {
+            position: relative;
+            width: 100%;
+            height: 60vh;
+            min-height: 400px;
+            border-radius: 0.75rem;
+            overflow: hidden;
+            z-index: 0;
+        }
+
+        /* 2. Fullscreen State */
+        #mapView.fullscreen-active {
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            width: 100vw; height: 100dvh;
+            z-index: 9999; /* Top level */
+            border-radius: 0;
+            background: #000;
+        }
+
+        body.map-mode { overflow: hidden; }
+
+        /* Floating Controls */
+        .map-overlay-top {
+            position: absolute; top: 0; left: 0; right: 0;
+            padding: 1rem; z-index: 1000; pointer-events: none;
+            display: flex; justify-content: space-between;
+        }
+
+        .map-overlay-bottom {
+            position: absolute; bottom: 0; left: 0; right: 0;
+            padding: 1.5rem; z-index: 1000; pointer-events: none;
+            display: flex; justify-content: center;
+            padding-bottom: max(1.5rem, env(safe-area-inset-bottom));
+        }
+
+        /* Toggle Button Position in Embedded Mode */
+        .fullscreen-trigger {
+            position: absolute; top: 1rem; right: 1rem;
+            z-index: 1000;
+        }
+
+        .floating-pill {
+            pointer-events: auto;
+            background: rgba(255, 255, 255, 0.9);
+            border: 1px solid rgba(0,0,0,0.1);
+            backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
+            border-radius: 9999px;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+        }
+        .dark .floating-pill {
+            background: rgba(30, 41, 59, 0.85);
+            border-color: rgba(255,255,255,0.1); color: white;
+        }
 
         /* --- MAP LABELS STYLING (Optimized for divIcon) --- */
         .leaflet-div-icon {
@@ -660,16 +718,15 @@
 
     <div id="resultsContainer" class="hidden mt-8 p-3 md:p-4 bg-white dark:bg-black border border-transparent dark:border-gray-800 rounded-xl shadow-inner md:max-h-[85vh] flex flex-col transition-colors duration-300 w-full max-w-full">
 
-        <!-- FIX: Updated Layout for Tab/Button Container -->
         <div class="mb-4 shrink-0 flex flex-wrap sm:flex-nowrap justify-between items-center gap-3">
             <div class="flex p-1 space-x-1 bg-gray-200 dark:bg-gray-900 rounded-xl overflow-x-auto flex-grow sm:flex-grow-0 sm:min-w-[300px] min-w-[200px] w-full sm:w-auto">
-                <button id="tabStandard"
-                        class="tab-button flex-1 py-2.5 px-2 text-sm font-medium leading-5 rounded-lg text-center transition-all duration-200 focus:outline-none bg-blue-600 text-white shadow touch-manipulation whitespace-nowrap">
-                    List Report
-                </button>
                 <button id="tabMap"
-                        class="tab-button flex-1 py-2.5 px-2 text-sm font-medium leading-5 rounded-lg text-center transition-all duration-200 focus:outline-none text-gray-700 dark:text-gray-400 hover:bg-gray-300 dark:hover:bg-gray-800 touch-manipulation whitespace-nowrap">
+                        class="tab-button flex-1 py-2.5 px-2 text-sm font-medium leading-5 rounded-lg text-center transition-all duration-200 focus:outline-none bg-blue-600 text-white shadow touch-manipulation whitespace-nowrap">
                     Map View
+                </button>
+                <button id="tabStandard"
+                        class="tab-button flex-1 py-2.5 px-2 text-sm font-medium leading-5 rounded-lg text-center transition-all duration-200 focus:outline-none text-gray-700 dark:text-gray-400 hover:bg-gray-300 dark:hover:bg-gray-800 touch-manipulation whitespace-nowrap">
+                    List Report
                 </button>
                 <button id="tabRouteAnalysis"
                         class="tab-button flex-1 py-2.5 px-2 text-sm font-medium leading-5 rounded-lg text-center transition-all duration-200 focus:outline-none text-gray-700 dark:text-gray-400 hover:bg-gray-300 dark:hover:bg-gray-800 hidden touch-manipulation whitespace-nowrap">
@@ -677,7 +734,6 @@
                 </button>
             </div>
 
-            <!-- FIX: Compact Button -->
             <button id="downloadPdfBtn" disabled
                     class="flex-none w-auto flex items-center justify-center gap-2 bg-green-600 hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed text-white text-xs sm:text-sm font-bold py-2 px-3 sm:px-4 rounded-xl shadow-sm transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2 dark:focus:ring-offset-gray-900 whitespace-nowrap">
                 <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -688,13 +744,42 @@
         </div>
 
         <div class="flex-grow overflow-y-auto w-full relative">
-            <div id="weatherList" class="space-y-6 tab-content w-full"></div>
 
-            <!-- NEW MAP CONTAINER -->
-            <div id="mapView" class="hidden tab-content w-full h-full">
+            <!-- Map View Container -->
+            <div id="mapView" class="hidden tab-content">
                 <div id="weatherMap"></div>
+
+                <!-- Toggle Fullscreen Button (Visible only in Embedded Mode) -->
+                <button id="btnEnterFullscreen" onclick="toggleMapFullscreen()"
+                        class="fullscreen-trigger p-2 bg-white dark:bg-gray-800 rounded-lg shadow-md hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors text-gray-700 dark:text-gray-200">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4" />
+                    </svg>
+                </button>
+
+                <!-- Floating Controls (Visible only in Fullscreen Mode) -->
+                <div id="fullscreenControls" class="hidden">
+                    <div class="map-overlay-top">
+                        <button onclick="toggleMapFullscreen()" class="floating-pill flex items-center gap-2 px-4 py-2 text-sm font-bold text-gray-700 dark:text-gray-200 shadow-lg hover:scale-105 transition-transform cursor-pointer">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+                            </svg>
+                            Back to Report
+                        </button>
+                    </div>
+
+                    <div class="map-overlay-bottom">
+                        <div class="floating-pill px-4 py-2 flex gap-4 text-xs font-bold text-gray-700 dark:text-gray-200 shadow-lg">
+                            <span class="flex items-center gap-1"><span class="weather-dot vfr-dot"></span>VFR</span>
+                            <span class="flex items-center gap-1"><span class="weather-dot mvfr-dot"></span>MVFR</span>
+                            <span class="flex items-center gap-1"><span class="weather-dot ifr-dot"></span>IFR</span>
+                            <span class="flex items-center gap-1"><span class="weather-dot lifr-dot"></span>LIFR</span>
+                        </div>
+                    </div>
+                </div>
             </div>
 
+            <div id="weatherList" class="hidden tab-content w-full"></div>
             <div id="routeAnalysisView" class="hidden tab-content p-2 md:p-4 w-full"></div>
         </div>
     </div>
@@ -702,7 +787,7 @@
 
 <script>
     // --- APP CONFIG ---
-    const CURRENT_VERSION = 'v2.1.2';
+    const CURRENT_VERSION = 'v2.2.0';
     const GITHUB_REPO = 'Unpiloted0852/AvWx';
 
     // Global Data Storage for Modal Access
@@ -839,7 +924,7 @@
     }
 
     function drawRouteAnalysisPDFPage(doc, analysisResult) {
-        const { depResults, destResults, takeoffStart, takeoffEnd, landingStart, landingEnd, depName, destName } = analysisResult;
+        const { depResults, destResults, takeoffStart, takeoffEnd, landingStart, landingEnd, depName, destName, depFullName, destFullName } = analysisResult;
         let cursorY = PAGE_MARGIN;
         const tStart = takeoffStart ? formatTimeHHMM(takeoffStart) : 'N/A';
         const tEnd = takeoffEnd ? formatTimeHHMM(takeoffEnd) : 'N/A';
@@ -878,7 +963,7 @@
 
              let startTileX = PAGE_MARGIN;
              const tileWidth = 30;
-             const tileHeight = 20;
+             const tileHeight = 20; // Increased height for extra text
              const tileMargin = 5;
              const maxTilesPerRow = Math.floor(USABLE_WIDTH / (tileWidth + tileMargin));
              let col = 0; let row = 0;
@@ -924,6 +1009,7 @@
                 doc.setFontSize(6);
                 doc.text(`${data.worstCategory}`, x + tileWidth / 2, y + 12, { align: 'center' });
 
+                // Draw condition text if it exists (worse than VFR)
                 if (data.conditionText) {
                     doc.setFont("courier", "normal");
                     doc.setFontSize(5);
@@ -933,6 +1019,7 @@
 
                 doc.setFont("helvetica", "normal");
                 doc.setFontSize(5);
+                // Move distance to bottom
                 doc.text(`${data.distance.toFixed(0)} NM`, x + tileWidth / 2, y + tileHeight - 2, { align: 'center' });
 
                 col++;
@@ -1003,7 +1090,12 @@
 
         // Initialize Map with preferCanvas: true for performance
         // FIX: Add worldCopyJump: true to enable seamless scrolling around the world
-        mapInstance = L.map('weatherMap', { preferCanvas: true, worldCopyJump: true }).setView([39.8283, -98.5795], 4);
+        // FIX: disable zoomControl for cleaner mobile fullscreen look
+        mapInstance = L.map('weatherMap', {
+            preferCanvas: true,
+            worldCopyJump: true,
+            zoomControl: false
+        }).setView([39.8283, -98.5795], 4);
 
         // Increase touch tolerance (hit detection) without changing visual radius
         mapRenderer = L.canvas({ tolerance: 20 });
@@ -1276,6 +1368,34 @@
         document.body.style.overflow = ''; // Restore scrolling
     }
 
+    // --- FULLSCREEN TOGGLE LOGIC ---
+    function toggleMapFullscreen() {
+        const mapView = document.getElementById('mapView');
+        const fsControls = document.getElementById('fullscreenControls');
+        const triggerBtn = document.getElementById('btnEnterFullscreen');
+
+        // Toggle the class on the container
+        mapView.classList.toggle('fullscreen-active');
+        const isFullscreen = mapView.classList.contains('fullscreen-active');
+
+        if (isFullscreen) {
+            // Entered Fullscreen
+            fsControls.classList.remove('hidden'); // Show floating island controls
+            triggerBtn.classList.add('hidden');    // Hide the small toggle button
+            document.body.classList.add('map-mode'); // Prevent background scrolling
+        } else {
+            // Exited Fullscreen (Back to Embedded)
+            fsControls.classList.add('hidden');
+            triggerBtn.classList.remove('hidden');
+            document.body.classList.remove('map-mode');
+        }
+
+        // Re-render Leaflet size
+        setTimeout(() => {
+            if (mapInstance) mapInstance.invalidateSize();
+        }, 200);
+    }
+
     // --- PERSISTENCE & AUTO-FILL ---
     let isMirroringHome = false;
 
@@ -1357,6 +1477,12 @@
     function switchTab(tabId) {
         const contents = document.querySelectorAll('.tab-content');
         const buttons = document.querySelectorAll('.tab-button');
+        const mapView = document.getElementById('mapView');
+
+        // Force exit fullscreen if switching tabs away from map (or to reset state)
+        if (mapView.classList.contains('fullscreen-active')) {
+            toggleMapFullscreen();
+        }
 
         // Hide all contents
         contents.forEach(el => el.classList.add('hidden'));
@@ -1385,7 +1511,7 @@
                     if (currentStationsData.length > 0 && markerLayerGroup.getLayers().length === 0) {
                          renderMap(currentStationsData);
                     }
-                }, 10);
+                }, 100); // Small delay to allow CSS reflow
             }
         }
         else if (tabId === 'route-analysis') {
@@ -2207,6 +2333,10 @@
 
             // Render to browser and enable PDF button
             renderInBrowser(stationsData, usedRef, routeAnalysisResult);
+
+            // FIX: Default to Map Tab
+            switchTab('map');
+
             showSuccess(`Report displayed – ${stationsData.length} stations`);
             downloadPdfBtn.disabled = false;
 
