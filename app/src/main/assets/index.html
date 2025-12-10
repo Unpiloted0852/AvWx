@@ -708,7 +708,7 @@
 
 <script>
     // --- APP CONFIG ---
-    const CURRENT_VERSION = 'v2.0.2';
+    const CURRENT_VERSION = 'v2.1.0';
     const GITHUB_REPO = 'Unpiloted0852/AvWx';
 
     // Global Data Storage for Modal Access
@@ -1024,6 +1024,35 @@
         });
     }
 
+    // --- GREAT CIRCLE MATH ---
+    function toRad(deg) { return deg * Math.PI / 180; }
+    function toDeg(rad) { return rad * 180 / Math.PI; }
+
+    function getGreatCircleRoute(lat1, lon1, lat2, lon2, steps = 100) {
+        // Haversine/Spherical interpolation for curvature
+        const p1 = { lat: toRad(lat1), lon: toRad(lon1) };
+        const p2 = { lat: toRad(lat2), lon: toRad(lon2) };
+
+        const d = 2 * Math.asin(Math.sqrt(Math.pow(Math.sin((p2.lat - p1.lat) / 2), 2) +
+                  Math.cos(p1.lat) * Math.cos(p2.lat) * Math.pow(Math.sin((p2.lon - p1.lon) / 2), 2)));
+
+        const points = [];
+        for (let i = 0; i <= steps; i++) {
+            const f = i / steps;
+            const A = Math.sin((1 - f) * d) / Math.sin(d);
+            const B = Math.sin(f * d) / Math.sin(d);
+
+            const x = A * Math.cos(p1.lat) * Math.cos(p1.lon) + B * Math.cos(p2.lat) * Math.cos(p2.lon);
+            const y = A * Math.cos(p1.lat) * Math.sin(p1.lon) + B * Math.cos(p2.lat) * Math.sin(p2.lon);
+            const z = A * Math.sin(p1.lat) + B * Math.sin(p2.lat);
+
+            const lat = Math.atan2(z, Math.sqrt(x * x + y * y));
+            const lon = Math.atan2(y, x);
+            points.push([toDeg(lat), toDeg(lon)]);
+        }
+        return points;
+    }
+
     function rgbToHex(rgbArray) {
         // Helper to convert your RGB arrays [0, 170, 0] to Hex strings for Leaflet
         return "#" + ((1 << 24) + (rgbArray[0] << 16) + (rgbArray[1] << 8) + rgbArray[2]).toString(16).slice(1);
@@ -1042,6 +1071,52 @@
              } else {
                  mapInstance.setView([39.8283, -98.5795], 4);
              }
+        }
+
+        // 2. Draw Route if Dep/Dest exist
+        const depInput = document.getElementById('depIcao').value.trim().toUpperCase();
+        const destInput = document.getElementById('destIcao').value.trim().toUpperCase();
+
+        let depCoords = null;
+        let destCoords = null;
+
+        if (depInput.length >= 3 && cachedStationMap) {
+            depCoords = getCoordsForICAO(depInput, cachedStationMap);
+        }
+        if (destInput.length >= 3 && cachedStationMap) {
+            destCoords = getCoordsForICAO(destInput, cachedStationMap);
+        }
+
+        if (depCoords && depCoords.lat !== null && destCoords && destCoords.lat !== null) {
+            // Draw Dashed Line (Great Circle)
+            const pathPoints = getGreatCircleRoute(depCoords.lat, depCoords.lon, destCoords.lat, destCoords.lon);
+            L.polyline(pathPoints, {
+                color: '#fbbf24', // Tailwind amber-400
+                weight: 2,
+                opacity: 0.8,
+                dashArray: '5, 10',
+                lineCap: 'round'
+            }).addTo(markerLayerGroup);
+
+            // Highlight Departure (Ring)
+            L.circleMarker([depCoords.lat, depCoords.lon], {
+                renderer: mapRenderer,
+                radius: 12,
+                fill: false,
+                color: '#ffffff',
+                weight: 2,
+                interactive: false // Let clicks pass through to the dot below
+            }).addTo(markerLayerGroup);
+
+            // Highlight Destination (Ring)
+            L.circleMarker([destCoords.lat, destCoords.lon], {
+                renderer: mapRenderer,
+                radius: 12,
+                fill: false,
+                color: '#ffffff',
+                weight: 2,
+                interactive: false
+            }).addTo(markerLayerGroup);
         }
 
         const markers = [];
