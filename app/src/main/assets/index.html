@@ -666,6 +666,15 @@
         </svg>
     </button>
 
+    <!-- Unit Toggle Button -->
+    <button id="unitToggleBtn" type="button" onclick="toggleUnits()" aria-label="Toggle Units"
+            class="z-[100] absolute top-0 right-16 md:top-8 md:right-20 p-2 rounded-full w-10 h-10 flex items-center justify-center font-bold text-sm font-mono
+               bg-gray-200 dark:bg-gray-800 text-gray-700 dark:text-gray-200
+               hover:bg-gray-300 dark:hover:bg-gray-700
+               shadow-sm cursor-pointer transition-colors">
+        °F
+    </button>
+
     <header class="mb-6 text-center pt-12 md:pt-16">
         <h1 class="text-2xl md:text-3xl font-bold text-blue-600 dark:text-blue-400 flex justify-center items-center">
             Aviation Weather Report
@@ -844,7 +853,7 @@
 
 <script>
     // --- APP CONFIG ---
-    const CURRENT_VERSION = 'v2.2.4';
+    const CURRENT_VERSION = 'v2.2.5';
     const GITHUB_REPO = 'Unpiloted0852/AvWx';
 
     // Global Data Storage for Modal Access
@@ -905,6 +914,35 @@
     const minRunwayInput = document.getElementById('minRunway');
     const modal = document.getElementById('tileModal');
     const zuluClockEl = document.getElementById('zuluClock');
+    const unitToggleBtn = document.getElementById('unitToggleBtn');
+
+    // Unit State
+    let useCelsius = false;
+    try {
+        useCelsius = localStorage.getItem('useCelsius') === 'true';
+    } catch(e) {}
+
+    // Helper to get display temperature
+    function getDisplayTemp(metarObj) {
+        if (!metarObj) return "N/A";
+        return useCelsius ? metarObj.tempC : metarObj.tempF;
+    }
+
+    function updateUnitButtonText() {
+        unitToggleBtn.textContent = useCelsius ? '°C' : '°F';
+    }
+    // Initialize button text on load
+    updateUnitButtonText();
+
+    function toggleUnits() {
+        useCelsius = !useCelsius;
+        try { localStorage.setItem('useCelsius', useCelsius); } catch(e){}
+        updateUnitButtonText();
+        // Re-render UI if data exists
+        if (currentReportData && currentReportData.stationsData.length > 0) {
+            refreshDataSilent(true); // Skip fetch, just redraw
+        }
+    }
 
     // Set Version in UI
     document.getElementById('appVersionDisplay').textContent = CURRENT_VERSION;
@@ -1448,7 +1486,7 @@
                 let metarHtml = '<div class="text-xs italic text-gray-500">No METAR available</div>';
                 if (station.metar) {
                     metarHtml = `<div class="space-y-0.5">${formatRawText(station.metar.rawText)}</div>`;
-                    metarHtml += `<div class="mt-1 text-xs text-gray-400">${station.metar.tempF} • ${station.metar.rh} • Age: ${formatAge(station.metar.age)}</div>`;
+                    metarHtml += `<div class="mt-1 text-xs text-gray-400">${getDisplayTemp(station.metar)} • ${station.metar.rh} • Age: ${formatAge(station.metar.age)}</div>`;
                 }
 
                 let tafHtml = '<div class="text-xs italic text-gray-500">No TAF available</div>';
@@ -1840,12 +1878,12 @@
     function calculateTempFAndRH(metarNode) {
         const tempC = parseFloat(metarNode.querySelector("temp_c")?.textContent);
         const dewpointC = parseFloat(metarNode.querySelector("dewpoint_c")?.textContent);
-        if (isNaN(tempC) || isNaN(dewpointC)) return { tempF: "N/A", rh: "N/A" };
+        if (isNaN(tempC) || isNaN(dewpointC)) return { tempF: "N/A", tempC: "N/A", rh: "N/A" };
         const tempF = Math.round(tempC * 9/5 + 32);
         const satVP = 6.112 * Math.exp((17.67 * tempC) / (tempC + 243.5));
         const actVP = 6.112 * Math.exp((17.67 * dewpointC) / (dewpointC + 243.5));
         const rh = Math.round(actVP / satVP * 100);
-        return { tempF: `${tempF}°F`, rh: `RH ${rh}%` };
+        return { tempF: `${tempF}°F`, tempC: `${Math.round(tempC)}°C`, rh: `RH ${rh}%` };
     }
 
     function cleanRawText(text) {
@@ -1903,12 +1941,6 @@
         const encodedTarget = encodeURIComponent(url + targetCacheBuster);
 
         // 3. Construct Proxy URL
-        // We append a random param to the proxy URL itself so the BROWSER sees it as a new request
-        // corsproxy.io usually takes the whole query string as the target, but let's try strict headers first.
-        // Actually, let's rely on the encoded target being unique to bust the browser cache of the proxy.
-        // Since 'encodedTarget' changes every time (due to targetCacheBuster), the full fetchUrl changes every time.
-        // So the Browser Cache is NOT the issue if targetCacheBuster works.
-
         const fetchUrl = PROXY_URL + encodedTarget;
 
         return fetchWithRetry(async () => {
@@ -2285,12 +2317,12 @@
             const stationId = node.querySelector("station_id")?.textContent?.trim();
             if (!stationId) return;
             const station = getOrCreateStation(stationId);
-            const { tempF, rh } = calculateTempFAndRH(node);
+            const { tempF, tempC, rh } = calculateTempFAndRH(node);
             const rawText = node.querySelector("raw_text")?.textContent?.trim() || 'N/A';
             const category = node.querySelector("flight_category")?.textContent?.trim() || analyzeCondition(rawText);
             const obsTimeText = node.querySelector("observation_time")?.textContent;
             const metarAgeMinutes = calculateAgeInMinutes(obsTimeText);
-            station.metar = { rawText, category, tempF, rh, age: metarAgeMinutes, obsTime: obsTimeText };
+            station.metar = { rawText, category, tempF, tempC, rh, age: metarAgeMinutes, obsTime: obsTimeText };
         });
 
         tafDoc.querySelectorAll("TAF").forEach(node => {
@@ -2488,41 +2520,48 @@
         }
     }
 
-    async function refreshDataSilent() {
+    async function refreshDataSilent(skipFetch = false) {
         try {
-            // Re-fetch only dynamic data
-            const [tafDoc, metarDoc] = await Promise.all([
-                fetchAndParse(TAF_DATA_URL),
-                fetchAndParse(METAR_DATA_URL)
-            ]);
+            if (!skipFetch) {
+                // Re-fetch only dynamic data
+                const [tafDoc, metarDoc] = await Promise.all([
+                    fetchAndParse(TAF_DATA_URL),
+                    fetchAndParse(METAR_DATA_URL)
+                ]);
 
-            // Gather inputs again
-            const homeIcao = icaoInput.value.trim().toUpperCase();
-            const minRunwayLen = parseInt(minRunwayInput.value) || 0;
-            const depIcao = depIcaoInput.value.trim().toUpperCase();
-            const destIcao = destIcaoInput.value.trim().toUpperCase();
-            const takeOffTime = takeOffTimeInput.value;
-            const landingTime = landingTimeInput.value;
-            const radiusInputVal = parseInt(searchRadiusInput.value);
-            const searchDist = (!isNaN(radiusInputVal) && radiusInputVal > 0) ? radiusInputVal : MAX_ROUTE_DISTANCE_NM;
+                // Gather inputs again
+                const homeIcao = icaoInput.value.trim().toUpperCase();
+                const minRunwayLen = parseInt(minRunwayInput.value) || 0;
+                const depIcao = depIcaoInput.value.trim().toUpperCase();
+                const destIcao = destIcaoInput.value.trim().toUpperCase();
+                const takeOffTime = takeOffTimeInput.value;
+                const landingTime = landingTimeInput.value;
+                const radiusInputVal = parseInt(searchRadiusInput.value);
+                const searchDist = (!isNaN(radiusInputVal) && radiusInputVal > 0) ? radiusInputVal : MAX_ROUTE_DISTANCE_NM;
 
-            // Re-process
-            const processResult = processData(tafDoc, metarDoc, cachedStationMap, homeIcao, cachedRunwayMap, minRunwayLen);
-            const stationsData = processResult.stations;
-            const usedRef = processResult.refName;
+                // Re-process
+                const processResult = processData(tafDoc, metarDoc, cachedStationMap, homeIcao, cachedRunwayMap, minRunwayLen);
+                const stationsData = processResult.stations;
+                const usedRef = processResult.refName;
 
-            let routeAnalysisResult = null;
-            if (routeAnalysisEnabled) {
-                 routeAnalysisResult = runRouteAnalysis(processResult.stationDataMap, depIcao, destIcao, takeOffTime, landingTime, searchDist, cachedRunwayMap, minRunwayLen);
+                let routeAnalysisResult = null;
+                if (routeAnalysisEnabled) {
+                     routeAnalysisResult = runRouteAnalysis(processResult.stationDataMap, depIcao, destIcao, takeOffTime, landingTime, searchDist, cachedRunwayMap, minRunwayLen);
+                }
+
+                // Update Global State
+                currentReportData = {
+                    stationsData: stationsData,
+                    refName: usedRef,
+                    routeAnalysisResult: routeAnalysisResult
+                };
+                currentStationsData = stationsData;
             }
 
-            // Update Global State
-            currentReportData = {
-                stationsData: stationsData,
-                refName: usedRef,
-                routeAnalysisResult: routeAnalysisResult
-            };
-            currentStationsData = stationsData;
+            // extract vars from currentReportData
+            const stationsData = currentReportData.stationsData;
+            const usedRef = currentReportData.refName;
+            const routeAnalysisResult = currentReportData.routeAnalysisResult;
 
             // UPDATE UI SILENTLY BASED ON ACTIVE TAB
             if (!resultsContainerEl.classList.contains('hidden')) {
@@ -2557,7 +2596,7 @@
                         if (metar) {
                             const category = metar.category;
                             const className = getCategoryClassName(category);
-                            infoTextParts.push(`${metar.tempF} • ${metar.rh}`);
+                            infoTextParts.push(`${getDisplayTemp(metar)} • ${metar.rh}`);
                             infoTextParts.push(`Observed ${formatAge(metar.age)}`);
                             if (data.distanceNM !== null) infoTextParts.push(`${data.distanceNM.toFixed(0)} NM`);
                             const dotClassToBorderColor = {
@@ -2943,7 +2982,7 @@
             if (metar) {
                 const category = metar.category;
                 const className = getCategoryClassName(category);
-                infoTextParts.push(`${metar.tempF} • ${metar.rh}`);
+                infoTextParts.push(`${getDisplayTemp(metar)} • ${metar.rh}`);
                 infoTextParts.push(`Observed ${formatAge(metar.age)}`);
                 if (data.distanceNM !== null) infoTextParts.push(`${data.distanceNM.toFixed(0)} NM`);
                 const dotClassToBorderColor = {
@@ -3069,7 +3108,7 @@
                 doc.setFontSize(9);
                 metarLines = doc.splitTextToSize(data.metar.rawText, USABLE_WIDTH - 35);
                 metarColor = getCategoryColor(data.metar.category);
-                infoTextParts.push(`${data.metar.tempF} • ${data.metar.rh}`);
+                infoTextParts.push(`${getDisplayTemp(data.metar)} • ${data.metar.rh}`);
                 infoTextParts.push(`Observed ${formatAge(data.metar.age)}`);
                 if (data.distanceNM !== null) infoTextParts.push(`${data.distanceNM.toFixed(0)} NM`);
                 infoText = infoTextParts.join(' • ');
