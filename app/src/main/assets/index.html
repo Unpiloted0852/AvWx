@@ -879,6 +879,10 @@
     let mapRenderer = null;
     let currentStationsData = []; // Store data globally to render map on tab switch
 
+    // Lazy Loading Globals
+    let listRenderIndex = 0;
+    const LIST_BATCH_SIZE = 50;
+
     // --- LIBRARIES SAFE LOADING ---
     let jsPDF = null;
     try {
@@ -915,6 +919,21 @@
     const modal = document.getElementById('tileModal');
     const zuluClockEl = document.getElementById('zuluClock');
     const unitToggleBtn = document.getElementById('unitToggleBtn');
+
+    // Attach scroll listener for Lazy Loading
+    const scrollContainer = resultsContainerEl.querySelector('.flex-grow');
+    if (scrollContainer) {
+        scrollContainer.addEventListener('scroll', () => {
+            // Only relevant if list tab is visible
+            if (!weatherListEl.classList.contains('hidden')) {
+                const { scrollTop, scrollHeight, clientHeight } = scrollContainer;
+                // If close to bottom (within 500px), load more
+                if (scrollTop + clientHeight >= scrollHeight - 500) {
+                    renderNextBatch();
+                }
+            }
+        });
+    }
 
     // Unit State
     let useCelsius = false;
@@ -1267,6 +1286,12 @@
             maxZoom: 19
         }).addTo(mapInstance);
 
+        // Create Custom Panes for Z-Index Management (Fixes interaction issues)
+        mapInstance.createPane('routePane');
+        mapInstance.getPane('routePane').style.zIndex = 399; // Below markers
+        mapInstance.createPane('markerPane');
+        mapInstance.getPane('markerPane').style.zIndex = 600; // Above everything
+
         markerLayerGroup = L.layerGroup().addTo(mapInstance);
         labelLayerGroup = L.layerGroup().addTo(mapInstance); // New separate layer for labels
 
@@ -1393,57 +1418,77 @@
         markerLayerGroup.clearLayers();
         labelLayerGroup.clearLayers(); // Clear labels on new render
 
-        // 2. Draw Route if Dep/Dest exist
-        const depInput = document.getElementById('depIcao').value.trim().toUpperCase();
-        const destInput = document.getElementById('destIcao').value.trim().toUpperCase();
-
-        let depCoords = null;
-        let destCoords = null;
-
-        if (depInput.length >= 3 && cachedStationMap) {
-            depCoords = getCoordsForICAO(depInput, cachedStationMap);
-        }
-        if (destInput.length >= 3 && cachedStationMap) {
-            destCoords = getCoordsForICAO(destInput, cachedStationMap);
-        }
-
-        if (depCoords && depCoords.lat !== null && destCoords && destCoords.lat !== null) {
-            // FIX: Check if coordinates are the same to avoid NaN error in Great Circle calculation
-            // Using a small epsilon for float comparison just in case
-            const isSameStation = (Math.abs(depCoords.lat - destCoords.lat) < 0.0001 && Math.abs(depCoords.lon - destCoords.lon) < 0.0001);
-
-            if (!isSameStation) {
-                // Draw Dashed Line (Great Circle) only if stations are different
-                const pathPoints = getGreatCircleRoute(depCoords.lat, depCoords.lon, destCoords.lat, destCoords.lon);
-                L.polyline(pathPoints, {
-                    color: '#fbbf24', // Tailwind amber-400
-                    weight: 2,
-                    opacity: 0.8,
-                    dashArray: '5, 10',
-                    lineCap: 'round'
+        // 1. HIGHLIGHT HOME AIRPORT (Requirement #4)
+        const homeInput = document.getElementById('icaoInput').value.trim().toUpperCase();
+        if (homeInput.length >= 3 && cachedStationMap) {
+            const homeCoords = getCoordsForICAO(homeInput, cachedStationMap);
+            if (homeCoords && homeCoords.lat !== null) {
+                // Cyan/Turquoise Ring for Home
+                 L.circleMarker([homeCoords.lat, homeCoords.lon], {
+                    pane: 'routePane', // Put on lower pane to not block clicks
+                    radius: 12,
+                    fill: false,
+                    color: '#06b6d4', // Tailwind Cyan-500
+                    weight: 3,
+                    interactive: false
                 }).addTo(markerLayerGroup);
             }
+        }
 
-            // Highlight Departure (Ring)
-            L.circleMarker([depCoords.lat, depCoords.lon], {
-                renderer: mapRenderer,
-                radius: 12,
-                fill: false,
-                color: '#ffffff',
-                weight: 2,
-                interactive: false // Let clicks pass through to the dot below
-            }).addTo(markerLayerGroup);
+        // 2. Draw Route if Dep/Dest exist AND tool is enabled (Requirement #3)
+        if (routeAnalysisEnabled) {
+            const depInput = document.getElementById('depIcao').value.trim().toUpperCase();
+            const destInput = document.getElementById('destIcao').value.trim().toUpperCase();
 
-            // Highlight Destination (Ring) - Only if different from Departure to avoid double drawing
-            if (!isSameStation) {
-                L.circleMarker([destCoords.lat, destCoords.lon], {
-                    renderer: mapRenderer,
+            let depCoords = null;
+            let destCoords = null;
+
+            if (depInput.length >= 3 && cachedStationMap) {
+                depCoords = getCoordsForICAO(depInput, cachedStationMap);
+            }
+            if (destInput.length >= 3 && cachedStationMap) {
+                destCoords = getCoordsForICAO(destInput, cachedStationMap);
+            }
+
+            if (depCoords && depCoords.lat !== null && destCoords && destCoords.lat !== null) {
+                // Check if coordinates are the same to avoid NaN error in Great Circle calculation
+                const isSameStation = (Math.abs(depCoords.lat - destCoords.lat) < 0.0001 && Math.abs(depCoords.lon - destCoords.lon) < 0.0001);
+
+                if (!isSameStation) {
+                    // Draw Dashed Line (Great Circle) only if stations are different
+                    const pathPoints = getGreatCircleRoute(depCoords.lat, depCoords.lon, destCoords.lat, destCoords.lon);
+                    L.polyline(pathPoints, {
+                        pane: 'routePane', // Force lower Z-index pane
+                        color: '#fbbf24', // Tailwind amber-400
+                        weight: 2,
+                        opacity: 0.8,
+                        dashArray: '5, 10',
+                        lineCap: 'round',
+                        interactive: false // No clicks
+                    }).addTo(markerLayerGroup);
+                }
+
+                // Highlight Departure (Ring)
+                L.circleMarker([depCoords.lat, depCoords.lon], {
+                    pane: 'routePane', // Force lower Z-index pane
                     radius: 12,
                     fill: false,
                     color: '#ffffff',
                     weight: 2,
                     interactive: false
                 }).addTo(markerLayerGroup);
+
+                // Highlight Destination (Ring) - Only if different from Departure to avoid double drawing
+                if (!isSameStation) {
+                    L.circleMarker([destCoords.lat, destCoords.lon], {
+                        pane: 'routePane', // Force lower Z-index pane
+                        radius: 12,
+                        fill: false,
+                        color: '#ffffff',
+                        weight: 2,
+                        interactive: false
+                    }).addTo(markerLayerGroup);
+                }
             }
         }
 
@@ -1464,6 +1509,7 @@
 
             // Circle Marker style - efficient canvas rendering
             const marker = L.circleMarker([station.latitude, station.longitude], {
+                pane: 'markerPane', // Force Highest Z-Index Pane
                 renderer: mapRenderer, // Use the high-tolerance renderer
                 radius: 5,
                 fillColor: colorHex,
@@ -1555,7 +1601,7 @@
         downloadPdfBtn.innerHTML = `
             <svg class="animate-spin -ml-1 mr-2 h-4 w-4 text-white inline-block" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
                 <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
             </svg>
             Generating...
         `;
@@ -1721,6 +1767,8 @@
             weatherListEl.classList.remove('hidden');
             tabStandard.classList.remove(...TAB_INACTIVE_CLASSES);
             tabStandard.classList.add(...TAB_ACTIVE_CLASSES);
+            // Ensure lazy loader fills screen if needed when switching tabs
+            fillListContainer();
         }
         else if (tabId === 'map') {
             document.getElementById('mapView').classList.remove('hidden');
@@ -2520,6 +2568,94 @@
         }
     }
 
+    // New helper to create station card
+    function createStationCard(data) {
+        const metar = data.metar;
+        const taf = data.taf;
+        let metarHtml = '<div class="text-gray-500 dark:text-gray-400 italic">No METAR available.</div>';
+        let tafHtml = '<div class="text-gray-500 dark:text-gray-400 italic">No TAF available.</div>';
+        let headerText = data.id;
+        if (data.name) headerText += ` <span class="text-base font-normal text-gray-500 dark:text-gray-400 ml-2 block sm:inline">${data.name}</span>`;
+        let infoTextParts = [];
+
+        if (metar) {
+            const category = metar.category;
+            const className = getCategoryClassName(category);
+            infoTextParts.push(`${getDisplayTemp(metar)} • ${metar.rh}`);
+            infoTextParts.push(`Observed ${formatAge(metar.age)}`);
+            if (data.distanceNM !== null) infoTextParts.push(`${data.distanceNM.toFixed(0)} NM`);
+            const dotClassToBorderColor = {
+                'vfr-dot': 'border-green-500',
+                'mvfr-dot': 'border-blue-500',
+                'ifr-dot': 'border-red-500',
+                'lifr-dot': 'border-pink-500'
+            };
+            const borderColorClass = dotClassToBorderColor[className] || 'border-gray-500';
+            metarHtml = `<div class="bg-gray-100 dark:bg-gray-900 p-2 rounded-lg border-l-4 ${borderColorClass} transition-colors duration-300 w-full overflow-hidden">
+                            <h4 class="font-bold mb-1 text-sm text-gray-600 dark:text-gray-300">METAR</h4>
+                            <div class="font-mono text-xs md:text-sm leading-relaxed break-words whitespace-pre-wrap">${formatRawText(metar.rawText)}</div>
+                         </div>`;
+        } else if (data.distanceNM !== null) {
+            infoTextParts.push(`Distance: ${data.distanceNM.toFixed(0)} NM`);
+        }
+
+        if (taf) {
+            let notes = [];
+            if (taf.age !== null) notes.push(`Issued ${formatAge(taf.age)}`);
+            if (taf.periodHours !== null) notes.push(`Forecast period ends in ${taf.periodHours} hours`);
+            let noteHtml = notes.length > 0 ? `<p class="text-xs text-gray-500 dark:text-gray-400 mt-2">${notes.join(' • ')}</p>` : '';
+            tafHtml = `<div class="bg-gray-100 dark:bg-gray-900 p-2 rounded-lg transition-colors duration-300 w-full overflow-hidden">
+                        <h4 class="font-bold mb-1 text-sm text-gray-600 dark:text-gray-300">TAF</h4>
+                        <div class="space-y-1">${formatRawText(taf.rawText)}</div>
+                        ${noteHtml}
+                     </div>`;
+        }
+
+        const stationEntry = document.createElement('div');
+        stationEntry.className = 'border border-gray-200 dark:border-gray-800 rounded-lg p-4 shadow-md bg-white dark:bg-black transition-colors duration-300 w-full max-w-full mb-4';
+        stationEntry.innerHTML = `
+            <div class="flex flex-col items-start mb-3 border-b dark:border-gray-800 pb-2">
+                <h3 class="text-xl font-extrabold text-gray-900 dark:text-gray-100 flex items-baseline flex-wrap">${headerText}</h3>
+                <p class="text-xs text-gray-500 dark:text-gray-400 font-medium mt-1">${infoTextParts.join(' • ')}</p>
+            </div>
+            <div class="space-y-3 w-full">${metarHtml}${tafHtml}</div>
+        `;
+        return stationEntry;
+    }
+
+    // Lazy Loading Function
+    function renderNextBatch() {
+        // If we have rendered everything, stop.
+        if (listRenderIndex >= currentReportData.stationsData.length) return;
+
+        const batch = currentReportData.stationsData.slice(listRenderIndex, listRenderIndex + LIST_BATCH_SIZE);
+        if (batch.length === 0) return;
+
+        const fragment = document.createDocumentFragment();
+        batch.forEach(data => {
+            fragment.appendChild(createStationCard(data));
+        });
+
+        weatherListEl.appendChild(fragment);
+        listRenderIndex += batch.length;
+    }
+
+    function fillListContainer() {
+        const container = resultsContainerEl.querySelector('.flex-grow');
+        if (!container) return;
+
+        // Safety break to prevent infinite loop if css is broken
+        let safeGuard = 0;
+        // Keep loading batches until scrollHeight > clientHeight (scrollbar appears) OR we run out of data
+        // We check if container is visible because clientHeight might be 0 if hidden
+        if (container.clientHeight > 0) {
+            while (container.scrollHeight <= container.clientHeight && listRenderIndex < currentReportData.stationsData.length && safeGuard < 20) {
+                renderNextBatch();
+                safeGuard++;
+            }
+        }
+    }
+
     async function refreshDataSilent(skipFetch = false) {
         try {
             if (!skipFetch) {
@@ -2545,8 +2681,11 @@
                 const usedRef = processResult.refName;
 
                 let routeAnalysisResult = null;
+                // Graceful check for analysis inputs inside refresh
                 if (routeAnalysisEnabled) {
-                     routeAnalysisResult = runRouteAnalysis(processResult.stationDataMap, depIcao, destIcao, takeOffTime, landingTime, searchDist, cachedRunwayMap, minRunwayLen);
+                    if (depIcao.length >= 3 || destIcao.length >= 3) {
+                         routeAnalysisResult = runRouteAnalysis(processResult.stationDataMap, depIcao, destIcao, takeOffTime, landingTime, searchDist, cachedRunwayMap, minRunwayLen);
+                    }
                 }
 
                 // Update Global State
@@ -2558,7 +2697,6 @@
                 currentStationsData = stationsData;
             }
 
-            // extract vars from currentReportData
             const stationsData = currentReportData.stationsData;
             const usedRef = currentReportData.refName;
             const routeAnalysisResult = currentReportData.routeAnalysisResult;
@@ -2571,91 +2709,41 @@
                     renderMap(currentStationsData);
                 }
 
-                // 2. If Standard List Tab is visible - Replace HTML, Restore Scroll
+                // 2. If Standard List Tab is visible - Efficient Update
                 if (!weatherListEl.classList.contains('hidden')) {
-                    // We need to re-render the list HTML string
-                    // Temporary container to build HTML string
-                    const tempContainer = document.createElement('div');
+                    // Simulating an Infinite Scroll refresh:
+                    // We try to restore roughly the same amount of items the user had loaded
+                    const currentCount = listRenderIndex || LIST_BATCH_SIZE;
+
+                    weatherListEl.innerHTML = '';
+                    listRenderIndex = 0;
 
                     if (usedRef) {
                         const refHeader = document.createElement('div');
                         refHeader.className = "bg-blue-50 dark:bg-blue-900/30 p-3 rounded-lg mb-4 text-center text-sm font-bold text-blue-800 dark:text-blue-200 transition-colors duration-300";
                         refHeader.textContent = `Distances calculated from: ${usedRef}`;
-                        tempContainer.appendChild(refHeader);
+                        weatherListEl.appendChild(refHeader);
                     }
 
-                    stationsData.forEach(data => {
-                        const metar = data.metar;
-                        const taf = data.taf;
-                        let metarHtml = '<div class="text-gray-500 dark:text-gray-400 italic">No METAR available.</div>';
-                        let tafHtml = '<div class="text-gray-500 dark:text-gray-400 italic">No TAF available.</div>';
-                        let headerText = data.id;
-                        if (data.name) headerText += ` <span class="text-base font-normal text-gray-500 dark:text-gray-400 ml-2 block sm:inline">${data.name}</span>`;
-                        let infoTextParts = [];
+                    // Render up to previous count or at least one batch
+                    const restoreCount = Math.max(currentCount, LIST_BATCH_SIZE);
+                    // Temporarily increase batch size logic manually for restore
+                    const batch = currentReportData.stationsData.slice(0, restoreCount);
 
-                        if (metar) {
-                            const category = metar.category;
-                            const className = getCategoryClassName(category);
-                            infoTextParts.push(`${getDisplayTemp(metar)} • ${metar.rh}`);
-                            infoTextParts.push(`Observed ${formatAge(metar.age)}`);
-                            if (data.distanceNM !== null) infoTextParts.push(`${data.distanceNM.toFixed(0)} NM`);
-                            const dotClassToBorderColor = {
-                                'vfr-dot': 'border-green-500',
-                                'mvfr-dot': 'border-blue-500',
-                                'ifr-dot': 'border-red-500',
-                                'lifr-dot': 'border-pink-500'
-                            };
-                            const borderColorClass = dotClassToBorderColor[className] || 'border-gray-500';
-                            metarHtml = `<div class="bg-gray-100 dark:bg-gray-900 p-2 rounded-lg border-l-4 ${borderColorClass} transition-colors duration-300 w-full overflow-hidden">
-                                            <h4 class="font-bold mb-1 text-sm text-gray-600 dark:text-gray-300">METAR</h4>
-                                            <div class="font-mono text-xs md:text-sm leading-relaxed break-words whitespace-pre-wrap">${formatRawText(metar.rawText)}</div>
-                                         </div>`;
-                        } else if (data.distanceNM !== null) {
-                            infoTextParts.push(`Distance: ${data.distanceNM.toFixed(0)} NM`);
-                        }
-
-                        if (taf) {
-                            let notes = [];
-                            if (taf.age !== null) notes.push(`Issued ${formatAge(taf.age)}`);
-                            if (taf.periodHours !== null) notes.push(`Forecast period ends in ${taf.periodHours} hours`);
-                            let noteHtml = notes.length > 0 ? `<p class="text-xs text-gray-500 dark:text-gray-400 mt-2">${notes.join(' • ')}</p>` : '';
-                            tafHtml = `<div class="bg-gray-100 dark:bg-gray-900 p-2 rounded-lg transition-colors duration-300 w-full overflow-hidden">
-                                        <h4 class="font-bold mb-1 text-sm text-gray-600 dark:text-gray-300">TAF</h4>
-                                        <div class="space-y-1">${formatRawText(taf.rawText)}</div>
-                                        ${noteHtml}
-                                     </div>`;
-                        }
-
-                        const stationEntry = document.createElement('div');
-                        stationEntry.className = 'border border-gray-200 dark:border-gray-800 rounded-lg p-4 shadow-md bg-white dark:bg-black transition-colors duration-300 w-full max-w-full mb-4';
-                        stationEntry.innerHTML = `
-                            <div class="flex flex-col items-start mb-3 border-b dark:border-gray-800 pb-2">
-                                <h3 class="text-xl font-extrabold text-gray-900 dark:text-gray-100 flex items-baseline flex-wrap">${headerText}</h3>
-                                <p class="text-xs text-gray-500 dark:text-gray-400 font-medium mt-1">${infoTextParts.join(' • ')}</p>
-                            </div>
-                            <div class="space-y-3 w-full">${metarHtml}${tafHtml}</div>
-                        `;
-                        tempContainer.appendChild(stationEntry);
+                    const fragment = document.createDocumentFragment();
+                    batch.forEach(data => {
+                        fragment.appendChild(createStationCard(data));
                     });
+                    weatherListEl.appendChild(fragment);
+                    listRenderIndex = restoreCount;
 
-                    // SAVE SCROLL
-                    const scrollContainer = resultsContainerEl.querySelector('.flex-grow'); // The scrollable part
-                    const scrollTop = scrollContainer ? scrollContainer.scrollTop : 0;
-
-                    weatherListEl.innerHTML = tempContainer.innerHTML;
-
-                    // RESTORE SCROLL
-                    if(scrollContainer) scrollContainer.scrollTop = scrollTop;
+                    // Ensure full screen
+                    fillListContainer();
                 }
 
                 // 3. If Analysis Tab is visible
                 if (!routeAnalysisViewEl.classList.contains('hidden') && routeAnalysisResult) {
-                    const scrollContainer = resultsContainerEl.querySelector('.flex-grow');
-                    const scrollTop = scrollContainer ? scrollContainer.scrollTop : 0;
-
                     renderRouteAnalysisBrowser(routeAnalysisResult);
-
-                    if(scrollContainer) scrollContainer.scrollTop = scrollTop;
                 }
             }
 
@@ -2689,11 +2777,11 @@
             const searchDist = (!isNaN(radiusInputVal) && radiusInputVal > 0) ? radiusInputVal : MAX_ROUTE_DISTANCE_NM;
 
             if (routeAnalysisEnabled) {
+                // Graceful handling: If fields are empty, don't error, just skip analysis (Requirement #2)
                 if (depIcao.length < 3 && destIcao.length < 3) {
-                     showStatus("Route Error", true, "Please enter at least one ICAO code (Departure or Destination).");
-                     return;
-                }
-                if (takeOffTime && landingTime && takeOffTime >= landingTime) {
+                     // Proceed without analysis
+                     console.log("Analysis enabled but no airports defined. Proceeding as standard report.");
+                } else if (takeOffTime && landingTime && takeOffTime >= landingTime) {
                      showStatus("Time Error", true, "Landing time must be after Takeoff time.");
                      return;
                 }
@@ -2728,7 +2816,7 @@
             const stationDataMap = processResult.stationDataMap;
             const usedRef = processResult.refName;
 
-            if (routeAnalysisEnabled) {
+            if (routeAnalysisEnabled && (depIcao.length >= 3 || destIcao.length >= 3)) {
                 showStatus("Running Alternate Analysis...");
                 routeAnalysisResult = runRouteAnalysis(stationDataMap, depIcao, destIcao, takeOffTime, landingTime, searchDist, runwayMap, minRunwayLen);
             }
@@ -2740,7 +2828,8 @@
                 routeAnalysisResult: routeAnalysisResult
             };
 
-            if (routeAnalysisEnabled) tabRouteAnalysis.classList.remove('hidden');
+            // Only show Analysis tab if we actually have results
+            if (routeAnalysisResult) tabRouteAnalysis.classList.remove('hidden');
             else tabRouteAnalysis.classList.add('hidden');
 
             // Render to browser and enable PDF button
@@ -2757,6 +2846,11 @@
 
             // Start Auto Refresh
             startAutoRefresh();
+
+            // Auto-Scroll to Results (Requirement #1)
+            setTimeout(() => {
+                resultsContainerEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            }, 100);
 
         } catch (error) {
             console.error(error);
@@ -2956,6 +3050,7 @@
 
     function renderInBrowser(stationsData, refName, routeAnalysisResult) {
         weatherListEl.innerHTML = '';
+        listRenderIndex = 0; // Reset lazy load index
 
         // --- MAP DATA HANDLER ---
         currentStationsData = stationsData;
@@ -2963,6 +3058,7 @@
         renderMap(currentStationsData);
         // --- END MAP DATA HANDLER ---
 
+        // Prepare List View (but load efficiently)
         if (refName) {
             const refHeader = document.createElement('div');
             refHeader.className = "bg-blue-50 dark:bg-blue-900/30 p-3 rounded-lg mb-4 text-center text-sm font-bold text-blue-800 dark:text-blue-200 transition-colors duration-300";
@@ -2970,61 +3066,11 @@
             weatherListEl.appendChild(refHeader);
         }
 
-        stationsData.forEach(data => {
-            const metar = data.metar;
-            const taf = data.taf;
-            let metarHtml = '<div class="text-gray-500 dark:text-gray-400 italic">No METAR available.</div>';
-            let tafHtml = '<div class="text-gray-500 dark:text-gray-400 italic">No TAF available.</div>';
-            let headerText = data.id;
-            if (data.name) headerText += ` <span class="text-base font-normal text-gray-500 dark:text-gray-400 ml-2 block sm:inline">${data.name}</span>`;
-            let infoTextParts = [];
+        // Render First Batch
+        renderNextBatch();
 
-            if (metar) {
-                const category = metar.category;
-                const className = getCategoryClassName(category);
-                infoTextParts.push(`${getDisplayTemp(metar)} • ${metar.rh}`);
-                infoTextParts.push(`Observed ${formatAge(metar.age)}`);
-                if (data.distanceNM !== null) infoTextParts.push(`${data.distanceNM.toFixed(0)} NM`);
-                const dotClassToBorderColor = {
-                    'vfr-dot': 'border-green-500',
-                    'mvfr-dot': 'border-blue-500',
-                    'ifr-dot': 'border-red-500',
-                    'lifr-dot': 'border-pink-500'
-                };
-                const borderColorClass = dotClassToBorderColor[className] || 'border-gray-500';
-                metarHtml = `<div class="bg-gray-100 dark:bg-gray-900 p-2 rounded-lg border-l-4 ${borderColorClass} transition-colors duration-300 w-full overflow-hidden">
-                                <h4 class="font-bold mb-1 text-sm text-gray-600 dark:text-gray-300">METAR</h4>
-                                <div class="font-mono text-xs md:text-sm leading-relaxed break-words whitespace-pre-wrap">${formatRawText(metar.rawText)}</div>
-                             </div>`;
-            } else if (data.distanceNM !== null) {
-                infoTextParts.push(`Distance: ${data.distanceNM.toFixed(0)} NM`);
-            }
-
-            if (taf) {
-                let notes = [];
-                if (taf.age !== null) notes.push(`Issued ${formatAge(taf.age)}`);
-                if (taf.periodHours !== null) notes.push(`Forecast period ends in ${taf.periodHours} hours`);
-                let noteHtml = notes.length > 0 ? `<p class="text-xs text-gray-500 dark:text-gray-400 mt-2">${notes.join(' • ')}</p>` : '';
-                tafHtml = `<div class="bg-gray-100 dark:bg-gray-900 p-2 rounded-lg transition-colors duration-300 w-full overflow-hidden">
-                            <h4 class="font-bold mb-1 text-sm text-gray-600 dark:text-gray-300">TAF</h4>
-                            <div class="space-y-1">${formatRawText(taf.rawText)}</div>
-                            ${noteHtml}
-                         </div>`;
-            }
-
-            const stationEntry = document.createElement('div');
-            // PURE BLACK CARD
-            stationEntry.className = 'border border-gray-200 dark:border-gray-800 rounded-lg p-4 shadow-md bg-white dark:bg-black transition-colors duration-300 w-full max-w-full mb-4';
-            // MODIFIED: Changed flex layout to column and removed justify-between to stack name and details
-            stationEntry.innerHTML = `
-                <div class="flex flex-col items-start mb-3 border-b dark:border-gray-800 pb-2">
-                    <h3 class="text-xl font-extrabold text-gray-900 dark:text-gray-100 flex items-baseline flex-wrap">${headerText}</h3>
-                    <p class="text-xs text-gray-500 dark:text-gray-400 font-medium mt-1">${infoTextParts.join(' • ')}</p>
-                </div>
-                <div class="space-y-3 w-full">${metarHtml}${tafHtml}</div>
-            `;
-            weatherListEl.appendChild(stationEntry);
-        });
+        // Auto-fill screen if 50 items aren't enough to trigger scroll
+        fillListContainer();
 
         if (routeAnalysisResult) {
             renderRouteAnalysisBrowser(routeAnalysisResult);
