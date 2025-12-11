@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en" class="h-full antialiased">
 <head>
@@ -187,6 +188,12 @@
             z-index: 1000;
         }
 
+        /* Radar Button Position */
+        .radar-trigger {
+            position: absolute; bottom: 1rem; left: 1rem;
+            z-index: 1000;
+        }
+
         .floating-pill {
             pointer-events: auto;
             background: rgba(255, 255, 255, 0.9);
@@ -198,6 +205,12 @@
         .dark .floating-pill {
             background: rgba(30, 41, 59, 0.85);
             border-color: rgba(255,255,255,0.1); color: white;
+        }
+
+        /* Radar Active State */
+        .radar-active {
+            background-color: #3b82f6 !important;
+            color: white !important;
         }
 
         /* --- MAP LABELS STYLING (Optimized for divIcon) --- */
@@ -248,6 +261,33 @@
         .dark #zuluClock {
             background: rgba(0, 0, 0, 0.6);
             color: #fbbf24; /* Amber-400 */
+            border-color: rgba(255, 255, 255, 0.1);
+            box-shadow: 0 2px 4px rgba(0,0,0,0.3);
+        }
+
+        /* Radar Time Display (Styled EXACTLY like Zulu Clock) */
+        #radarTimeDisplay {
+            position: absolute;
+            bottom: 1rem;
+            left: 4rem; /* To the right of the button */
+            z-index: 1100; /* Same high z-index */
+            font-family: 'JetBrains Mono', monospace;
+            font-weight: 700;
+            background: rgba(255, 255, 255, 0.8);
+            color: #2563eb; /* Blue to match radar button */
+            border: 1px solid rgba(0, 0, 0, 0.1);
+            backdrop-filter: blur(4px);
+            padding: 0.25rem 0.75rem;
+            border-radius: 0.5rem;
+            font-size: 0.875rem;
+            pointer-events: none;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            display: none; /* Hidden by default */
+        }
+
+        .dark #radarTimeDisplay {
+            background: rgba(0, 0, 0, 0.6);
+            color: #60a5fa; /* Light blue */
             border-color: rgba(255, 255, 255, 0.1);
             box-shadow: 0 2px 4px rgba(0,0,0,0.3);
         }
@@ -562,6 +602,8 @@
         .z-\[100\] { z-index: 100; }
         .z-\[110\] { z-index: 110; }
         .z-50 { z-index: 50; }
+        
+        .z-\[5000\] { z-index: 5000; } /* Added explicitly */
 
         .overflow-y-auto { overflow-y: auto; }
         .overflow-x-hidden { overflow-x: hidden; }
@@ -815,11 +857,23 @@
                 <!-- Zulu Clock -->
                 <div id="zuluClock">00:00:00Z</div>
 
+                <!-- Radar Timestamp Display -->
+                <div id="radarTimeDisplay">Radar Valid: --:--z</div>
+
                 <!-- Toggle Fullscreen Button (Visible only in Embedded Mode) -->
                 <button id="btnEnterFullscreen" onclick="toggleMapFullscreen()"
                         class="fullscreen-trigger p-2 bg-white dark:bg-gray-800 rounded-lg shadow-md hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors text-gray-700 dark:text-gray-200">
                     <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4" />
+                    </svg>
+                </button>
+
+                <!-- Radar Toggle Button -->
+                <button id="radarToggleBtn" onclick="toggleRadar()"
+                        class="radar-trigger p-2 bg-white dark:bg-gray-800 rounded-lg shadow-md hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors text-gray-700 dark:text-gray-200" aria-label="Toggle Radar">
+                    <!-- Rain Droplet Icon -->
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 16a8 8 0 11-16 0c0-4.135 3.5-7.5 8-14 4.5 6.5 8 9.865 8 14z" />
                     </svg>
                 </button>
 
@@ -853,7 +907,7 @@
 
 <script>
     // --- APP CONFIG ---
-    const CURRENT_VERSION = 'v2.2.5';
+    const CURRENT_VERSION = 'v2.2.6';
     const GITHUB_REPO = 'Unpiloted0852/AvWx';
 
     // Global Data Storage for Modal Access
@@ -877,11 +931,16 @@
     let markerLayerGroup = null;
     let labelLayerGroup = null; // Optimized layer for text
     let mapRenderer = null;
+    // We create separate renderers for the route pane and marker pane to solve click issues
+    let routeRenderer = null;
+    let markerRenderer = null;
+    
     let currentStationsData = []; // Store data globally to render map on tab switch
+    let radarLayer = null; // Radar Layer Global
 
     // Lazy Loading Globals
     let listRenderIndex = 0;
-    const LIST_BATCH_SIZE = 50;
+    const LIST_BATCH_SIZE = 50; // Increased to ensure scrollbar
 
     // --- LIBRARIES SAFE LOADING ---
     let jsPDF = null;
@@ -919,6 +978,10 @@
     const modal = document.getElementById('tileModal');
     const zuluClockEl = document.getElementById('zuluClock');
     const unitToggleBtn = document.getElementById('unitToggleBtn');
+    const radarToggleBtn = document.getElementById('radarToggleBtn');
+    // Ensure element is selected correctly for use in function
+    // (Note: elements with IDs are global variables in browsers, but explicit selection is safer)
+    const radarTimeDisplay = document.getElementById('radarTimeDisplay'); 
 
     // Attach scroll listener for Lazy Loading
     const scrollContainer = resultsContainerEl.querySelector('.flex-grow');
@@ -1268,8 +1331,6 @@
         const isDark = document.documentElement.classList.contains('dark');
 
         // Initialize Map with preferCanvas: true for performance
-        // FIX: Add worldCopyJump: true to enable seamless scrolling around the world
-        // FIX: disable zoomControl for cleaner mobile fullscreen look
         mapInstance = L.map('weatherMap', {
             preferCanvas: true,
             worldCopyJump: true,
@@ -1286,18 +1347,87 @@
             maxZoom: 19
         }).addTo(mapInstance);
 
-        // Create Custom Panes for Z-Index Management (Fixes interaction issues)
+        // --- CUSTOM PANES FOR Z-INDEX CONTROL ---
+        // 1. Radar Pane (Above Tiles, Below Routes)
+        mapInstance.createPane('radarPane');
+        mapInstance.getPane('radarPane').style.zIndex = 250; 
+        mapInstance.getPane('radarPane').style.pointerEvents = 'none'; // Don't block clicks
+
+        // 2. Route Pane (Above Radar, Below Markers)
         mapInstance.createPane('routePane');
-        mapInstance.getPane('routePane').style.zIndex = 399; // Below markers
+        mapInstance.getPane('routePane').style.zIndex = 400; 
+        // Important: This pane must allow clicks to pass through if we draw lines on it
+        // We handle interactivity on the polyline itself via `interactive: false`
+
+        // 3. Marker Pane (Topmost)
         mapInstance.createPane('markerPane');
-        mapInstance.getPane('markerPane').style.zIndex = 600; // Above everything
+        mapInstance.getPane('markerPane').style.zIndex = 600; // Standard marker pane is usually 600
+
+        // SEPARATE RENDERERS FOR PANES TO FIX CLICK ISSUES
+        routeRenderer = L.canvas({ pane: 'routePane' });
+        markerRenderer = L.canvas({ pane: 'markerPane', tolerance: 20 });
 
         markerLayerGroup = L.layerGroup().addTo(mapInstance);
-        labelLayerGroup = L.layerGroup().addTo(mapInstance); // New separate layer for labels
+        labelLayerGroup = L.layerGroup().addTo(mapInstance); 
 
         // Events for Optimized Label Rendering
         mapInstance.on('zoomend', updateMapLabels);
         mapInstance.on('moveend', updateMapLabels);
+    }
+
+    // --- RADAR LOGIC ---
+    function toggleRadar() {
+        const btn = document.getElementById('radarToggleBtn');
+        const timeDisplay = document.getElementById('radarTimeDisplay');
+        
+        if (radarLayer) {
+            // Remove
+            mapInstance.removeLayer(radarLayer);
+            radarLayer = null;
+            btn.classList.remove('radar-active');
+            timeDisplay.style.display = 'none';
+        } else {
+            // Add
+            btn.classList.add('radar-active');
+            timeDisplay.textContent = 'Radar Loading...';
+            timeDisplay.style.display = 'block';
+            
+            // 1. Fetch latest timestamp from RainViewer DIRECTLY (No Proxy needed for standard JSON)
+            fetch('https://api.rainviewer.com/public/weather-maps.json')
+                .then(res => res.json())
+                .then(data => {
+                    if (data && data.radar && data.radar.past && data.radar.past.length > 0) {
+                        // Get last frame (most recent past)
+                        const lastFrame = data.radar.past[data.radar.past.length - 1];
+                        const time = lastFrame.time;
+                        const host = data.host;
+                        
+                        // 2. Create TileLayer
+                        // Color Scheme 4 = The Weather Channel
+                        // Important: Free tier strictly limits zoom to 10
+                        radarLayer = L.tileLayer(`${host}/v2/radar/${time}/256/{z}/{x}/{y}/4/1_1.png`, {
+                            pane: 'radarPane', 
+                            opacity: 0.8,
+                            maxZoom: 10,
+                            attribution: '&copy; <a href="https://www.rainviewer.com">RainViewer</a>'
+                        });
+                        
+                        radarLayer.addTo(mapInstance);
+
+                        // 3. Update Timestamp Display
+                        const date = new Date(time * 1000);
+                        const h = String(date.getUTCHours()).padStart(2, '0');
+                        const m = String(date.getUTCMinutes()).padStart(2, '0');
+                        timeDisplay.textContent = `Radar Valid: ${h}${m}Z`;
+                    }
+                })
+                .catch(err => {
+                    console.error("Radar fetch failed", err);
+                    btn.classList.remove('radar-active');
+                    timeDisplay.style.display = 'none';
+                    alert("Could not load radar data. Please check your connection.");
+                });
+        }
     }
 
     // --- OPTIMIZED LABEL RENDERING ---
@@ -1426,6 +1556,7 @@
                 // Cyan/Turquoise Ring for Home
                  L.circleMarker([homeCoords.lat, homeCoords.lon], {
                     pane: 'routePane', // Put on lower pane to not block clicks
+                    renderer: routeRenderer,
                     radius: 12,
                     fill: false,
                     color: '#06b6d4', // Tailwind Cyan-500
@@ -1459,18 +1590,20 @@
                     const pathPoints = getGreatCircleRoute(depCoords.lat, depCoords.lon, destCoords.lat, destCoords.lon);
                     L.polyline(pathPoints, {
                         pane: 'routePane', // Force lower Z-index pane
+                        renderer: routeRenderer,
                         color: '#fbbf24', // Tailwind amber-400
                         weight: 2,
                         opacity: 0.8,
                         dashArray: '5, 10',
                         lineCap: 'round',
-                        interactive: false // No clicks
+                        interactive: false // <--- CRITICAL FIX
                     }).addTo(markerLayerGroup);
                 }
 
                 // Highlight Departure (Ring)
                 L.circleMarker([depCoords.lat, depCoords.lon], {
                     pane: 'routePane', // Force lower Z-index pane
+                    renderer: routeRenderer,
                     radius: 12,
                     fill: false,
                     color: '#ffffff',
@@ -1482,6 +1615,7 @@
                 if (!isSameStation) {
                     L.circleMarker([destCoords.lat, destCoords.lon], {
                         pane: 'routePane', // Force lower Z-index pane
+                        renderer: routeRenderer,
                         radius: 12,
                         fill: false,
                         color: '#ffffff',
@@ -1510,7 +1644,7 @@
             // Circle Marker style - efficient canvas rendering
             const marker = L.circleMarker([station.latitude, station.longitude], {
                 pane: 'markerPane', // Force Highest Z-Index Pane
-                renderer: mapRenderer, // Use the high-tolerance renderer
+                renderer: markerRenderer, // Use the high-tolerance renderer on the correct pane
                 radius: 5,
                 fillColor: colorHex,
                 color: '#000', // Black border for contrast on dark map
@@ -2643,7 +2777,7 @@
     function fillListContainer() {
         const container = resultsContainerEl.querySelector('.flex-grow');
         if (!container) return;
-
+        
         // Safety break to prevent infinite loop if css is broken
         let safeGuard = 0;
         // Keep loading batches until scrollHeight > clientHeight (scrollbar appears) OR we run out of data
@@ -2736,7 +2870,7 @@
                     });
                     weatherListEl.appendChild(fragment);
                     listRenderIndex = restoreCount;
-
+                    
                     // Ensure full screen
                     fillListContainer();
                 }
@@ -3068,7 +3202,7 @@
 
         // Render First Batch
         renderNextBatch();
-
+        
         // Auto-fill screen if 50 items aren't enough to trigger scroll
         fillListContainer();
 
