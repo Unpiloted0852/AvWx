@@ -8,6 +8,13 @@
     <title>Aviation Weather Report (TAF & METAR)</title>
 
     <script>
+        // Map Tile URLs
+        const MAP_DARK_URL = 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png';
+        const MAP_LIGHT_URL = 'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png';
+
+        // Global reference to tile layer for updating
+        let tileLayer = null;
+
         // Check local storage or system preference
         function getInitialTheme() {
             try {
@@ -32,6 +39,11 @@
             const flatpickrDark = document.getElementById('flatpickr-dark-css');
             if (flatpickrDark) {
                 flatpickrDark.disabled = (theme !== 'dark');
+            }
+
+            // Toggle Map Tiles if map exists
+            if (tileLayer) {
+                tileLayer.setUrl(theme === 'dark' ? MAP_DARK_URL : MAP_LIGHT_URL);
             }
         }
 
@@ -103,18 +115,29 @@
         .flatpickr-calendar { font-family: 'Inter', sans-serif; }
 
         /* Leaflet Dark Theme Overrides */
-        .leaflet-container { font-family: 'Inter', sans-serif; background: #111; }
+        .leaflet-container { font-family: 'Inter', sans-serif; background: #e5e7eb; }
+        .dark .leaflet-container { background: #111; }
+
         .leaflet-popup-content-wrapper, .leaflet-popup-tip {
-            background-color: #1f2937; /* Tailwind gray-800 */
-            color: #f3f4f6;
+            background-color: #ffffff; /* Default Light Mode */
+            color: #1f2937;
             box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.5);
-            border: 1px solid #374151;
+            border: 1px solid #e5e7eb;
             border-radius: 0.5rem;
             min-width: 300px;
         }
+
+        /* Dark Mode Popup Overrides */
+        .dark .leaflet-popup-content-wrapper, .dark .leaflet-popup-tip {
+            background-color: #1f2937;
+            color: #f3f4f6;
+            border-color: #374151;
+        }
+
         .leaflet-popup-content { margin: 12px; line-height: 1.5; min-width: 280px; max-height: 300px; overflow-y: auto; }
         .leaflet-container a.leaflet-popup-close-button { color: #9ca3af; padding: 8px; }
-        .leaflet-container a.leaflet-popup-close-button:hover { color: #fff; }
+        .leaflet-container a.leaflet-popup-close-button:hover { color: #000; }
+        .dark .leaflet-container a.leaflet-popup-close-button:hover { color: #fff; }
 
         /* Map container height */
         #weatherMap { height: 100%; width: 100%; z-index: 0; }
@@ -188,8 +211,12 @@
             font-weight: 700;
             font-size: 11px;
             text-align: center;
-            text-shadow: 1.5px 1.5px 0 #000, -1.5px -1.5px 0 #000, 1.5px -1.5px 0 #000, -1.5px 1.5px 0 #000, 1.5px 1.5px 0 #000;
+            text-shadow: 1.5px 1.5px 0 #fff, -1.5px -1.5px 0 #fff, 1.5px -1.5px 0 #fff, -1.5px 1.5px 0 #fff, 1.5px 1.5px 0 #fff;
             white-space: nowrap;
+        }
+
+        .dark .map-icao-label {
+            text-shadow: 1.5px 1.5px 0 #000, -1.5px -1.5px 0 #000, 1.5px -1.5px 0 #000, -1.5px 1.5px 0 #000, 1.5px 1.5px 0 #000;
         }
 
         /* Label Colors matching dots */
@@ -207,14 +234,21 @@
             z-index: 1100; /* High z-index to stay above maps */
             font-family: 'JetBrains Mono', monospace;
             font-weight: 700;
-            background: rgba(0, 0, 0, 0.6);
-            color: #fbbf24; /* Amber-400 */
-            border: 1px solid rgba(255, 255, 255, 0.1);
+            background: rgba(255, 255, 255, 0.8);
+            color: #d97706; /* Amber-600 for light mode visibility */
+            border: 1px solid rgba(0, 0, 0, 0.1);
             backdrop-filter: blur(4px);
             padding: 0.25rem 0.75rem;
             border-radius: 0.5rem;
             font-size: 0.875rem;
             pointer-events: none; /* Let clicks pass through if needed */
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+
+        .dark #zuluClock {
+            background: rgba(0, 0, 0, 0.6);
+            color: #fbbf24; /* Amber-400 */
+            border-color: rgba(255, 255, 255, 0.1);
             box-shadow: 0 2px 4px rgba(0,0,0,0.3);
         }
 
@@ -810,7 +844,7 @@
 
 <script>
     // --- APP CONFIG ---
-    const CURRENT_VERSION = 'v2.2.1';
+    const CURRENT_VERSION = 'v2.2.2';
     const GITHUB_REPO = 'Unpiloted0852/AvWx';
 
     // Global Data Storage for Modal Access
@@ -1174,6 +1208,8 @@
     function initMap() {
         if (mapInstance) return;
 
+        const isDark = document.documentElement.classList.contains('dark');
+
         // Initialize Map with preferCanvas: true for performance
         // FIX: Add worldCopyJump: true to enable seamless scrolling around the world
         // FIX: disable zoomControl for cleaner mobile fullscreen look
@@ -1186,8 +1222,8 @@
         // Increase touch tolerance (hit detection) without changing visual radius
         mapRenderer = L.canvas({ tolerance: 20 });
 
-        // CartoDB Dark Matter Tiles (Sleek, Dark, Free)
-        L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+        // CartoDB Tiles (Dynamic)
+        tileLayer = L.tileLayer(isDark ? MAP_DARK_URL : MAP_LIGHT_URL, {
             attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>',
             subdomains: 'abcd',
             maxZoom: 19
@@ -1411,8 +1447,8 @@
                      if (station.taf.age !== null) notes.push(`Issued: ${formatAge(station.taf.age)}`);
 
                      if (notes.length > 0) {
-                         tafHtml += `<div class="mt-2 border-t border-gray-700 pt-1 flex flex-col gap-0.5">`;
-                         notes.forEach(n => tafHtml += `<span class="text-xs text-gray-400 block">${n}</span>`);
+                         tafHtml += `<div class="mt-2 border-t border-gray-200 dark:border-gray-700 pt-1 flex flex-col gap-0.5">`;
+                         notes.forEach(n => tafHtml += `<span class="text-xs text-gray-500 dark:text-gray-400 block">${n}</span>`);
                          tafHtml += `</div>`;
                      }
                 }
@@ -1420,18 +1456,18 @@
                 // Popup Content
                 return `
                     <div class="font-sans">
-                        <div class="flex items-baseline justify-between mb-2 pb-1 border-b border-gray-700">
-                            <span class="font-bold text-lg text-blue-400">${station.id}</span>
-                            <span class="text-xs text-gray-300 ml-2 truncate" style="max-width: 150px;">${station.name || ''}</span>
+                        <div class="flex items-baseline justify-between mb-2 pb-1 border-b border-gray-200 dark:border-gray-700">
+                            <span class="font-bold text-lg text-blue-600 dark:text-blue-400">${station.id}</span>
+                            <span class="text-xs text-gray-500 dark:text-gray-300 ml-2 truncate" style="max-width: 150px;">${station.name || ''}</span>
                         </div>
 
                         <div class="mb-2">
-                            <span class="text-xs font-bold text-gray-400 uppercase tracking-wider block mb-1">METAR</span>
+                            <span class="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider block mb-1">METAR</span>
                             ${metarHtml}
                         </div>
 
                         <div class="mb-1">
-                            <span class="text-xs font-bold text-gray-400 uppercase tracking-wider block mb-1">TAF</span>
+                            <span class="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider block mb-1">TAF</span>
                             ${tafHtml}
                         </div>
                     </div>
