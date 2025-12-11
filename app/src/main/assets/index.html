@@ -844,7 +844,7 @@
 
 <script>
     // --- APP CONFIG ---
-    const CURRENT_VERSION = 'v2.2.3';
+    const CURRENT_VERSION = 'v2.2.4';
     const GITHUB_REPO = 'Unpiloted0852/AvWx';
 
     // Global Data Storage for Modal Access
@@ -1895,9 +1895,31 @@
     }
 
     async function fetchAndParse(url) {
-        const fetchUrl = PROXY_URL + encodeURIComponent(url);
+        // 1. Unique ID for the Target Server (aviationweather.gov)
+        // This forces the Proxy to fetch a "new" URL from the source.
+        const targetCacheBuster = (url.includes('?') ? '&' : '?') + 'rand=' + Math.random().toString(36).substring(7) + Date.now();
+
+        // 2. Encode the Target URL
+        const encodedTarget = encodeURIComponent(url + targetCacheBuster);
+
+        // 3. Construct Proxy URL
+        // We append a random param to the proxy URL itself so the BROWSER sees it as a new request
+        // corsproxy.io usually takes the whole query string as the target, but let's try strict headers first.
+        // Actually, let's rely on the encoded target being unique to bust the browser cache of the proxy.
+        // Since 'encodedTarget' changes every time (due to targetCacheBuster), the full fetchUrl changes every time.
+        // So the Browser Cache is NOT the issue if targetCacheBuster works.
+
+        const fetchUrl = PROXY_URL + encodedTarget;
+
         return fetchWithRetry(async () => {
-            const response = await fetch(fetchUrl);
+            const response = await fetch(fetchUrl, {
+                cache: "reload", // Forces network request to Proxy
+                headers: {
+                    'Pragma': 'no-cache',
+                    'Cache-Control': 'no-cache, no-store, must-revalidate',
+                    'Expires': '0'
+                }
+            });
             if (!response.ok) throw new Error(`HTTP ${response.status}`);
             const buffer = await response.arrayBuffer();
             if (buffer.byteLength === 0) throw new Error("Empty file");
