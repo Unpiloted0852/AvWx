@@ -1,8 +1,6 @@
 To install on Android, find the latest apk in the releases tab [here](https://github.com/Unpiloted0852/AvWx/releases/latest).
 
-The app pulls the METAR and TAF from every available station worldwide using cached files from aviationweather.gov. Then it color codes the weather based on the flight category. You can sort either alphabetically or by distance to the airfield that you specify.
-
-You can view in-browser or save a offline PDF.
+Android app--pulls the METAR and TAF from every available station worldwide and displays the information neatly on a Map view and List view.  You can view in-browser or save a offline PDF.
 
 Note: this app should be considered experimental and makes no accuracy guarantees. Use caution!
 
