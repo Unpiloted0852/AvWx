@@ -148,7 +148,7 @@
         .map-overlay-top {
             position: absolute; top: 0; left: 0; right: 0;
             padding: 1rem; z-index: 1000; pointer-events: none;
-            display: flex; justify-content: space-between;
+            display: flex; justify-content: center; /* Centered to avoid overlapping Zulu clock on left */
         }
 
         .map-overlay-bottom {
@@ -198,6 +198,26 @@
         .label-ifr { color: rgb(200, 0, 0); }
         .label-lifr { color: rgb(255, 20, 147); }
         .label-nodata { color: rgb(150, 150, 150); }
+
+        /* Zulu Clock Overlay */
+        #zuluClock {
+            position: absolute;
+            top: 1rem;
+            left: 1rem;
+            z-index: 1100; /* High z-index to stay above maps */
+            font-family: 'JetBrains Mono', monospace;
+            font-weight: 700;
+            background: rgba(0, 0, 0, 0.6);
+            color: #fbbf24; /* Amber-400 */
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(4px);
+            padding: 0.25rem 0.75rem;
+            border-radius: 0.5rem;
+            font-size: 0.875rem;
+            pointer-events: none; /* Let clicks pass through if needed */
+            box-shadow: 0 2px 4px rgba(0,0,0,0.3);
+        }
+
         /* -------------------------- */
 
         @keyframes slideDown {
@@ -749,6 +769,9 @@
             <div id="mapView" class="hidden tab-content">
                 <div id="weatherMap"></div>
 
+                <!-- Zulu Clock -->
+                <div id="zuluClock">00:00:00Z</div>
+
                 <!-- Toggle Fullscreen Button (Visible only in Embedded Mode) -->
                 <button id="btnEnterFullscreen" onclick="toggleMapFullscreen()"
                         class="fullscreen-trigger p-2 bg-white dark:bg-gray-800 rounded-lg shadow-md hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors text-gray-700 dark:text-gray-200">
@@ -787,7 +810,7 @@
 
 <script>
     // --- APP CONFIG ---
-    const CURRENT_VERSION = 'v2.2.0';
+    const CURRENT_VERSION = 'v2.2.1';
     const GITHUB_REPO = 'Unpiloted0852/AvWx';
 
     // Global Data Storage for Modal Access
@@ -796,12 +819,15 @@
         dest: { results: [], start: null, end: null }
     };
 
-    // Store current report data for PDF generation
+    // Store current report data for PDF generation and Refresh
     let currentReportData = {
         stationsData: [],
         refName: null,
         routeAnalysisResult: null
     };
+
+    // Auto-Refresh Timer ID
+    let refreshIntervalId = null;
 
     // Map Globals
     let mapInstance = null;
@@ -844,6 +870,7 @@
     const searchRadiusInput = document.getElementById('searchRadius');
     const minRunwayInput = document.getElementById('minRunway');
     const modal = document.getElementById('tileModal');
+    const zuluClockEl = document.getElementById('zuluClock');
 
     // Set Version in UI
     document.getElementById('appVersionDisplay').textContent = CURRENT_VERSION;
@@ -1040,6 +1067,40 @@
 
     // --- INITIALIZATION ---
 
+    // Zulu Clock Update
+    let timeOffset = 0;
+
+    async function syncTime() {
+        try {
+            // Use a reliable CDN resource already being accessed to get an authoritative server time header
+            const res = await fetch("https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js", { method: 'HEAD', cache: 'no-store' });
+            const serverDate = res.headers.get('date');
+            if (serverDate) {
+                const serverTime = new Date(serverDate).getTime();
+                // Calculate offset: serverTime - localTime
+                // This aligns the local clock display to the server's time
+                timeOffset = serverTime - Date.now();
+                console.log("Time synced. Offset:", timeOffset, "ms");
+            }
+        } catch(e) {
+            console.log("Time sync fallback to system time", e);
+        }
+    }
+
+    function updateZuluClock() {
+        const now = new Date(Date.now() + timeOffset);
+        const hours = String(now.getUTCHours()).padStart(2, '0');
+        const minutes = String(now.getUTCMinutes()).padStart(2, '0');
+        const seconds = String(now.getUTCSeconds()).padStart(2, '0');
+        zuluClockEl.textContent = `${hours}:${minutes}:${seconds}Z`;
+    }
+
+    // Sync time on load
+    syncTime();
+    // Update every second
+    setInterval(updateZuluClock, 1000);
+    updateZuluClock();
+
     function formatUtcForInput(date) {
         const Y = date.getUTCFullYear();
         const M = String(date.getUTCMonth() + 1).padStart(2, '0');
@@ -1082,6 +1143,31 @@
         const h = String(date.getUTCHours()).padStart(2, '0');
         const m = String(date.getUTCMinutes()).padStart(2, '0');
         return `${h}:${m}Z`;
+    }
+
+    function formatRemainingTime(targetDate) {
+        if (!targetDate) return "";
+        const now = new Date();
+        const diffMs = targetDate.getTime() - now.getTime();
+
+        if (diffMs < 0) return "Expired";
+
+        const hours = Math.floor(diffMs / (1000 * 60 * 60));
+        const minutes = Math.floor((diffMs % (1000 * 60 * 60)) / (1000 * 60));
+
+        return `Expires: ${hours}h ${minutes}m`;
+    }
+
+    // Auto-center map helper
+    function centerMapOnHome() {
+        if (!mapInstance || !cachedStationMap) return;
+        const homeInput = document.getElementById('icaoInput').value.trim().toUpperCase();
+        if (homeInput.length >= 3) {
+             const homeCoords = getCoordsForICAO(homeInput, cachedStationMap);
+             if (homeCoords && homeCoords.lat !== null) {
+                 mapInstance.setView([homeCoords.lat, homeCoords.lon], 7);
+             }
+        }
     }
 
     // --- MAP FUNCTIONS ---
@@ -1204,19 +1290,21 @@
 
     function renderMap(stations) {
         if (!mapInstance) initMap();
+
+        // --- NON-DISRUPTIVE POPUP HANDLING ---
+        // Check if any popup is currently open to preserve it after redraw
+        let openPopupId = null;
+        if (markerLayerGroup.getLayers().length > 0) {
+            markerLayerGroup.eachLayer(layer => {
+                // Check if it's a marker and has a popup open
+                if (layer instanceof L.CircleMarker && layer.getPopup() && layer.isPopupOpen()) {
+                    openPopupId = layer.stationId;
+                }
+            });
+        }
+
         markerLayerGroup.clearLayers();
         labelLayerGroup.clearLayers(); // Clear labels on new render
-
-        // 1. Center Map on Home Airport
-        const homeInput = document.getElementById('icaoInput').value.trim().toUpperCase();
-        if (homeInput.length >= 3 && cachedStationMap) {
-             const homeCoords = getCoordsForICAO(homeInput, cachedStationMap);
-             if (homeCoords && homeCoords.lat !== null) {
-                 mapInstance.setView([homeCoords.lat, homeCoords.lon], 6); // Set to 6 for state/region view
-             } else {
-                 mapInstance.setView([39.8283, -98.5795], 4);
-             }
-        }
 
         // 2. Draw Route if Dep/Dest exist
         const depInput = document.getElementById('depIcao').value.trim().toUpperCase();
@@ -1298,6 +1386,9 @@
                 fillOpacity: 0.8
             });
 
+            // ATTACH ID TO MARKER FOR RE-OPENING POPUP
+            marker.stationId = station.id;
+
             // REMOVED PERMANENT TOOLTIP BINDING HERE FOR PERFORMANCE
             // Labels are now handled by updateMapLabels()
 
@@ -1314,7 +1405,16 @@
                 let tafHtml = '<div class="text-xs italic text-gray-500">No TAF available</div>';
                 if (station.taf) {
                     tafHtml = `<div class="space-y-0.5">${formatRawText(station.taf.rawText)}</div>`;
-                     if (station.taf.age !== null) tafHtml += `<div class="mt-1 text-xs text-gray-400">Issued: ${formatAge(station.taf.age)}</div>`;
+
+                     let notes = [];
+                     if (station.taf.validTo) notes.push(formatRemainingTime(station.taf.validTo));
+                     if (station.taf.age !== null) notes.push(`Issued: ${formatAge(station.taf.age)}`);
+
+                     if (notes.length > 0) {
+                         tafHtml += `<div class="mt-2 border-t border-gray-700 pt-1 flex flex-col gap-0.5">`;
+                         notes.forEach(n => tafHtml += `<span class="text-xs text-gray-400 block">${n}</span>`);
+                         tafHtml += `</div>`;
+                     }
                 }
 
                 // Popup Content
@@ -1340,6 +1440,13 @@
 
             markers.push(marker);
             markerLayerGroup.addLayer(marker);
+
+            // Re-open popup if it was open before refresh
+            if (openPopupId && station.id === openPopupId) {
+                setTimeout(() => {
+                    marker.openPopup();
+                }, 10);
+            }
         });
 
         // Initial label update if zoomed in
@@ -2254,6 +2361,169 @@
         };
     }
 
+    // Auto-center map helper
+    function centerMapOnHome() {
+        if (!mapInstance || !cachedStationMap) return;
+        const homeInput = document.getElementById('icaoInput').value.trim().toUpperCase();
+        if (homeInput.length >= 3) {
+             const homeCoords = getCoordsForICAO(homeInput, cachedStationMap);
+             if (homeCoords && homeCoords.lat !== null) {
+                 mapInstance.setView([homeCoords.lat, homeCoords.lon], 7);
+             }
+        }
+    }
+
+    // --- AUTO REFRESH LOGIC ---
+    function startAutoRefresh() {
+        if (refreshIntervalId) clearInterval(refreshIntervalId);
+        // Set refresh to 60 seconds
+        refreshIntervalId = setInterval(refreshDataSilent, 60000);
+    }
+
+    function stopAutoRefresh() {
+        if (refreshIntervalId) {
+            clearInterval(refreshIntervalId);
+            refreshIntervalId = null;
+        }
+    }
+
+    async function refreshDataSilent() {
+        try {
+            // Re-fetch only dynamic data
+            const [tafDoc, metarDoc] = await Promise.all([
+                fetchAndParse(TAF_DATA_URL),
+                fetchAndParse(METAR_DATA_URL)
+            ]);
+
+            // Gather inputs again
+            const homeIcao = icaoInput.value.trim().toUpperCase();
+            const minRunwayLen = parseInt(minRunwayInput.value) || 0;
+            const depIcao = depIcaoInput.value.trim().toUpperCase();
+            const destIcao = destIcaoInput.value.trim().toUpperCase();
+            const takeOffTime = takeOffTimeInput.value;
+            const landingTime = landingTimeInput.value;
+            const radiusInputVal = parseInt(searchRadiusInput.value);
+            const searchDist = (!isNaN(radiusInputVal) && radiusInputVal > 0) ? radiusInputVal : MAX_ROUTE_DISTANCE_NM;
+
+            // Re-process
+            const processResult = processData(tafDoc, metarDoc, cachedStationMap, homeIcao, cachedRunwayMap, minRunwayLen);
+            const stationsData = processResult.stations;
+            const usedRef = processResult.refName;
+
+            let routeAnalysisResult = null;
+            if (routeAnalysisEnabled) {
+                 routeAnalysisResult = runRouteAnalysis(processResult.stationDataMap, depIcao, destIcao, takeOffTime, landingTime, searchDist, cachedRunwayMap, minRunwayLen);
+            }
+
+            // Update Global State
+            currentReportData = {
+                stationsData: stationsData,
+                refName: usedRef,
+                routeAnalysisResult: routeAnalysisResult
+            };
+            currentStationsData = stationsData;
+
+            // UPDATE UI SILENTLY BASED ON ACTIVE TAB
+            if (!resultsContainerEl.classList.contains('hidden')) {
+
+                // 1. If Map Tab is visible
+                if (!document.getElementById('mapView').classList.contains('hidden')) {
+                    renderMap(currentStationsData);
+                }
+
+                // 2. If Standard List Tab is visible - Replace HTML, Restore Scroll
+                if (!weatherListEl.classList.contains('hidden')) {
+                    // We need to re-render the list HTML string
+                    // Temporary container to build HTML string
+                    const tempContainer = document.createElement('div');
+
+                    if (usedRef) {
+                        const refHeader = document.createElement('div');
+                        refHeader.className = "bg-blue-50 dark:bg-blue-900/30 p-3 rounded-lg mb-4 text-center text-sm font-bold text-blue-800 dark:text-blue-200 transition-colors duration-300";
+                        refHeader.textContent = `Distances calculated from: ${usedRef}`;
+                        tempContainer.appendChild(refHeader);
+                    }
+
+                    stationsData.forEach(data => {
+                        const metar = data.metar;
+                        const taf = data.taf;
+                        let metarHtml = '<div class="text-gray-500 dark:text-gray-400 italic">No METAR available.</div>';
+                        let tafHtml = '<div class="text-gray-500 dark:text-gray-400 italic">No TAF available.</div>';
+                        let headerText = data.id;
+                        if (data.name) headerText += ` <span class="text-base font-normal text-gray-500 dark:text-gray-400 ml-2 block sm:inline">${data.name}</span>`;
+                        let infoTextParts = [];
+
+                        if (metar) {
+                            const category = metar.category;
+                            const className = getCategoryClassName(category);
+                            infoTextParts.push(`${metar.tempF} • ${metar.rh}`);
+                            infoTextParts.push(`Observed ${formatAge(metar.age)}`);
+                            if (data.distanceNM !== null) infoTextParts.push(`${data.distanceNM.toFixed(0)} NM`);
+                            const dotClassToBorderColor = {
+                                'vfr-dot': 'border-green-500',
+                                'mvfr-dot': 'border-blue-500',
+                                'ifr-dot': 'border-red-500',
+                                'lifr-dot': 'border-pink-500'
+                            };
+                            const borderColorClass = dotClassToBorderColor[className] || 'border-gray-500';
+                            metarHtml = `<div class="bg-gray-100 dark:bg-gray-900 p-2 rounded-lg border-l-4 ${borderColorClass} transition-colors duration-300 w-full overflow-hidden">
+                                            <h4 class="font-bold mb-1 text-sm text-gray-600 dark:text-gray-300">METAR</h4>
+                                            <div class="font-mono text-xs md:text-sm leading-relaxed break-words whitespace-pre-wrap">${formatRawText(metar.rawText)}</div>
+                                         </div>`;
+                        } else if (data.distanceNM !== null) {
+                            infoTextParts.push(`Distance: ${data.distanceNM.toFixed(0)} NM`);
+                        }
+
+                        if (taf) {
+                            let notes = [];
+                            if (taf.age !== null) notes.push(`Issued ${formatAge(taf.age)}`);
+                            if (taf.periodHours !== null) notes.push(`Forecast period ends in ${taf.periodHours} hours`);
+                            let noteHtml = notes.length > 0 ? `<p class="text-xs text-gray-500 dark:text-gray-400 mt-2">${notes.join(' • ')}</p>` : '';
+                            tafHtml = `<div class="bg-gray-100 dark:bg-gray-900 p-2 rounded-lg transition-colors duration-300 w-full overflow-hidden">
+                                        <h4 class="font-bold mb-1 text-sm text-gray-600 dark:text-gray-300">TAF</h4>
+                                        <div class="space-y-1">${formatRawText(taf.rawText)}</div>
+                                        ${noteHtml}
+                                     </div>`;
+                        }
+
+                        const stationEntry = document.createElement('div');
+                        stationEntry.className = 'border border-gray-200 dark:border-gray-800 rounded-lg p-4 shadow-md bg-white dark:bg-black transition-colors duration-300 w-full max-w-full mb-4';
+                        stationEntry.innerHTML = `
+                            <div class="flex flex-col items-start mb-3 border-b dark:border-gray-800 pb-2">
+                                <h3 class="text-xl font-extrabold text-gray-900 dark:text-gray-100 flex items-baseline flex-wrap">${headerText}</h3>
+                                <p class="text-xs text-gray-500 dark:text-gray-400 font-medium mt-1">${infoTextParts.join(' • ')}</p>
+                            </div>
+                            <div class="space-y-3 w-full">${metarHtml}${tafHtml}</div>
+                        `;
+                        tempContainer.appendChild(stationEntry);
+                    });
+
+                    // SAVE SCROLL
+                    const scrollContainer = resultsContainerEl.querySelector('.flex-grow'); // The scrollable part
+                    const scrollTop = scrollContainer ? scrollContainer.scrollTop : 0;
+
+                    weatherListEl.innerHTML = tempContainer.innerHTML;
+
+                    // RESTORE SCROLL
+                    if(scrollContainer) scrollContainer.scrollTop = scrollTop;
+                }
+
+                // 3. If Analysis Tab is visible
+                if (!routeAnalysisViewEl.classList.contains('hidden') && routeAnalysisResult) {
+                    const scrollContainer = resultsContainerEl.querySelector('.flex-grow');
+                    const scrollTop = scrollContainer ? scrollContainer.scrollTop : 0;
+
+                    renderRouteAnalysisBrowser(routeAnalysisResult);
+
+                    if(scrollContainer) scrollContainer.scrollTop = scrollTop;
+                }
+            }
+
+        } catch (e) {
+            console.warn("Silent refresh failed", e);
+        }
+    }
+
     async function handleGenerateClick() {
         if (typeof pako === 'undefined') {
             showStatus("Error: Required libraries failed to load.", true);
@@ -2261,10 +2531,12 @@
         }
 
         try {
+            // Stop any existing refresh timer to avoid overlap
+            stopAutoRefresh();
+
             // Disabled PDF button until new data is ready
             downloadPdfBtn.disabled = true;
 
-            // REMOVED: Sort Mode select logic
             const homeIcao = icaoInput.value.trim().toUpperCase();
             const minRunwayLen = parseInt(minRunwayInput.value) || 0;
             let routeAnalysisResult = null;
@@ -2337,8 +2609,14 @@
             // FIX: Default to Map Tab
             switchTab('map');
 
+            // Center map (Initial Generate Only)
+            centerMapOnHome();
+
             showSuccess(`Report displayed – ${stationsData.length} stations`);
             downloadPdfBtn.disabled = false;
+
+            // Start Auto Refresh
+            startAutoRefresh();
 
         } catch (error) {
             console.error(error);
@@ -2596,7 +2874,7 @@
 
             const stationEntry = document.createElement('div');
             // PURE BLACK CARD
-            stationEntry.className = 'border border-gray-200 dark:border-gray-800 rounded-lg p-4 shadow-md bg-white dark:bg-black transition-colors duration-300 w-full max-w-full';
+            stationEntry.className = 'border border-gray-200 dark:border-gray-800 rounded-lg p-4 shadow-md bg-white dark:bg-black transition-colors duration-300 w-full max-w-full mb-4';
             // MODIFIED: Changed flex layout to column and removed justify-between to stack name and details
             stationEntry.innerHTML = `
                 <div class="flex flex-col items-start mb-3 border-b dark:border-gray-800 pb-2">
@@ -2644,166 +2922,6 @@
         const clean = word.replace(/[,.;]+$/, '').toUpperCase();
         const regex = /^([-+]|VC)?(RA|SN|DZ|SG|IC|PL|GR|GS|UP|TS|SH|FZ|BR|FG|HZ|FU|VA|DU|SA|HZ|PY|PO|SQ|FC|SS|DS){1,4}$/i;
         return regex.test(clean);
-    }
-
-    function drawStyledText(doc, lineText, x, y, baseColor) {
-        const words = lineText.split(' ');
-        let currentX = x;
-        doc.setTextColor(...baseColor);
-        doc.setFont("courier", "normal");
-        doc.setFontSize(9);
-        const spaceWidth = doc.getTextWidth(" ");
-        for (let word of words) {
-            const shouldBold = isPrecipOrTS(word);
-            doc.setFont("courier", shouldBold ? "bold" : "normal");
-            doc.text(word, currentX, y);
-            currentX += doc.getTextWidth(word) + spaceWidth;
-        }
-    }
-
-    function drawRouteAnalysisPDFPage(doc, analysisResult) {
-        const { depResults, destResults, takeoffStart, takeoffEnd, landingStart, landingEnd, depName, destName, depFullName, destFullName } = analysisResult;
-        let cursorY = PAGE_MARGIN;
-        const tStart = takeoffStart ? formatTimeHHMM(takeoffStart) : 'N/A';
-        const tEnd = takeoffEnd ? formatTimeHHMM(takeoffEnd) : 'N/A';
-        const lStart = landingStart ? formatTimeHHMM(landingStart) : 'N/A';
-        const lEnd = landingEnd ? formatTimeHHMM(landingEnd) : 'N/A';
-
-        doc.setFont("helvetica", "bold");
-        doc.setFontSize(18);
-        doc.setTextColor(30, 30, 30);
-        doc.text("Alternate Weather Analysis", PAGE_WIDTH / 2, cursorY, { align: "center" });
-        cursorY += 10;
-        doc.setFontSize(12);
-        doc.setTextColor(50, 50, 50);
-
-        let headerText = "Flight Plan";
-        if (depName !== 'N/A' && destName !== 'N/A') headerText = `Flight: ${depName} to ${destName}`;
-        else if (depName !== 'N/A') headerText = `Departure: ${depName}`;
-        else if (destName !== 'N/A') headerText = `Destination: ${destName}`;
-
-        doc.text(headerText, PAGE_WIDTH / 2, cursorY, { align: "center" });
-        cursorY += 10;
-
-        const drawGridSection = (title, windowStr, items) => {
-             if (cursorY + 20 > PAGE_HEIGHT - PAGE_MARGIN) { doc.addPage(); cursorY = PAGE_MARGIN; }
-             doc.setFont("helvetica", "bold");
-             doc.setFontSize(14);
-             doc.setTextColor(30, 30, 30);
-             doc.text(title, PAGE_MARGIN, cursorY);
-             doc.setFont("courier", "normal");
-             doc.setFontSize(10);
-             doc.setTextColor(80, 80, 80);
-             doc.text(windowStr, PAGE_WIDTH - PAGE_MARGIN, cursorY, { align: "right" });
-             cursorY += 8;
-             doc.setLineWidth(0.2);
-             doc.setDrawColor(200, 200, 200);
-
-             let startTileX = PAGE_MARGIN;
-             const tileWidth = 30;
-             const tileHeight = 20; // Increased height for extra text
-             const tileMargin = 5;
-             const maxTilesPerRow = Math.floor(USABLE_WIDTH / (tileWidth + tileMargin));
-             let col = 0; let row = 0;
-
-             if (!items || items.length === 0) {
-                 doc.setFont("helvetica", "italic");
-                 doc.setFontSize(10);
-                 doc.text("No alternates found within range.", PAGE_MARGIN, cursorY);
-                 cursorY += 15;
-                 return;
-             }
-
-             for (const data of items) {
-                const color = getCategoryColor(data.worstCategory);
-                doc.setFillColor(...color);
-                let x = startTileX + col * (tileWidth + tileMargin);
-                let y = cursorY + row * (tileHeight + tileMargin);
-                if (y + tileHeight > PAGE_HEIGHT - PAGE_MARGIN) {
-                    doc.addPage();
-                    cursorY = PAGE_MARGIN;
-                    row = 0; col = 0;
-                    doc.setLineWidth(0.2);
-                    doc.setDrawColor(200, 200, 200);
-                    doc.setFillColor(...color);
-                    x = startTileX + col * (tileWidth + tileMargin);
-                    y = cursorY + row * (tileHeight + tileMargin);
-                }
-                doc.rect(x, y, tileWidth, tileHeight, 'FD');
-                const avgColor = (color[0] + color[1] + color[2]) / 3;
-                doc.setTextColor(avgColor > 128 ? 0 : 255, avgColor > 128 ? 0 : 255, avgColor > 128 ? 0 : 255);
-
-                doc.setFont("helvetica", "bold");
-                doc.setFontSize(9);
-                doc.text(data.id, x + tileWidth / 2, y + 4, { align: 'center' });
-
-                doc.setFont("helvetica", "normal");
-                doc.setFontSize(5);
-                let displayName = data.name || '';
-                if (displayName.length > 20) displayName = displayName.substring(0, 18) + '..';
-                doc.text(displayName, x + tileWidth / 2, y + 8, { align: 'center' });
-
-                doc.setFont("helvetica", "bold");
-                doc.setFontSize(6);
-                doc.text(`${data.worstCategory}`, x + tileWidth / 2, y + 12, { align: 'center' });
-
-                // Draw condition text if it exists (worse than VFR)
-                if (data.conditionText) {
-                    doc.setFont("courier", "normal");
-                    doc.setFontSize(5);
-                    const condSplit = doc.splitTextToSize(data.conditionText, tileWidth - 2);
-                    doc.text(condSplit, x + tileWidth / 2, y + 15, { align: 'center' });
-                }
-
-                doc.setFont("helvetica", "normal");
-                doc.setFontSize(5);
-                // Move distance to bottom
-                doc.text(`${data.distance.toFixed(0)} NM`, x + tileWidth / 2, y + tileHeight - 2, { align: 'center' });
-
-                col++;
-                if (col >= maxTilesPerRow) { col = 0; row++; }
-             }
-             cursorY += (row + 1) * (tileHeight + tileMargin) + 5;
-        };
-
-        if (takeoffStart && depName !== 'N/A') {
-            drawGridSection("Departure Alternates", `Window: ${tStart} - ${tEnd}`, depResults);
-        }
-        if (landingStart && destName !== 'N/A') {
-            drawGridSection("Destination Alternates", `Window: ${lStart} - ${lEnd}`, destResults);
-        }
-
-        return cursorY;
-    }
-
-    function drawPdfLegend(doc, cursorY) {
-        doc.setFont("helvetica", "bold");
-        doc.setFontSize(10);
-        doc.text("METAR Flight Categories", PAGE_WIDTH / 2, cursorY, { align: "center" });
-        cursorY += 6;
-        const legendItems = [
-            { label: "VFR", color: COLORS.VFR },
-            { label: "MVFR", color: COLORS.MVFR },
-            { label: "IFR", color: COLORS.IFR },
-            { label: "LIFR", color: COLORS.LIFR },
-            { label: "NODATA", color: COLORS.NODATA }
-        ];
-        const itemWidth = 30;
-        const totalLegendWidth = legendItems.length * itemWidth;
-        const startX = (PAGE_WIDTH - totalLegendWidth) / 2;
-        const boxSize = 4;
-        const padding = 4;
-        for (let i = 0; i < legendItems.length; i++) {
-            const x = startX + i * itemWidth;
-            const item = legendItems[i];
-            doc.setFillColor(...item.color);
-            doc.rect(x, cursorY - 3, boxSize, boxSize, 'F');
-            doc.setFont("helvetica", "normal");
-            doc.setFontSize(8);
-            doc.setTextColor(30, 30, 30);
-            doc.text(item.label, x + boxSize + padding, cursorY);
-        }
-        return cursorY + 6;
     }
 
     function generatePDF(stationsData, refName, routeAnalysisResult) {
