@@ -844,7 +844,7 @@
 
 <script>
     // --- APP CONFIG ---
-    const CURRENT_VERSION = 'v2.2.2';
+    const CURRENT_VERSION = 'v2.2.3';
     const GITHUB_REPO = 'Unpiloted0852/AvWx';
 
     // Global Data Storage for Modal Access
@@ -1324,6 +1324,19 @@
         return "#" + ((1 << 24) + (rgbArray[0] << 16) + (rgbArray[1] << 8) + rgbArray[2]).toString(16).slice(1);
     }
 
+    // --- MISSING FUNCTION RESTORED ---
+    function fetchWithRetry(fn, retries = MAX_RETRIES) {
+        return new Promise((resolve, reject) => {
+            const attempt = (n) => {
+                fn().then(resolve).catch(err => {
+                    if (n === 0) return reject(err);
+                    setTimeout(() => attempt(n - 1), Math.pow(2, MAX_RETRIES - n) * 1000);
+                });
+            };
+            attempt(retries);
+        });
+    }
+
     function renderMap(stations) {
         if (!mapInstance) initMap();
 
@@ -1491,11 +1504,41 @@
 
     // --- EVENT LISTENERS ---
     generateButton.addEventListener('click', handleGenerateClick);
-    downloadPdfBtn.addEventListener('click', () => {
-        if(currentReportData && currentReportData.stationsData.length > 0) {
-            generatePDF(currentReportData.stationsData, currentReportData.refName, currentReportData.routeAnalysisResult);
+
+    // Updated Event Listener with Loading State
+    downloadPdfBtn.addEventListener('click', async () => {
+        // Prevent double clicks if already loading
+        if (downloadPdfBtn.disabled) return;
+
+        const originalContent = downloadPdfBtn.innerHTML;
+
+        // Set Loading State
+        downloadPdfBtn.disabled = true;
+        downloadPdfBtn.innerHTML = `
+            <svg class="animate-spin -ml-1 mr-2 h-4 w-4 text-white inline-block" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+            </svg>
+            Generating...
+        `;
+
+        // Small timeout to allow UI to render the loading state before the heavy PDF sync work begins
+        await new Promise(r => setTimeout(r, 50));
+
+        try {
+            if(currentReportData && currentReportData.stationsData.length > 0) {
+                generatePDF(currentReportData.stationsData, currentReportData.refName, currentReportData.routeAnalysisResult);
+            }
+        } catch (e) {
+            console.error("PDF Generation failed:", e);
+            alert("Failed to generate PDF. Please try again.");
+        } finally {
+            // Restore Button State
+            downloadPdfBtn.innerHTML = originalContent;
+            downloadPdfBtn.disabled = false;
         }
     });
+
     toggleAdvancedButton.addEventListener('click', toggleAdvancedPanel);
     tabStandard.addEventListener('click', () => switchTab('standard'));
     tabMap.addEventListener('click', () => switchTab('map'));
@@ -3108,7 +3151,11 @@
             if (window.Android && typeof window.Android.savePdf === 'function') {
                 window.Android.savePdf(base64Data, "weather-report-combined.pdf");
             } else {
-                doc.save("weather-report-combined.pdf");
+                // Modified behavior for web: Open in new tab
+                const blob = doc.output('blob');
+                const blobUrl = URL.createObjectURL(blob);
+                window.open(blobUrl, '_blank');
+                // doc.save("weather-report-combined.pdf"); // Optional fallback
             }
         } catch (e) {
             console.error('PDF export failed:', e);
