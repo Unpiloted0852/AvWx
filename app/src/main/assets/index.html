@@ -192,7 +192,7 @@
             position: absolute; bottom: 1rem; left: 1rem;
             z-index: 1000;
         }
-
+        
         /* GPS Button Position */
         .gps-trigger {
             position: absolute; top: 4rem; right: 1rem;
@@ -216,6 +216,19 @@
         .radar-active {
             background-color: #3b82f6 !important;
             color: white !important;
+        }
+
+        /* GPS Status Text Style */
+        .gps-active-input {
+            color: #059669 !important; /* Emerald 600 */
+            font-weight: 900 !important;
+            font-family: 'Courier New', monospace;
+            letter-spacing: 1px;
+            font-size: 0.7rem !important; /* Smaller font for -GPS- */
+            padding-top: 0.6rem !important;
+        }
+        .dark .gps-active-input {
+            color: #34d399 !important; /* Emerald 400 */
         }
 
         /* --- MAP LABELS STYLING (Optimized for divIcon) --- */
@@ -298,10 +311,10 @@
             box-shadow: 0 2px 4px rgba(0,0,0,0.3);
         }
 
-        /* GPS Marker Pulse Animation */
+        /* GPS Marker Pulse Animation - Updated */
         @keyframes pulse-blue {
             0% { box-shadow: 0 0 0 0 rgba(59, 130, 246, 0.7); }
-            70% { box-shadow: 0 0 0 10px rgba(59, 130, 246, 0); }
+            70% { box-shadow: 0 0 0 25px rgba(59, 130, 246, 0); } /* Larger radius */
             100% { box-shadow: 0 0 0 0 rgba(59, 130, 246, 0); }
         }
 
@@ -309,7 +322,7 @@
             background-color: #3b82f6;
             border: 2px solid white;
             border-radius: 50%;
-            box-shadow: 0 0 10px rgba(0,0,0,0.5);
+            /* box-shadow removed here, handled by animation */
             animation: pulse-blue 2s infinite;
         }
 
@@ -463,7 +476,7 @@
                                 Home Airport
                             </label>
                             <div class="flex w-full h-10 shadow-sm">
-                                <input type="text" id="icaoInput" maxlength="9" placeholder="KOKC"
+                                <input type="text" id="icaoInput" maxlength="9" placeholder="KOKC" onfocus="handleInputFocus(this)"
                                        class="uppercase flex-1 min-w-0 p-2 text-base md:text-sm border border-gray-300 dark:border-gray-700 rounded-l bg-white dark:bg-black dark:text-gray-100 focus:ring-blue-500 focus:border-blue-500 tracking-widest font-mono transition-colors z-0">
 
                                 <div class="flex items-center justify-center bg-gray-200 dark:bg-gray-800 border-y border-gray-300 dark:border-gray-700 px-2">
@@ -1239,8 +1252,8 @@
                 // Create Blue Dot Marker using DivIcon with CSS animation
                 const userIcon = L.divIcon({
                     className: 'user-location-marker',
-                    iconSize: [20, 20],
-                    iconAnchor: [10, 10]
+                    iconSize: [12, 12], // Reduced Size
+                    iconAnchor: [6, 6]  // Adjusted anchor
                 });
 
                 userLocationMarker = L.marker([lat, lon], {
@@ -1297,54 +1310,87 @@
     }
 
     // --- HOME BY GPS LOGIC ---
+
+    // Helper function to handle input focus (auto clear -GPS-)
+    function handleInputFocus(el) {
+        if (el.value === "-GPS-") {
+            el.value = "";
+            el.classList.remove('gps-active-input');
+            gpsReferenceCoords = null;
+        }
+    }
+
     function setHomeToGPS() {
         // Reset manual input
         gpsReferenceCoords = null;
 
-        if (!navigator.geolocation) {
-            alert("Geolocation not supported by this device.");
-            return;
-        }
-
         const btn = document.getElementById('gpsHomeBtn');
+        const input = document.getElementById('icaoInput');
         const originalContent = btn.innerHTML;
 
         // Show loading spinner icon on button
         btn.innerHTML = `<svg class="animate-spin h-5 w-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>`;
         btn.disabled = true;
 
+        // Callback for success
+        const onSuccess = (lat, lon) => {
+            gpsReferenceCoords = { lat: lat, lon: lon };
+
+            // Update UI text and style
+            input.value = "-GPS-";
+            input.classList.add('gps-active-input');
+
+            // Regenerate Report with new coordinates
+            handleGenerateClick(null, false);
+
+            // Restore button
+            btn.innerHTML = originalContent;
+            btn.disabled = false;
+        };
+
+        // Fallback: IP Geolocation (IDENTICAL LOGIC TO MAP BUTTON)
+        const tryIPLocation = () => {
+            console.log("Trying IP Location fallback for Home...");
+            fetch('https://ipwho.is/')
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        onSuccess(data.latitude, data.longitude);
+                    } else {
+                        throw new Error("IP Lookup failed");
+                    }
+                })
+                .catch(err => {
+                    console.error(err);
+                    alert("Could not determine location via GPS or Network.");
+                    btn.innerHTML = originalContent;
+                    btn.disabled = false;
+                });
+        };
+
+        // Primary: GPS (Navigator) - Triggers Android Prompt
+        if (!navigator.geolocation) {
+            tryIPLocation();
+            return;
+        }
+
         navigator.geolocation.getCurrentPosition(
             (position) => {
-                gpsReferenceCoords = {
-                    lat: position.coords.latitude,
-                    lon: position.coords.longitude
-                };
-
-                // Update UI text
-                const input = document.getElementById('icaoInput');
-                input.value = "GPS LOC";
-
-                // Regenerate Report with new coordinates
-                handleGenerateClick(null, false);
-
-                // Restore button
-                btn.innerHTML = originalContent;
-                btn.disabled = false;
+                onSuccess(position.coords.latitude, position.coords.longitude);
             },
             (error) => {
-                console.warn("GPS failed.", error);
-                alert("Could not get location. Check permissions.");
-                btn.innerHTML = originalContent;
-                btn.disabled = false;
+                console.warn("GPS failed/denied, falling back to IP.", error);
+                tryIPLocation();
             },
             { enableHighAccuracy: true, timeout: 5000, maximumAge: 0 }
         );
     }
 
-    // Clear GPS mode if user types in the box
+    // Clear GPS mode if user types in the box manually (backup listener)
     icaoInput.addEventListener('input', () => {
         if (gpsReferenceCoords !== null) {
             gpsReferenceCoords = null;
+            icaoInput.classList.remove('gps-active-input');
         }
     });
 
@@ -1500,21 +1546,12 @@
         const homeInput = document.getElementById('icaoInput').value.trim().toUpperCase();
 
         // MODIFIED LOGIC: Use GPS coords if set, otherwise lookup ICAO
-        if (gpsReferenceCoords) {
-             L.circleMarker([gpsReferenceCoords.lat, gpsReferenceCoords.lon], {
-                pane: 'routePane',
-                renderer: routeRenderer,
-                radius: 12,
-                fill: false,
-                color: '#06b6d4', // Cyan
-                weight: 3,
-                interactive: false
-            }).addTo(markerLayerGroup);
-        } else if (homeInput.length >= 3 && cachedStationMap) {
+        // FIX: Only show blue ring if Home is manually set, NOT if GPS is active
+        if (homeInput.length >= 3 && cachedStationMap && !gpsReferenceCoords) {
             const homeCoords = getCoordsForICAO(homeInput, cachedStationMap);
             if (homeCoords && homeCoords.lat !== null) {
                  L.circleMarker([homeCoords.lat, homeCoords.lon], {
-                    pane: 'routePane',
+                    pane: 'routePane', 
                     renderer: routeRenderer,
                     radius: 12,
                     fill: false,
@@ -2541,7 +2578,7 @@
 
         // AUTO-SORT LOGIC REPLACEMENT
         // Priority: GPS -> Home -> Dep -> Dest -> Null
-
+        
         let refLat = null, refLon = null, refName = null;
 
         if (customRefCoords) {
