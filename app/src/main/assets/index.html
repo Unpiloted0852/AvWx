@@ -462,8 +462,19 @@
                             <label for="icaoInput" class="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">
                                 Home Airport
                             </label>
-                            <input type="text" id="icaoInput" maxlength="4" placeholder="KOKC"
-                                   class="uppercase w-full p-2 text-base md:text-sm border border-gray-300 dark:border-gray-700 rounded bg-white dark:bg-black dark:text-gray-100 focus:ring-blue-500 focus:border-blue-500 tracking-widest font-mono transition-colors">
+                            <div class="flex w-full h-10 shadow-sm">
+                                <input type="text" id="icaoInput" maxlength="9" placeholder="KOKC"
+                                       class="uppercase flex-1 min-w-0 p-2 text-base md:text-sm border border-gray-300 dark:border-gray-700 rounded-l bg-white dark:bg-black dark:text-gray-100 focus:ring-blue-500 focus:border-blue-500 tracking-widest font-mono transition-colors z-0">
+
+                                <div class="flex items-center justify-center bg-gray-200 dark:bg-gray-800 border-y border-gray-300 dark:border-gray-700 px-2">
+                                    <span class="text-[10px] font-bold text-gray-500">OR</span>
+                                </div>
+
+                                <button id="gpsHomeBtn" type="button" onclick="setHomeToGPS()"
+                                        class="flex items-center justify-center px-3 bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold rounded-r border border-blue-600 transition-colors shadow-sm whitespace-nowrap">
+                                    GPS
+                                </button>
+                            </div>
                         </div>
                         <div class="p-3 bg-gray-50 dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-800">
                             <label for="minRunway" class="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">
@@ -652,6 +663,9 @@
         refName: null,
         routeAnalysisResult: null
     };
+
+    // Global User GPS Storage for Sorting
+    let gpsReferenceCoords = null;
 
     // Auto-Refresh Timer ID
     let refreshIntervalId = null;
@@ -1282,6 +1296,58 @@
         );
     }
 
+    // --- HOME BY GPS LOGIC ---
+    function setHomeToGPS() {
+        // Reset manual input
+        gpsReferenceCoords = null;
+
+        if (!navigator.geolocation) {
+            alert("Geolocation not supported by this device.");
+            return;
+        }
+
+        const btn = document.getElementById('gpsHomeBtn');
+        const originalContent = btn.innerHTML;
+
+        // Show loading spinner icon on button
+        btn.innerHTML = `<svg class="animate-spin h-5 w-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>`;
+        btn.disabled = true;
+
+        navigator.geolocation.getCurrentPosition(
+            (position) => {
+                gpsReferenceCoords = {
+                    lat: position.coords.latitude,
+                    lon: position.coords.longitude
+                };
+
+                // Update UI text
+                const input = document.getElementById('icaoInput');
+                input.value = "GPS LOC";
+
+                // Regenerate Report with new coordinates
+                handleGenerateClick(null, false);
+
+                // Restore button
+                btn.innerHTML = originalContent;
+                btn.disabled = false;
+            },
+            (error) => {
+                console.warn("GPS failed.", error);
+                alert("Could not get location. Check permissions.");
+                btn.innerHTML = originalContent;
+                btn.disabled = false;
+            },
+            { enableHighAccuracy: true, timeout: 5000, maximumAge: 0 }
+        );
+    }
+
+    // Clear GPS mode if user types in the box
+    icaoInput.addEventListener('input', () => {
+        if (gpsReferenceCoords !== null) {
+            gpsReferenceCoords = null;
+        }
+    });
+
     // --- WAKE LOCK (PREVENT SLEEP) ---
     async function requestWakeLock() {
         if ('wakeLock' in navigator) {
@@ -1432,16 +1498,27 @@
 
         // 1. HIGHLIGHT HOME AIRPORT (Requirement #4)
         const homeInput = document.getElementById('icaoInput').value.trim().toUpperCase();
-        if (homeInput.length >= 3 && cachedStationMap) {
+
+        // MODIFIED LOGIC: Use GPS coords if set, otherwise lookup ICAO
+        if (gpsReferenceCoords) {
+             L.circleMarker([gpsReferenceCoords.lat, gpsReferenceCoords.lon], {
+                pane: 'routePane',
+                renderer: routeRenderer,
+                radius: 12,
+                fill: false,
+                color: '#06b6d4', // Cyan
+                weight: 3,
+                interactive: false
+            }).addTo(markerLayerGroup);
+        } else if (homeInput.length >= 3 && cachedStationMap) {
             const homeCoords = getCoordsForICAO(homeInput, cachedStationMap);
             if (homeCoords && homeCoords.lat !== null) {
-                // Cyan/Turquoise Ring for Home
                  L.circleMarker([homeCoords.lat, homeCoords.lon], {
-                    pane: 'routePane', // Put on lower pane to not block clicks
+                    pane: 'routePane',
                     renderer: routeRenderer,
                     radius: 12,
                     fill: false,
-                    color: '#06b6d4', // Tailwind Cyan-500
+                    color: '#06b6d4',
                     weight: 3,
                     interactive: false
                 }).addTo(markerLayerGroup);
@@ -1702,7 +1779,8 @@
             const savedRadius = localStorage.getItem('searchRadius');
             const savedRunway = localStorage.getItem('minRunway');
 
-            if (savedHome) {
+            // Skip if it was "GPS LOC", force default or blank
+            if (savedHome && savedHome !== "GPS LOC") {
                 icaoInput.value = savedHome;
             }
             if (savedDep) depIcaoInput.value = savedDep;
@@ -2398,7 +2476,7 @@
     }
 
 
-    function processData(tafDoc, metarDoc, stationMap, homeIcao, runwayMap, minRunwayLen) {
+    function processData(tafDoc, metarDoc, stationMap, homeIcao, runwayMap, minRunwayLen, customRefCoords) {
         const stationDataMap = new Map();
         const getOrCreateStation = (id) => {
             if (!stationDataMap.has(id)) {
@@ -2462,21 +2540,28 @@
         });
 
         // AUTO-SORT LOGIC REPLACEMENT
-        // Priority: Home -> Dep -> Dest -> Null
-        let refIcao = null;
-        if (homeIcao && homeIcao.length >= 3) refIcao = homeIcao;
-        else if (document.getElementById('depIcao').value.trim().length >= 3) refIcao = document.getElementById('depIcao').value.trim();
-        else if (document.getElementById('destIcao').value.trim().length >= 3) refIcao = document.getElementById('destIcao').value.trim();
+        // Priority: GPS -> Home -> Dep -> Dest -> Null
 
         let refLat = null, refLon = null, refName = null;
 
-        if (refIcao) {
-            const refStationData = getCoordsForICAO(refIcao, stationMap);
-            if (refStationData && refStationData.lat !== null) {
-                refLat = refStationData.lat;
-                refLon = refStationData.lon;
-                const refStationName = stationDataMap.get(refIcao.toUpperCase());
-                refName = `${refIcao.toUpperCase()} (${(refStationName && refStationName.name) || 'Unknown'})`;
+        if (customRefCoords) {
+            refLat = customRefCoords.lat;
+            refLon = customRefCoords.lon;
+            refName = "Your Location";
+        } else {
+            let refIcao = null;
+            if (homeIcao && homeIcao.length >= 3) refIcao = homeIcao;
+            else if (document.getElementById('depIcao').value.trim().length >= 3) refIcao = document.getElementById('depIcao').value.trim();
+            else if (document.getElementById('destIcao').value.trim().length >= 3) refIcao = document.getElementById('destIcao').value.trim();
+
+            if (refIcao) {
+                const refStationData = getCoordsForICAO(refIcao, stationMap);
+                if (refStationData && refStationData.lat !== null) {
+                    refLat = refStationData.lat;
+                    refLon = refStationData.lon;
+                    const refStationName = stationDataMap.get(refIcao.toUpperCase());
+                    refName = `${refIcao.toUpperCase()} (${(refStationName && refStationName.name) || 'Unknown'})`;
+                }
             }
         }
 
@@ -2754,7 +2839,7 @@
                 const searchDist = (!isNaN(radiusInputVal) && radiusInputVal > 0) ? radiusInputVal : MAX_ROUTE_DISTANCE_NM;
 
                 // Re-process
-                const processResult = processData(tafDoc, metarDoc, cachedStationMap, homeIcao, cachedRunwayMap, minRunwayLen);
+                const processResult = processData(tafDoc, metarDoc, cachedStationMap, homeIcao, cachedRunwayMap, minRunwayLen, gpsReferenceCoords);
                 const stationsData = processResult.stations;
                 const usedRef = processResult.refName;
 
@@ -2877,7 +2962,7 @@
             const runwayMap = (minRunwayLen > 0) ? results[3] : null;
 
             showStatus("Processing stations...");
-            const processResult = processData(tafDoc, metarDoc, stationMap, homeIcao, runwayMap, minRunwayLen);
+            const processResult = processData(tafDoc, metarDoc, stationMap, homeIcao, runwayMap, minRunwayLen, gpsReferenceCoords);
             const stationsData = processResult.stations;
             const stationDataMap = processResult.stationDataMap;
             const usedRef = processResult.refName;
