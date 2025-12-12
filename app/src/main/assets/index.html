@@ -148,7 +148,7 @@
         #mapView {
             position: relative;
             width: 100%;
-            height: 60vh;
+            height: 100%; /* UPDATED: Changed from 60vh to 100% to fill flex parent */
             min-height: 400px;
             border-radius: 0.75rem;
             overflow: hidden;
@@ -294,382 +294,24 @@
 
         /* -------------------------- */
 
-        @keyframes slideDown {
-            from { transform: translateY(-100%); opacity: 0; }
-            to { transform: translateY(0); opacity: 1; }
-        }
-        .update-banner-enter { animation: slideDown 0.5s ease-out forwards; }
-
-        @keyframes fadeIn {
-            from { opacity: 0; transform: scale(0.95); }
-            to { opacity: 1; transform: scale(1); }
-        }
-        .modal-enter { animation: fadeIn 0.2s ease-out forwards; }
-
         /* Tailwind utilities (Simulated) */
         .bg-gray-100 { background-color: #f3f4f6; }
         .dark .dark\:bg-black { background-color: #000000; }
-        .bg-blue-600 { background-color: #2563eb; }
-        .bg-gray-200 { background-color: #e5e7eb; }
-        .bg-gray-50 { background-color: #f9fafb; }
-        .bg-white { background-color: #ffffff; }
-        .bg-white\/20 { background-color: rgba(255,255,255,0.2); }
-        .bg-white\/50 { background-color: rgba(255,255,255,0.5); }
-        .dark .dark\:bg-black\/50 { background-color: rgba(0,0,0,0.5); }
-        .bg-yellow-500 { background-color: #eab308; }
-        .bg-blue-50 { background-color: #eff6ff; }
-        .bg-blue-900\/30 { background-color: rgba(30,58,138,0.3); }
-        .dark .dark\:bg-blue-900\/30 { background-color: rgba(30,58,138,0.3); }
-        .bg-gray-900 { background-color: #111827; }
-        .dark .dark\:bg-gray-900 { background-color: #111827; }
-        .bg-gray-800 { background-color: #1f2937; }
-        .dark .dark\:bg-gray-800 { background-color: #1f2937; }
-        .bg-gray-700 { background-color: #374151; }
-        .dark .dark\:bg-gray-700 { background-color: #374151; }
-        .bg-yellow-400 { background-color: #facc15; }
-        .bg-yellow-600 { background-color: #ca8a04; }
-        .hover\:bg-yellow-600:hover { background-color: #ca8a04; }
-        .hover\:bg-yellow-500:hover { background-color: #eab308; }
-        .bg-blue-700 { background-color: #1d4ed8; }
-        .hover\:bg-blue-700:hover { background-color: #1d4ed8; }
-        .bg-gray-300 { background-color: #d1d5db; }
-        .hover\:bg-gray-300:hover { background-color: #d1d5db; }
-        .bg-gray-500 { background-color: #6b7280; }
-        .bg-green-600 { background-color: #16a34a; }
-        .bg-blue-600 { background-color: #2563eb; }
-        .bg-red-600 { background-color: #dc2626; }
-        .bg-pink-600 { background-color: #db2777; }
-        .bg-red-100 { background-color: #fee2e2; }
-        .bg-blue-100 { background-color: #dbeafe; }
-        .bg-green-100 { background-color: #d1fae5; }
-        .bg-red-900 { background-color: #7f1d1d; }
-        .dark .dark\:bg-red-900 { background-color: #7f1d1d; }
-        .bg-blue-900 { background-color: #1e3a8a; }
-        .dark .dark\:bg-blue-900 { background-color: #1e3a8a; }
-        .bg-green-900 { background-color: #064e3b; }
-        .dark .dark\:bg-green-900 { background-color: #064e3b; }
-        .hover\:bg-blue-50:hover { background-color: #eff6ff; }
-        .hover\:bg-blue-700:hover { background-color: #1d4ed8; }
-        .hover\:bg-gray-300:hover { background-color: #d1d5db; }
-        .dark .dark\:hover\:bg-gray-700:hover { background-color: #374151; }
-        .hover\:bg-white\/20:hover { background-color: rgba(255, 255, 255, 0.2); }
-        .bg-white\/25 { background-color: rgba(255, 255, 255, 0.25); }
-        .hover\:bg-green-700:hover { background-color: #15803d; }
-        .bg-black\/60 { background-color: rgba(0, 0, 0, 0.6); }
-
-        .text-gray-900 { color: #111827; }
-        .dark .dark\:text-gray-100 { color: #f3f4f6; }
-        .text-blue-600 { color: #2563eb; }
-        .dark .dark\:text-blue-400 { color: #60a5fa; }
-        .text-gray-600 { color: #4b5563; }
-        .dark .dark\:text-gray-400 { color: #9ca3af; }
-        .text-blue-100 { color: #dbeafe; }
-        .text-gray-500 { color: #6b7280; }
-        .dark .dark\:text-gray-300 { color: #d1d5db; }
-        .text-gray-700 { color: #374151; }
-        .dark .dark\:text-gray-200 { color: #e5e7eb; }
-        .text-yellow-400 { color: #facc15; }
-        .text-yellow-900 { color: #713f12; }
-        .text-blue-700 { color: #1d4ed8; }
-        .dark .dark\:text-blue-200 { color: #bfdbfe; }
-        .text-blue-800 { color: #1e40af; }
-        .dark .dark\:text-blue-200 { color: #bfdbfe; }
-        .text-gray-800 { color: #1f2937; }
-        .dark .dark\:text-gray-100 { color: #f3f4f6; }
-        .text-white { color: #ffffff; }
-        .text-red-700 { color: #b91c1c; }
-        .dark .dark\:text-red-200 { color: #fecaca; }
-        .text-green-700 { color: #15803d; }
-        .dark .dark\:text-green-200 { color: #bbf7d0; }
-        .text-gray-400 { color: #9ca3af; }
-        .text-transparent { color: transparent; }
-
-        .border-gray-200 { border-color: #e5e7eb; }
-        .dark .dark\:border-gray-200 { border-color: #1f2937; }
-        .border-transparent { border-color: transparent; }
-        .border-gray-300 { border-color: #d1d5db; }
-        .dark .dark\:border-gray-300 { border-color: #374151; }
-        .dark .dark\:border-gray-700 { border-color: #374151; }
-        .dark .dark\:border-gray-800 { border-color: #1f2937; }
-        .border-green-500 { border-color: #10b981; }
-        .border-blue-500 { border-color: #3b82f6; }
-        .border-red-500 { border-color: #ef4444; }
-        .border-pink-500 { border-color: #ec4899; }
-        .border-yellow-500 { border-color: #eab308; }
-        .border-orange-400 { border-color: #fb923c; }
-        .border-purple-500 { border-color: #a855f7; }
-        .border-teal-500 { border-color: #14b8a6; }
-        .border-gray-500 { border-color: #6b7280; }
-        .border-indigo-500 { border-color: #6366f1; }
-        .border-white\/40 { border-color: rgba(255,255,255,0.4); }
-        .border-black\/20 { border-color: rgba(0,0,0,0.2); }
-        .border-none { border-style: none; }
-        .border-l-2 { border-left-width: 2px; }
-        .border-l-4 { border-left-width: 4px; }
-        .border-b { border-bottom-width: 1px; }
-        .border-t { border-top-width: 1px; }
-        .border { border-width: 1px; border-style: solid; }
-        .border-yellow-400 { border-color: #facc15; }
-
-        .bg-clip-text { -webkit-background-clip: text; background-clip: text; }
-        .bg-gradient-to-r { background-image: linear-gradient(to right, var(--tw-gradient-stops)); }
-        .from-blue-600 { --tw-gradient-from: #2563eb; --tw-gradient-stops: var(--tw-gradient-from), var(--tw-gradient-to); }
-        .to-purple-600 { --tw-gradient-to: #9333ea; }
-        .dark .dark\:from-blue-400 { --tw-gradient-from: #60a5fa; --tw-gradient-stops: var(--tw-gradient-from), var(--tw-gradient-to); }
-        .dark .dark\:to-purple-400 { --tw-gradient-to: #c084fc; }
-        .from-blue-50 { --tw-gradient-from: #eff6ff; --tw-gradient-stops: var(--tw-gradient-from), var(--tw-gradient-to); }
-        .to-indigo-50 { --tw-gradient-to: #eef2ff; }
-        .dark .dark\:from-gray-800 { --tw-gradient-from: #1f2937; --tw-gradient-stops: var(--tw-gradient-from), var(--tw-gradient-to); }
-        .dark .dark\:to-gray-900 { --tw-gradient-to: #111827; }
-
-        .focus\:ring-2 {
-          box-shadow: 0 0 0 2px var(--tw-ring-color);
-        }
-        .focus\:ring-blue-500 { --tw-ring-color: #3b82f6; }
-        .focus\:ring-yellow-500 { --tw-ring-color: #eab308; }
-        .focus\:ring-green-500 { --tw-ring-color: #16a34a; }
-        .focus\:ring-white\/50 { --tw-ring-color: rgba(255,255,255,0.5); }
-        .focus\:outline-none { outline: 2px solid transparent; outline-offset: 2px; }
-
-        .p-0\.5 { padding: 0.125rem; }
-        .p-1 { padding: 0.25rem; }
-        .p-2 { padding: 0.5rem; }
-        .p-2.5 { padding: 0.625rem; }
-        .p-3 { padding: 0.75rem; }
-        .p-4 { padding: 1rem; }
-        .p-6 { padding: 1.5rem; }
-        .py-1 { padding-top: 0.25rem; padding-bottom: 0.25rem; }
-        .py-2 { padding-top: 0.5rem; padding-bottom: 0.5rem; }
-        .py-0\.5 { padding-top: 0.125rem; padding-bottom: 0.125rem; }
-        .py-2.5 { padding-top: 0.625rem; padding-bottom: 0.625rem; }
-        .py-3 { padding-top: 0.75rem; padding-bottom: 0.75rem; }
-        .px-2 { padding-left: 0.5rem; padding-right: 0.5rem; }
-        .px-3 { padding-left: 0.75rem; padding-right: 0.75rem; }
-        .px-4 { padding-left: 1rem; padding-right: 1rem; }
-        .px-6 { padding-left: 1.5rem; padding-right: 1.5rem; }
-        .px-12 { padding-left: 3rem; padding-right: 3rem; }
-        .pr-2 { padding-right: 0.5rem; }
-
-        .mt-1 { margin-top: 0.25rem; }
-        .mt-2 { margin-top: 0.5rem; }
-        .mt-auto { margin-top: auto; }
-        .mt-3 { margin-top: 0.75rem; }
-        .mt-4 { margin-top: 1rem; }
-        .mt-6 { margin-top: 1.5rem; }
-        .mt-8 { margin-top: 2rem; }
-        .mb-1 { margin-bottom: 0.25rem; }
-        .mb-2 { margin-bottom: 0.5rem; }
-        .mb-3 { margin-bottom: 0.75rem; }
-        .mb-4 { margin-bottom: 1rem; }
-        .mb-6 { margin-bottom: 1.5rem; }
-        .mb-8 { margin-bottom: 2rem; }
-        .ml-2 { margin-left: 0.5rem; }
-        .mx-auto { margin-left: auto; margin-right: auto; }
-        .m-4 { margin: 1rem; }
-        .pt-1 { padding-top: 0.25rem; }
-
-        .gap-1 { gap: 0.25rem; }
-        .gap-2 { gap: 0.5rem; }
-        .gap-3 { gap: 0.75rem; }
-        .gap-4 { gap: 1rem; }
-        .gap-6 { gap: 1.5rem; }
-        .gap-x-4 { column-gap: 1rem; }
-
-        .rounded { border-radius: 0.25rem; }
-        .rounded-full { border-radius: 9999px; }
-        .rounded-lg { border-radius: 0.5rem; }
-        .rounded-md { border-radius: 0.375rem; }
-        .rounded-xl { border-radius: 0.75rem; }
-        .rounded-2xl { border-radius: 1rem; }
-
-        .shadow { box-shadow: 0 1px 3px 0 rgba(0,0,0,0.1), 0 1px 2px -1px rgba(0,0,0,0.1); }
-        .shadow-inner { box-shadow: inset 0 2px 4px 0 rgba(0,0,0,0.05); }
-        .shadow-lg { box-shadow: 0 10px 15px -3px rgba(0,0,0,0.1), 0 4px 6px -4px rgba(0,0,0,0.1); }
-        .shadow-md { box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1), 0 2px 4px -2px rgba(0,0,0,0.1); }
-        .shadow-sm { box-shadow: 0 1px 2px 0 rgba(0,0,0,0.05); }
-        .shadow-xl { box-shadow: 0 20px 25px -5px rgba(0,0,0,0.1), 0 8px 10px -6px rgba(0,0,0,0.1); }
-        .shadow-2xl { box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25); }
-
-        .flex { display: flex; }
-        .flex-col { flex-direction: column; }
-        .sm\:flex-row { @media (min-width: 640px) { flex-direction: row; } }
-        .flex-grow { flex-grow: 1; }
-        .flex-wrap { flex-wrap: wrap; }
-        .flex-1 { flex: 1 1 0%; }
-        .shrink-0 { flex-shrink: 0; }
-        .items-center { align-items: center; }
-        .items-baseline { align-items: baseline; }
-        .items-end { align-items: flex-end; }
-        .items-start { align-items: flex-start; }
-        .self-center { align-self: center; }
-        .justify-between { justify-content: space-between; }
-        .justify-center { justify-content: center; }
-        .justify-end { justify-content: flex-end; }
-        .justify-start { justify-content: flex-start; }
-        .sm\:items-baseline { @media (min-width: 640px) { align-items: baseline; } }
-        .sm\:items-center { @media (min-width: 640px) { align-items: center; } }
-        .sm\:flex-none { @media (min-width: 640px) { flex: 0 1 auto; } }
-        .sm\:flex-nowrap { @media (min-width: 640px) { flex-wrap: nowrap; } }
-        .sm\:w-auto { @media (min-width: 640px) { width: auto; } }
-        .inline-block { display: inline-block; }
-
-        .grid { display: grid; }
-        .grid-cols-1 { grid-template-columns: repeat(1, minmax(0, 1fr)); }
-        .grid-cols-2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-        .md\:grid-cols-2 { @media (min-width: 768px) { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
-        .lg\:grid-cols-3 { @media (min-width: 1024px) { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
-        .sm\:grid-cols-2 { @media (min-width: 640px) { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
-        .md\:grid-cols-3 { @media (min-width: 768px) { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
-        .md\:grid-cols-4 { @media (min-width: 768px) { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
-        .lg\:grid-cols-4 { @media (min-width: 1024px) { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
-        .lg\:grid-cols-5 { @media (min-width: 1024px) { grid-template-columns: repeat(5, minmax(0, 1fr)); } }
-        .sm\:grid-cols-3 { @media (min-width: 640px) { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
-        .col-span-full { grid-column: 1 / -1; }
-
-        .w-full { width: 100%; }
-        .w-6 { width: 1.5rem; }
-        .w-8 { width: 2rem; }
-        .w-10 { width: 2.5rem; }
-        .h-10 { height: 2.5rem; }
-        .w-5 { width: 1.25rem; }
-        .w-24 { width: 6rem; }
-        .w-auto { width: auto; }
-        .max-w-5xl { max-width: 64rem; }
-        .max-w-3xl { max-width: 48rem; }
-        .max-w-2xl { max-width: 42rem; }
-        .h-full { height: 100%; }
-        .h-6 { height: 1.5rem; }
-        .h-8 { height: 2rem; }
-        .h-5 { height: 1.25rem; }
-        .max-h-\[85vh\] { max-height: 85vh; }
-        .max-h-\[90vh\] { max-height: 90vh; }
-        .min-h-full { min-height: 100%; }
-        .min-h-\[100px\] { min-height: 100px; }
-        .min-w-\[200px\] { min-width: 200px; }
-
-        .transition { transition-property: color, background-color, border-color, text-decoration-color, fill, stroke, opacity, box-shadow, transform, filter, backdrop-filter; transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1); transition-duration: 150ms; }
-        .transition-colors { transition-property: color, background-color, border-color, text-decoration-color, fill, stroke; transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1); transition-duration: 150ms; }
-        .duration-300 { transition-duration: 300ms; }
-        .duration-150 { transition-duration: 150ms; }
-        .duration-200 { transition-duration: 200ms; }
-        .transition-all { transition-property: all; transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1); transition-duration: 150ms; }
-        .transition-transform { transition-property: transform; transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1); transition-duration: 150ms; }
-
-        .font-bold { font-weight: 700; }
-        .font-medium { font-weight: 500; }
-        .font-mono { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consola, "Liberation Mono", "Courier New", monospace; }
-        .font-semibold { font-weight: 600; }
-        .font-normal { font-weight: 400; }
-        .font-extrabold { font-weight: 800; }
-
-        .leading-relaxed { line-height: 1.625; }
-        .leading-5 { line-height: 1.25rem; }
-        .leading-tight { line-height: 1.25; }
-
-        .tracking-widest { letter-spacing: 0.1em; }
-        .tracking-wider { letter-spacing: 0.05em; }
-
-        .text-3xl { font-size: 1.875rem; line-height: 2.25rem; }
-        .text-4xl { font-size: 2.25rem; line-height: 2.5rem; }
-        .text-base { font-size: 1rem; line-height: 1.5rem; }
-        .text-lg { font-size: 1.125rem; line-height: 1.75rem; }
-        .text-2xl { font-size: 1.5rem; line-height: 2rem; }
-        .text-6xl { font-size: 3.75rem; line-height: 1; }
-        .text-sm { font-size: 0.875rem; line-height: 1.25rem; }
-        .text-xl { font-size: 1.25rem; line-height: 1.75rem; }
-        .text-xs { font-size: 0.75rem; line-height: 1rem; }
-        .text-\[10px\] { font-size: 10px; }
-        .decoration-2 { text-decoration-thickness: 2px; }
-        .underline { text-decoration-line: underline; }
-
-        .text-center { text-align: center; }
-        .text-left { text-align: left; }
-
-        .hidden { display: none; }
-        .block { display: block; }
-        .dark .dark\:block { display: block; }
-
-        .absolute { position: absolute; }
-        .fixed { position: fixed; }
-        .relative { position: relative; }
-        .inset-0 { top: 0; right: 0; bottom: 0; left: 0; }
-
-        .left-0 { left: 0; }
-        .right-0 { right: 0; }
-        .top-0 { top: 0; }
-        .top-4 { top: 1rem; }
-        .right-4 { right: 1rem; }
-        .md\:top-8 { @media (min-width: 768px) { top: 2rem; } }
-        .md\:right-8 { @media (min-width: 768px) { right: 2rem; } }
-        /* Adjusted positioning for buttons */
-        .right-16 { right: 4rem; }
-        .right-28 { right: 7rem; }
-        .md\:right-20 { @media (min-width: 768px) { right: 5rem; } }
-        .md\:right-32 { @media (min-width: 768px) { right: 8rem; } }
-
-        .z-\[100\] { z-index: 100; }
-        .z-\[110\] { z-index: 110; }
-        .z-10 { z-index: 10; }
-        .z-50 { z-index: 50; }
-
-        .z-\[5000\] { z-index: 5000; } /* Added explicitly */
-
-        .overflow-y-auto { overflow-y: auto; }
-        .overflow-x-hidden { overflow-x: hidden; }
-        .overflow-hidden { overflow: hidden; }
-        .custom-scrollbar::-webkit-scrollbar { width: 6px; }
-        .custom-scrollbar::-webkit-scrollbar-track { background: rgba(0,0,0,0.1); border-radius: 10px; }
-        .custom-scrollbar::-webkit-scrollbar-thumb { background: rgba(0,0,0,0.2); border-radius: 10px; }
-        .text-white .custom-scrollbar::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.3); }
-
-        .cursor-pointer { cursor: pointer; }
-        .cursor-default { cursor: default; }
-        .pointer-events-none { pointer-events: none; }
-        .list-none { list-style-type: none; }
-
-        .transform { transform: translate(var(--tw-translate-x), var(--tw-translate-y)) rotate(var(--tw-rotate)) skewX(var(--tw-skew-x)) skewY(var(--tw-skew-y)) scaleX(var(--tw-scale-x)) scaleY(var(--tw-scale-y)); }
-
-        .group-open\:rotate-180 { --tw-rotate: 180deg; }
-        details[open] summary svg { transform: rotate(180deg); }
-
-        .hover\:scale-\[1\.02\]:hover { --tw-scale-x: 1.02; --tw-scale-y: 1.02; transform: translate(var(--tw-translate-x), var(--tw-translate-y)) rotate(var(--tw-rotate)) skewX(var(--tw-skew-x)) skewY(var(--tw-skew-y)) scaleX(var(--tw-scale-x)) scaleY(var(--tw-scale-y)); }
-        .hover\:scale-\[1\.05\]:hover { --tw-scale-x: 1.05; --tw-scale-y: 1.05; transform: translate(var(--tw-translate-x), var(--tw-translate-y)) rotate(var(--tw-rotate)) skewX(var(--tw-skew-x)) skewY(var(--tw-skew-y)) scaleX(var(--tw-scale-x)) scaleY(var(--tw-scale-y)); }
-        .hover\:scale-110:hover { --tw-scale-x: 1.10; --tw-scale-y: 1.10; transform: translate(var(--tw-translate-x), var(--tw-translate-y)) rotate(var(--tw-rotate)) skewX(var(--tw-skew-x)) skewY(var(--tw-skew-y)) scaleX(var(--tw-scale-x)) scaleY(var(--tw-scale-y)); }
-        .active\:scale-95:active { --tw-scale-x: 0.95; --tw-scale-y: 0.95; transform: translate(var(--tw-translate-x), var(--tw-translate-y)) rotate(var(--tw-rotate)) skewX(var(--tw-skew-x)) skewY(var(--tw-skew-y)) scaleX(var(--tw-scale-x)) scaleY(var(--tw-scale-y)); }
-
-        .hover\:shadow-xl:hover { box-shadow: 0 20px 25px -5px rgba(0,0,0,0.1), 0 8px 10px -6px rgba(0,0,0,0.1); }
-
-        .opacity-10 { opacity: 0.1; }
-        .opacity-70 { opacity: 0.7; }
-        .opacity-80 { opacity: 0.8; }
-        .opacity-90 { opacity: 0.9; }
-        .opacity-50 { opacity: 0.5; }
-        .opacity-100 { opacity: 1; }
-        .opacity-60 { opacity: 0.6; }
-        .grayscale { filter: grayscale(100%); }
-        .select-none { user-select: none; }
-
-        .backdrop-blur-sm { backdrop-filter: blur(4px); -webkit-backdrop-filter: blur(4px); }
-
-        .antialiased { -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; }
-
-        .container { width: 100%; }
-        @media (min-width: 640px) { .container { max-width: 640px; } }
-        @media (min-width: 768px) { .container { max-width: 768px; } }
-        @media (min-width: 1024px) { .container { max-width: 1024px; } }
-        @media (min-width: 1280px) { .container { max-width: 1280px; } }
-        @media (min-width: 1536px) { .container { max-width: 1536px; } }
-
-        .space-x-1 > * + * { margin-left: 0.25rem; }
-        .space-y-1 > * + * { margin-top: 0.25rem; }
-        .space-y-3 > * + * { margin-top: 0.75rem; }
-        .space-y-6 > * + * { margin-top: 1.5rem; }
-
-        /* Mobile specific fix for wrapping long METAR text */
-        .break-words { overflow-wrap: break-word; word-break: break-word; }
-        .whitespace-pre-wrap { white-space: pre-wrap; }
-        .truncate { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
     </style>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                        mono: ['JetBrains Mono', 'monospace'],
+                    }
+                }
+            }
+        }
+    </script>
 </head>
 
 <body class="bg-gray-100 dark:bg-black text-gray-900 dark:text-gray-100 min-h-full antialiased transition-colors duration-300 overflow-x-hidden">
@@ -734,148 +376,154 @@
     </div>
 </div>
 
-<div class="container mx-auto p-3 md:p-8 max-w-5xl pt-4 mt-2">
+<!-- MAIN CONTAINER (Full Width) -->
+<div class="w-full px-3 md:px-8 pt-4 mt-2 pb-8">
 
-    <button id="themeToggleBtn" type="button" onclick="toggleTheme()" aria-label="Toggle Dark Mode"
-            class="z-[100] absolute top-0 right-4 md:top-8 md:right-8 p-2 rounded-full
-               bg-gray-200 dark:bg-gray-800 text-gray-700 dark:text-gray-200
-               hover:bg-gray-200 dark:hover:bg-gray-800
-               active:bg-gray-200 dark:active:bg-gray-800
-               shadow-sm cursor-pointer">
+    <!-- INPUTS SECTION (Constrained Width) -->
+    <div class="max-w-5xl mx-auto relative">
+        <button id="themeToggleBtn" type="button" onclick="toggleTheme()" aria-label="Toggle Dark Mode"
+                class="z-[100] absolute top-0 right-0 md:top-4 md:right-0 p-2 rounded-full
+                   bg-gray-200 dark:bg-gray-800 text-gray-700 dark:text-gray-200
+                   hover:bg-gray-200 dark:hover:bg-gray-800
+                   active:bg-gray-200 dark:active:bg-gray-800
+                   shadow-sm cursor-pointer">
 
-        <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                  d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z" />
-        </svg>
-    </button>
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                      d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z" />
+            </svg>
+        </button>
 
-    <!-- Unit Toggle Button -->
-    <button id="unitToggleBtn" type="button" onclick="toggleUnits()" aria-label="Toggle Units"
-            class="z-[100] absolute top-0 right-16 md:top-8 md:right-20 p-2 rounded-full w-10 h-10 flex items-center justify-center font-bold text-sm font-mono
-               bg-gray-200 dark:bg-gray-800 text-gray-700 dark:text-gray-200
-               hover:bg-gray-300 dark:hover:bg-gray-700
-               shadow-sm cursor-pointer transition-colors">
-        °F
-    </button>
+        <!-- Unit Toggle Button -->
+        <button id="unitToggleBtn" type="button" onclick="toggleUnits()" aria-label="Toggle Units"
+                class="z-[100] absolute top-0 right-12 md:top-4 md:right-12 p-2 rounded-full w-10 h-10 flex items-center justify-center font-bold text-sm font-mono
+                   bg-gray-200 dark:bg-gray-800 text-gray-700 dark:text-gray-200
+                   hover:bg-gray-300 dark:hover:bg-gray-700
+                   shadow-sm cursor-pointer transition-colors">
+            °F
+        </button>
 
-    <!-- Records Button -->
-    <button id="recordsBtn" type="button" onclick="showRecords()" aria-label="View Weather Records"
-            class="z-[100] absolute top-0 right-28 md:top-8 md:right-32 p-2 rounded-full w-10 h-10 flex items-center justify-center
-               bg-yellow-400 text-yellow-900 hover:bg-yellow-500
-               shadow-md cursor-pointer transition-transform hover:scale-110 active:scale-95">
-        <!-- Award Ribbon Icon -->
-        <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" viewBox="0 0 24 24" fill="currentColor">
-            <path fill-rule="evenodd" d="M12 2C8.13 2 5 5.13 5 9c0 2.38 1.19 4.47 3 5.74V21l4-2 4 2v-6.26c1.81-1.27 3-3.36 3-5.74 0-3.87-3.13-7-7-7zm0 12c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5z" clip-rule="evenodd"/>
-        </svg>
-    </button>
+        <!-- Records Button -->
+        <button id="recordsBtn" type="button" onclick="showRecords()" aria-label="View Weather Records"
+                class="z-[100] absolute top-0 right-24 md:top-4 md:right-24 p-2 rounded-full w-10 h-10 flex items-center justify-center
+                   bg-yellow-400 text-yellow-900 hover:bg-yellow-500
+                   shadow-md cursor-pointer transition-transform hover:scale-110 active:scale-95">
+            <!-- Award Ribbon Icon -->
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" viewBox="0 0 24 24" fill="currentColor">
+                <path fill-rule="evenodd" d="M12 2C8.13 2 5 5.13 5 9c0 2.38 1.19 4.47 3 5.74V21l4-2 4 2v-6.26c1.81-1.27 3-3.36 3-5.74 0-3.87-3.13-7-7-7zm0 12c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5z" clip-rule="evenodd"/>
+            </svg>
+        </button>
 
-    <header class="mb-6 text-center pt-12 md:pt-16">
-        <h1 class="text-2xl md:text-3xl font-bold text-blue-600 dark:text-blue-400 flex justify-center items-center">
-            Aviation Weather Report
-            <span class="text-xs text-gray-400 dark:text-gray-500 font-normal ml-2 tracking-wide self-center" id="appVersionDisplay"></span>
-        </h1>
-        <p class="text-sm md:text-base text-gray-600 dark:text-gray-400 mt-2 px-4">
-            Generates a report of current METARs and TAFs. Warning: this app should be considered experimental--use at your own risk!
-        </p>
-        <div class="flex justify-center flex-wrap gap-x-4 gap-y-2 mt-4 text-xs md:text-sm font-bold">
-            <span class="flex items-center gap-1"><span class="weather-dot vfr-dot"></span>VFR</span>
-            <span class="flex items-center gap-1"><span class="weather-dot mvfr-dot"></span>MVFR</span>
-            <span class="flex items-center gap-1"><span class="weather-dot ifr-dot"></span>IFR</span>
-            <span class="flex items-center gap-1"><span class="weather-dot lifr-dot"></span>LIFR</span>
-            <span id="nodata-legend" class="flex items-center gap-1 text-gray-500" style="display: none;"><span class="weather-dot nodata-tile"></span>No TAF Data</span>
-        </div>
-    </header>
+        <header class="mb-6 text-center pt-12 md:pt-16">
+            <h1 class="text-2xl md:text-3xl font-bold text-blue-600 dark:text-blue-400 flex justify-center items-center">
+                Aviation Weather Report
+                <span class="text-xs text-gray-400 dark:text-gray-500 font-normal ml-2 tracking-wide self-center" id="appVersionDisplay"></span>
+            </h1>
+            <p class="text-sm md:text-base text-gray-600 dark:text-gray-400 mt-2 px-4">
+                Generates a report of current METARs and TAFs. Warning: this app should be considered experimental--use at your own risk!
+            </p>
+            <div class="flex justify-center flex-wrap gap-x-4 gap-y-2 mt-4 text-xs md:text-sm font-bold">
+                <span class="flex items-center gap-1"><span class="weather-dot vfr-dot"></span>VFR</span>
+                <span class="flex items-center gap-1"><span class="weather-dot mvfr-dot"></span>MVFR</span>
+                <span class="flex items-center gap-1"><span class="weather-dot ifr-dot"></span>IFR</span>
+                <span class="flex items-center gap-1"><span class="weather-dot lifr-dot"></span>LIFR</span>
+                <span id="nodata-legend" class="flex items-center gap-1 text-gray-500" style="display: none;"><span class="weather-dot nodata-tile"></span>No TAF Data</span>
+            </div>
+        </header>
 
-    <div class="bg-white dark:bg-black border border-transparent dark:border-gray-800 p-4 md:p-6 rounded-xl shadow-lg mb-6 transition-colors duration-300">
-        <!-- Input fields -->
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div class="bg-white dark:bg-black border border-transparent dark:border-gray-800 p-4 md:p-6 rounded-xl shadow-lg mb-6 transition-colors duration-300">
+            <!-- Input fields -->
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
 
-            <div class="md:col-span-1 flex flex-col justify-end">
-                <div class="grid grid-cols-2 gap-3">
-                    <div class="p-3 bg-gray-50 dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-800">
-                        <label for="icaoInput" class="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">
-                            Home Airport
-                        </label>
-                        <input type="text" id="icaoInput" maxlength="4" placeholder="KOKC"
-                               class="uppercase w-full p-2 text-base md:text-sm border border-gray-300 dark:border-gray-700 rounded bg-white dark:bg-black dark:text-gray-100 focus:ring-blue-500 focus:border-blue-500 tracking-widest font-mono transition-colors">
+                <div class="md:col-span-1 flex flex-col justify-end">
+                    <div class="grid grid-cols-2 gap-3">
+                        <div class="p-3 bg-gray-50 dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-800">
+                            <label for="icaoInput" class="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">
+                                Home Airport
+                            </label>
+                            <input type="text" id="icaoInput" maxlength="4" placeholder="KOKC"
+                                   class="uppercase w-full p-2 text-base md:text-sm border border-gray-300 dark:border-gray-700 rounded bg-white dark:bg-black dark:text-gray-100 focus:ring-blue-500 focus:border-blue-500 tracking-widest font-mono transition-colors">
+                        </div>
+                        <div class="p-3 bg-gray-50 dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-800">
+                            <label for="minRunway" class="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">
+                                Min Rwy (ft)
+                            </label>
+                            <input type="number" id="minRunway" placeholder="0" min="0" step="100"
+                                   class="w-full p-2 text-base md:text-sm border border-gray-300 dark:border-gray-700 rounded bg-white dark:bg-black dark:text-gray-100 focus:ring-blue-500 focus:border-blue-500 font-mono transition-colors">
+                        </div>
                     </div>
-                    <div class="p-3 bg-gray-50 dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-800">
-                        <label for="minRunway" class="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">
-                            Min Rwy (ft)
-                        </label>
-                        <input type="number" id="minRunway" placeholder="0" min="0" step="100"
-                               class="w-full p-2 text-base md:text-sm border border-gray-300 dark:border-gray-700 rounded bg-white dark:bg-black dark:text-gray-100 focus:ring-blue-500 focus:border-blue-500 font-mono transition-colors">
+                </div>
+
+                <div class="md:col-span-1 flex items-end">
+                    <div class="w-full">
+                        <p class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Alternate Analysis</p>
+                        <button id="toggleAdvanced"
+                                class="w-full bg-yellow-500 hover:bg-yellow-600 text-white font-bold py-3 px-4 rounded-lg shadow-md transition duration-150 focus:outline-none focus:ring-2 focus:ring-yellow-500 focus:ring-offset-2 dark:focus:ring-offset-gray-900 touch-manipulation">
+                            Enable Alternate Planner
+                        </button>
                     </div>
                 </div>
             </div>
 
-            <div class="md:col-span-1 flex items-end">
-                <div class="w-full">
-                    <p class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Alternate Analysis</p>
-                    <button id="toggleAdvanced"
-                            class="w-full bg-yellow-500 hover:bg-yellow-600 text-white font-bold py-3 px-4 rounded-lg shadow-md transition duration-150 focus:outline-none focus:ring-2 focus:ring-yellow-500 focus:ring-offset-2 dark:focus:ring-offset-gray-900 touch-manipulation">
-                        Enable Alternate Planner
-                    </button>
+            <div id="advancedInputs" class="hidden mt-6 pt-4 border-t border-gray-200 dark:border-gray-800">
+                <h3 class="text-lg font-semibold text-blue-600 dark:text-blue-400 mb-4">Flight Plan Details</h3>
+                <p class="text-sm text-gray-500 mb-3">Enter either Departure or Destination to find alternates.</p>
+                <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
+                    <div>
+                        <label for="depIcao" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                            Departure (ICAO)
+                        </label>
+                        <input type="text" id="depIcao" maxlength="4" placeholder="KSEA"
+                               class="uppercase w-full p-2.5 text-base md:text-sm border border-gray-300 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-900 dark:text-gray-100 focus:ring-blue-500 focus:border-blue-500 font-mono transition-colors">
+                    </div>
+                    <div>
+                        <label for="destIcao" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                            Destination (ICAO)
+                        </label>
+                        <input type="text" id="destIcao" maxlength="4" placeholder="KSAN"
+                               class="uppercase w-full p-2.5 text-base md:text-sm border border-gray-300 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-900 dark:text-gray-100 focus:ring-blue-500 focus:border-blue-500 font-mono transition-colors">
+                    </div>
+                    <div>
+                        <label for="searchRadius" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                            Search Radius (NM)
+                        </label>
+                        <input type="number" id="searchRadius" placeholder="220" value="220" min="1" max="999"
+                               class="w-full p-2.5 text-base md:text-sm border border-gray-300 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-900 dark:text-gray-100 focus:ring-blue-500 focus:border-blue-500 transition-colors">
+                    </div>
+                    <div>
+                        <label for="takeOffTime" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                            Takeoff (UTC)
+                        </label>
+                        <input type="text" id="takeOffTime" placeholder="YYYY-MM-DD HH:MM" required
+                               class="w-full p-2.5 text-base md:text-sm border border-gray-300 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-900 dark:text-gray-100 focus:ring-blue-500 focus:border-blue-500 transition-colors cursor-pointer">
+                    </div>
+                    <div>
+                        <label for="landingTime" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                            Landing (UTC)
+                        </label>
+                        <input type="text" id="landingTime" placeholder="YYYY-MM-DD HH:MM" required
+                               class="w-full p-2.5 text-base md:text-sm border border-gray-300 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-900 dark:text-gray-100 focus:ring-blue-500 focus:border-blue-500 transition-colors cursor-pointer">
+                    </div>
                 </div>
+            </div>
+
+            <div class="mt-6 text-center">
+                <button id="generateButton"
+                        class="w-full md:w-auto bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-12 rounded-lg shadow-lg transform transition-transform hover:scale-[1.02] focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 dark:focus:ring-offset-gray-900 touch-manipulation">
+                    Generate Report
+                </button>
             </div>
         </div>
 
-        <div id="advancedInputs" class="hidden mt-6 pt-4 border-t border-gray-200 dark:border-gray-800">
-            <h3 class="text-lg font-semibold text-blue-600 dark:text-blue-400 mb-4">Flight Plan Details</h3>
-            <p class="text-sm text-gray-500 mb-3">Enter either Departure or Destination to find alternates.</p>
-            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
-                <div>
-                    <label for="depIcao" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                        Departure (ICAO)
-                    </label>
-                    <input type="text" id="depIcao" maxlength="4" placeholder="KSEA"
-                           class="uppercase w-full p-2.5 text-base md:text-sm border border-gray-300 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-900 dark:text-gray-100 focus:ring-blue-500 focus:border-blue-500 font-mono transition-colors">
-                </div>
-                <div>
-                    <label for="destIcao" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                        Destination (ICAO)
-                    </label>
-                    <input type="text" id="destIcao" maxlength="4" placeholder="KSAN"
-                           class="uppercase w-full p-2.5 text-base md:text-sm border border-gray-300 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-900 dark:text-gray-100 focus:ring-blue-500 focus:border-blue-500 font-mono transition-colors">
-                </div>
-                <div>
-                    <label for="searchRadius" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                        Search Radius (NM)
-                    </label>
-                    <input type="number" id="searchRadius" placeholder="220" value="220" min="1" max="999"
-                           class="w-full p-2.5 text-base md:text-sm border border-gray-300 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-900 dark:text-gray-100 focus:ring-blue-500 focus:border-blue-500 transition-colors">
-                </div>
-                <div>
-                    <label for="takeOffTime" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                        Takeoff (UTC)
-                    </label>
-                    <input type="text" id="takeOffTime" placeholder="YYYY-MM-DD HH:MM" required
-                           class="w-full p-2.5 text-base md:text-sm border border-gray-300 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-900 dark:text-gray-100 focus:ring-blue-500 focus:border-blue-500 transition-colors cursor-pointer">
-                </div>
-                <div>
-                    <label for="landingTime" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                        Landing (UTC)
-                    </label>
-                    <input type="text" id="landingTime" placeholder="YYYY-MM-DD HH:MM" required
-                           class="w-full p-2.5 text-base md:text-sm border border-gray-300 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-900 dark:text-gray-100 focus:ring-blue-500 focus:border-blue-500 transition-colors cursor-pointer">
-                </div>
-            </div>
-        </div>
-
-        <div class="mt-6 text-center">
-            <button id="generateButton"
-                    class="w-full md:w-auto bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-12 rounded-lg shadow-lg transform transition-transform hover:scale-[1.02] focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 dark:focus:ring-offset-gray-900 touch-manipulation">
-                Generate Report
-            </button>
-        </div>
+        <div id="status" class="hidden mt-6 p-4 text-center rounded-lg"></div>
+        <div id="details" class="hidden mt-2 text-sm text-gray-500 text-center font-mono break-words"></div>
     </div>
+    <!-- END INPUTS SECTION -->
 
-    <div id="status" class="hidden mt-6 p-4 text-center rounded-lg"></div>
-    <div id="details" class="hidden mt-2 text-sm text-gray-500 text-center font-mono break-words"></div>
+    <!-- RESULTS CONTAINER (Full Width for Map, but constrained List) -->
+    <div id="resultsContainer" class="hidden p-3 md:p-4 bg-white dark:bg-black border border-transparent dark:border-gray-800 rounded-xl shadow-inner md:max-h-[85vh] flex flex-col transition-colors duration-300 w-full h-[85vh]">
 
-    <div id="resultsContainer" class="hidden mt-8 p-3 md:p-4 bg-white dark:bg-black border border-transparent dark:border-gray-800 rounded-xl shadow-inner md:max-h-[85vh] flex flex-col transition-colors duration-300 w-full max-w-full">
-
-        <div class="mb-4 shrink-0 flex flex-wrap sm:flex-nowrap justify-between items-center gap-3">
+        <div class="mb-4 shrink-0 flex flex-wrap sm:flex-nowrap justify-between items-center gap-3 max-w-5xl mx-auto w-full">
             <div class="flex p-1 space-x-1 bg-gray-200 dark:bg-gray-900 rounded-xl overflow-x-auto flex-grow sm:flex-grow-0 sm:min-w-[300px] min-w-[200px] w-full sm:w-auto">
                 <button id="tabMap"
                         class="tab-button flex-1 py-2.5 px-2 text-sm font-medium leading-5 rounded-lg text-center transition-all duration-200 focus:outline-none bg-blue-600 text-white shadow touch-manipulation whitespace-nowrap">
@@ -902,8 +550,8 @@
 
         <div class="flex-grow overflow-y-auto w-full relative">
 
-            <!-- Map View Container -->
-            <div id="mapView" class="hidden tab-content">
+            <!-- Map View Container (Full Width) -->
+            <div id="mapView" class="hidden tab-content h-full">
                 <div id="weatherMap"></div>
 
                 <!-- Zulu Clock -->
@@ -957,15 +605,18 @@
                 </div>
             </div>
 
-            <div id="weatherList" class="hidden tab-content w-full"></div>
-            <div id="routeAnalysisView" class="hidden tab-content p-2 md:p-4 w-full"></div>
+            <!-- List View (Constrained to max-w-5xl so it's readable) -->
+            <div id="weatherList" class="hidden tab-content w-full max-w-5xl mx-auto"></div>
+
+            <!-- Analysis View (Constrained) -->
+            <div id="routeAnalysisView" class="hidden tab-content p-2 md:p-4 w-full max-w-5xl mx-auto"></div>
         </div>
     </div>
 </div>
 
 <script>
     // --- APP CONFIG ---
-    const CURRENT_VERSION = 'v2.3.2'; // Incremented Version
+    const CURRENT_VERSION = 'v2.3.3'; // Incremented Version
     const GITHUB_REPO = 'Unpiloted0852/AvWx';
 
     // Global Data Storage for Modal Access
@@ -1118,6 +769,26 @@
         LIFR: [255, 20, 147],
         NODATA: [150, 150, 150]
     };
+
+    // --- MATH HELPERS INCLUDING DENSITY ALTITUDE ---
+    function calculateDensityAltitude(elevationFt, tempC, altimInHg) {
+        if (elevationFt === null || tempC === null || altimInHg === null || isNaN(elevationFt) || isNaN(tempC) || isNaN(altimInHg)) {
+            return null;
+        }
+
+        // 1. Calculate Standard Temperature (ISA) at this elevation (drops 2°C per 1000ft)
+        const isaTemp = 15 - (2 * (elevationFt / 1000));
+
+        // 2. Calculate Pressure Altitude
+        // Standard lapse rate: (29.92 - Altimeter) * 1000 + Elevation
+        const pressureAlt = (29.92 - altimInHg) * 1000 + elevationFt;
+
+        // 3. Calculate Density Altitude
+        // DA = PA + [120 * (OAT - ISA)]
+        const da = Math.round(pressureAlt + (120 * (tempC - isaTemp)));
+
+        return `DA ${da.toLocaleString()}ft`;
+    }
 
     // --- PDF HELPERS DEFINED AT GLOBAL SCOPE ---
     function drawStyledText(doc, lineText, x, y, baseColor) {
@@ -1833,7 +1504,14 @@
                 let metarHtml = '<div class="text-xs italic text-gray-500">No METAR available</div>';
                 if (station.metar) {
                     metarHtml = `<div class="space-y-0.5">${formatRawText(station.metar.rawText)}</div>`;
-                    metarHtml += `<div class="mt-1 text-xs text-gray-400">${getDisplayTemp(station.metar)} • ${station.metar.rh} • Age: ${formatAge(station.metar.age)}</div>`;
+
+                    // --- UPDATE: Add Density Alt ---
+                    let metaInfo = `${getDisplayTemp(station.metar)} • ${station.metar.rh}`;
+                    if (station.metar.densityAlt) metaInfo += ` • ${station.metar.densityAlt}`;
+                    metaInfo += ` • Age: ${formatAge(station.metar.age)}`;
+                    // -------------------------------
+
+                    metarHtml += `<div class="mt-1 text-xs text-gray-400">${metaInfo}</div>`;
                 }
 
                 let tafHtml = '<div class="text-xs italic text-gray-500">No TAF available</div>';
@@ -2172,9 +1850,9 @@
     }
 
     function showSuccess(message) {
-        statusEl.textContent = message;
-        statusEl.className = 'mt-6 p-4 text-center rounded-lg bg-green-100 dark:bg-green-900 text-green-700 dark:text-green-200';
-        statusEl.style.display = 'block';
+        // Disabled persistent success message as requested.
+        // Status element is hidden to clear UI space.
+        statusEl.style.display = 'none';
         detailsEl.style.display = 'none';
     }
 
@@ -2349,13 +2027,21 @@
                 const country = node.querySelector("country")?.textContent?.trim();
                 const lat = parseFloat(node.querySelector("latitude")?.textContent);
                 const lon = parseFloat(node.querySelector("longitude")?.textContent);
+
+                // --- NEW: Parse Elevation ---
+                const elevM = parseFloat(node.querySelector("elevation_m")?.textContent);
+                const elevFt = isNaN(elevM) ? null : Math.round(elevM * 3.28084);
+                // ----------------------------
+
                 if (id && site) {
                     const cleanSite = site.replace(/\/INTL$/, '').replace(/\//g, ' ');
                     let label = cleanSite;
                     if (country === 'US' && state) label += `, ${state}`;
                     else if (country) label += `, ${country}`;
                     else if (state) label += `, ${state}`;
-                    map.set(id, { name: label, latitude: isNaN(lat) ? null : lat, longitude: isNaN(lon) ? null : lon });
+
+                    // Store elevationFt in the map
+                    map.set(id, { name: label, latitude: isNaN(lat) ? null : lat, longitude: isNaN(lon) ? null : lon, elevationFt: elevFt });
                 }
             });
             cachedStationMap = map;
@@ -2678,6 +2364,7 @@
                     name: metadata.name || '',
                     latitude: metadata.latitude || null,
                     longitude: metadata.longitude || null,
+                    elevationFt: metadata.elevationFt || null, // Ensure elevation is retrieved
                     distanceNM: null,
                     metar: null,
                     taf: null,
@@ -2691,11 +2378,22 @@
             if (!stationId) return;
             const station = getOrCreateStation(stationId);
             const { tempF, tempC, rh, rawDewC } = calculateTempFAndRH(node);
+
+            // --- NEW: Parse Altimeter and Calculate DA ---
+            const altimInHg = parseFloat(node.querySelector("altim_in_hg")?.textContent);
+            // Calculate raw tempC (needed for math) because calculateTempFAndRH formats it as string "20°C"
+            const rawTempC = parseFloat(node.querySelector("temp_c")?.textContent);
+
+            const densityAlt = calculateDensityAltitude(station.elevationFt, rawTempC, altimInHg);
+            // ---------------------------------------------
+
             const rawText = node.querySelector("raw_text")?.textContent?.trim() || 'N/A';
             const category = node.querySelector("flight_category")?.textContent?.trim() || analyzeCondition(rawText);
             const obsTimeText = node.querySelector("observation_time")?.textContent;
             const metarAgeMinutes = calculateAgeInMinutes(obsTimeText);
-            station.metar = { rawText, category, tempF, tempC, rh, rawDewC, age: metarAgeMinutes, obsTime: obsTimeText };
+
+            // Add densityAlt to the object
+            station.metar = { rawText, category, tempF, tempC, rh, rawDewC, densityAlt, age: metarAgeMinutes, obsTime: obsTimeText };
         });
 
         tafDoc.querySelectorAll("TAF").forEach(node => {
@@ -2906,7 +2604,12 @@
         if (metar) {
             const category = metar.category;
             const className = getCategoryClassName(category);
+
+            // --- UPDATE: Push Density Alt ---
             infoTextParts.push(`${getDisplayTemp(metar)} • ${metar.rh}`);
+            if (metar.densityAlt) infoTextParts.push(metar.densityAlt); // Add DA
+            // --------------------------------
+
             infoTextParts.push(`Observed ${formatAge(metar.age)}`);
             if (data.distanceNM !== null) infoTextParts.push(`${data.distanceNM.toFixed(0)} NM`);
             const dotClassToBorderColor = {
@@ -3476,7 +3179,12 @@
                 doc.setFontSize(9);
                 metarLines = doc.splitTextToSize(data.metar.rawText, USABLE_WIDTH - 35);
                 metarColor = getCategoryColor(data.metar.category);
+
+                // --- UPDATE: Push Density Alt ---
                 infoTextParts.push(`${getDisplayTemp(data.metar)} • ${data.metar.rh}`);
+                if (data.metar.densityAlt) infoTextParts.push(data.metar.densityAlt); // Add DA
+                // --------------------------------
+
                 infoTextParts.push(`Observed ${formatAge(data.metar.age)}`);
                 if (data.distanceNM !== null) infoTextParts.push(`${data.distanceNM.toFixed(0)} NM`);
                 infoText = infoTextParts.join(' • ');
@@ -3740,7 +3448,7 @@
             if (!station) return '';
 
             return `
-                <div class="relative overflow-hidden bg-white dark:bg-gray-800 rounded-xl p-4 shadow-lg border-l-4 ${colorClass} hover:scale-[1.02] transition-transform duration-200">
+                <div class="relative overflow-hidden bg-white dark:bg-gray-800 rounded-xl p-4 shadow-lg border-l-4 ${colorClass} hover:scale-[1.02] transition-transform duration-200 cursor-pointer" onclick="closeRecordsModal(); jumpToStation('${station.id}')">
                     <div class="absolute top-0 right-0 p-2 opacity-10 text-6xl select-none pointer-events-none grayscale">
                         ${emoji}
                     </div>
@@ -3753,7 +3461,7 @@
                             ${valueHtml}
                         </div>
                         <div class="flex flex-col mt-2">
-                             <span class="font-mono font-bold text-blue-600 dark:text-blue-400 text-sm cursor-pointer hover:underline" onclick="closeRecordsModal(); jumpToStation('${station.id}')">${station.id}</span>
+                             <span class="font-mono font-bold text-blue-600 dark:text-blue-400 text-sm">${station.id}</span>
                              <span class="text-xs text-gray-500 truncate">${station.name || ''}</span>
                         </div>
                     </div>
@@ -3829,27 +3537,27 @@
 
     // Helper to jump to a specific station from the modal
     function jumpToStation(id) {
-        // Switch to list tab
-        switchTab('standard');
+        // Switch to Map View immediately
+        switchTab('map');
 
-        // Wait for tab switch, then find element
+        // Force scroll down to map container (results) so the user sees the action
+        document.getElementById('resultsContainer').scrollIntoView({ behavior: 'smooth', block: 'start' });
+
+        // Wait for tab switch (slight delay for DOM reflow), then fly to coords
         setTimeout(() => {
-            // Actually, let's switch to Map, it's cooler.
-            switchTab('map');
-
             // Find coords
             const station = currentStationsData.find(s => s.id === id);
             if(station && station.latitude) {
                 mapInstance.flyTo([station.latitude, station.longitude], 10);
 
-                // Open Popup
+                // Open Popup once animation completes (approximate)
                 setTimeout(() => {
                     markerLayerGroup.eachLayer(layer => {
                         if (layer.stationId === id) {
                             layer.openPopup();
                         }
                     });
-                }, 1500); // Wait for flyTo
+                }, 1500);
             }
         }, 100);
     }
