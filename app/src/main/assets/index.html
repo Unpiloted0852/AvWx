@@ -193,12 +193,6 @@
             z-index: 1000;
         }
 
-        /* GPS Button Position (Stacked above Radar) */
-        .gps-trigger {
-            position: absolute; bottom: 4.5rem; left: 1rem;
-            z-index: 1000;
-        }
-
         .floating-pill {
             pointer-events: auto;
             background: rgba(255, 255, 255, 0.9);
@@ -273,13 +267,13 @@
         /* Radar Time Display (Adjusted for mobile) */
         #radarTimeDisplay {
             position: absolute;
-            bottom: 8rem; /* MOVED UP higher to avoid blocking the new GPS button */
+            bottom: 4.5rem;
             left: 1rem;   /* Aligned with the button on the left */
             z-index: 1100;
             font-family: 'JetBrains Mono', monospace;
             font-weight: 700;
             background: rgba(255, 255, 255, 0.8);
-            color: #2563eb; 
+            color: #2563eb;
             border: 1px solid rgba(0, 0, 0, 0.1);
             backdrop-filter: blur(4px);
             padding: 0.25rem 0.75rem;
@@ -287,7 +281,7 @@
             font-size: 0.75rem;
             pointer-events: none;
             box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-            display: none; 
+            display: none;
             white-space: nowrap;
         }
 
@@ -608,7 +602,7 @@
         .z-\[100\] { z-index: 100; }
         .z-\[110\] { z-index: 110; }
         .z-50 { z-index: 50; }
-        
+
         .z-\[5000\] { z-index: 5000; } /* Added explicitly */
 
         .overflow-y-auto { overflow-y: auto; }
@@ -874,7 +868,7 @@
                     </svg>
                 </button>
 
-                <!-- GPS Button -->
+                <!-- GPS Button (With Smart Fallback) -->
                 <button id="gpsBtn" onclick="centerOnGPS()"
                         class="gps-trigger p-2 bg-white dark:bg-gray-800 rounded-lg shadow-md hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors text-gray-700 dark:text-gray-200 font-bold text-xs font-mono w-10 h-10 flex items-center justify-center" aria-label="Locate Me">
                     GPS
@@ -919,7 +913,7 @@
 
 <script>
     // --- APP CONFIG ---
-    const CURRENT_VERSION = 'v2.3.0'; // Incremented Version
+    const CURRENT_VERSION = 'v2.3.1'; // Incremented Version
     const GITHUB_REPO = 'Unpiloted0852/AvWx';
 
     // Global Data Storage for Modal Access
@@ -946,7 +940,7 @@
     // We create separate renderers for the route pane and marker pane to solve click issues
     let routeRenderer = null;
     let markerRenderer = null;
-    
+
     let currentStationsData = []; // Store data globally to render map on tab switch
     let radarLayer = null; // Radar Layer Global
     let radarRefreshInterval = null; // Store interval ID for radar
@@ -995,7 +989,7 @@
     const zuluClockEl = document.getElementById('zuluClock');
     const unitToggleBtn = document.getElementById('unitToggleBtn');
     const radarToggleBtn = document.getElementById('radarToggleBtn');
-    const radarTimeDisplay = document.getElementById('radarTimeDisplay'); 
+    const radarTimeDisplay = document.getElementById('radarTimeDisplay');
 
     // Attach scroll listener for Lazy Loading
     // We target the direct parent of weatherListEl that handles the overflow
@@ -1365,12 +1359,12 @@
         // --- CUSTOM PANES FOR Z-INDEX CONTROL ---
         // 1. Radar Pane (Above Tiles, Below Routes)
         mapInstance.createPane('radarPane');
-        mapInstance.getPane('radarPane').style.zIndex = 250; 
+        mapInstance.getPane('radarPane').style.zIndex = 250;
         mapInstance.getPane('radarPane').style.pointerEvents = 'none'; // Don't block clicks
 
         // 2. Route Pane (Above Radar, Below Markers)
         mapInstance.createPane('routePane');
-        mapInstance.getPane('routePane').style.zIndex = 400; 
+        mapInstance.getPane('routePane').style.zIndex = 400;
         // Important: This pane must allow clicks to pass through if we draw lines on it
         // We handle interactivity on the polyline itself via `interactive: false`
 
@@ -1383,7 +1377,7 @@
         markerRenderer = L.canvas({ pane: 'markerPane', tolerance: 20 });
 
         markerLayerGroup = L.layerGroup().addTo(mapInstance);
-        labelLayerGroup = L.layerGroup().addTo(mapInstance); 
+        labelLayerGroup = L.layerGroup().addTo(mapInstance);
 
         // Events for Optimized Label Rendering
         mapInstance.on('zoomend', updateMapLabels);
@@ -1393,7 +1387,7 @@
     // --- RADAR LOGIC ---
     async function updateRadarLayer() {
         const timeDisplay = document.getElementById('radarTimeDisplay');
-        
+
         try {
             // 1. Fetch latest timestamp from RainViewer DIRECTLY
             const res = await fetch('https://api.rainviewer.com/public/weather-maps.json');
@@ -1404,7 +1398,7 @@
                 const time = lastFrame.time;
                 const host = data.host;
 
-                // Reverting to classic method: Remove old, add new. 
+                // Reverting to classic method: Remove old, add new.
                 // This is robust against event listener failures.
                 if (radarLayer) {
                     mapInstance.removeLayer(radarLayer);
@@ -1440,7 +1434,7 @@
             // --- TURN OFF ---
             clearInterval(radarRefreshInterval);
             radarRefreshInterval = null;
-            
+
             if (radarLayer) {
                 mapInstance.removeLayer(radarLayer);
                 radarLayer = null;
@@ -1461,26 +1455,63 @@
         }
     }
 
-    // --- GPS LOGIC ---
+    // --- GPS / IP LOCATION LOGIC (SMART FALLBACK) ---
     function centerOnGPS() {
+        const btn = document.getElementById('gpsBtn');
+        const originalText = btn.textContent;
+
+        btn.disabled = true;
+        btn.textContent = "...";
+
+        // Helper to fly to coords
+        const flyTo = (lat, lon, msg) => {
+            if (mapInstance) {
+                mapInstance.flyTo([lat, lon], 10);
+                // Simple popup to tell user source
+                L.popup()
+                    .setLatLng([lat, lon])
+                    .setContent(`<div class="text-center font-bold text-sm">${msg}</div>`)
+                    .openOn(mapInstance);
+            }
+            btn.disabled = false;
+            btn.textContent = originalText;
+        };
+
+        // Fallback: IP Geolocation (Works on file:// where GPS is blocked)
+        const tryIPLocation = () => {
+            console.log("Trying IP Location fallback...");
+            fetch('https://ipwho.is/') // Free IP geolocation API
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        flyTo(data.latitude, data.longitude, "Approximate Location (IP)");
+                    } else {
+                        throw new Error("IP Lookup failed");
+                    }
+                })
+                .catch(err => {
+                    console.error(err);
+                    alert("Could not determine location via GPS or Network.");
+                    btn.disabled = false;
+                    btn.textContent = originalText;
+                });
+        };
+
+        // Primary: GPS (Navigator)
         if (!navigator.geolocation) {
-            alert("Geolocation is not supported by your browser.");
+            tryIPLocation();
             return;
         }
 
         navigator.geolocation.getCurrentPosition(
             (position) => {
-                const lat = position.coords.latitude;
-                const lon = position.coords.longitude;
-                if (mapInstance) {
-                    mapInstance.flyTo([lat, lon], 10);
-                }
+                flyTo(position.coords.latitude, position.coords.longitude, "Exact GPS Location");
             },
             (error) => {
-                console.error("GPS Error", error);
-                alert("Unable to retrieve location. Please ensure location services are enabled.");
+                console.warn("GPS failed/denied, falling back to IP.", error);
+                tryIPLocation();
             },
-            { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
+            { enableHighAccuracy: true, timeout: 4000, maximumAge: 0 }
         );
     }
 
@@ -1805,7 +1836,7 @@
     }
 
     // --- EVENT LISTENERS ---
-    generateButton.addEventListener('click', handleGenerateClick);
+    generateButton.addEventListener('click', (e) => handleGenerateClick(e, false));
 
     // Updated Event Listener with Loading State
     downloadPdfBtn.addEventListener('click', async () => {
@@ -1947,7 +1978,7 @@
     }
     // Small delay to ensure DOM is ready and UI updates don't clash
     setTimeout(() => {
-        handleGenerateClick();
+        handleGenerateClick(null, true);
     }, 100);
 
     function toggleAdvancedPanel() {
@@ -1996,7 +2027,7 @@
             weatherListEl.classList.remove('hidden');
             tabStandard.classList.remove(...TAB_INACTIVE_CLASSES);
             tabStandard.classList.add(...TAB_ACTIVE_CLASSES);
-            
+
             // Ensure data is loaded if the list is empty (e.g. initial generation was on map tab)
             if (weatherListEl.children.length === 0 && currentReportData.stationsData.length > 0) {
                  renderInBrowser(currentReportData.stationsData, currentReportData.refName, null);
@@ -2866,7 +2897,7 @@
 
         // Slice the next batch
         const batch = currentReportData.stationsData.slice(listRenderIndex, listRenderIndex + LIST_BATCH_SIZE);
-        
+
         if (batch.length === 0) return;
 
         const fragment = document.createDocumentFragment();
@@ -2882,7 +2913,7 @@
     function fillListContainer() {
         const container = resultsContainerEl.querySelector('.flex-grow');
         if (!container) return;
-        
+
         // Safety break to prevent infinite loop
         let safeGuard = 0;
         // Keep loading batches until scrollbar appears OR we run out of data
@@ -2952,7 +2983,7 @@
                 if (!weatherListEl.classList.contains('hidden')) {
                     // We want to maintain position, but refreshing DOM usually resets scroll.
                     // For simplicity in this version, we reset the list to avoid duplication bugs.
-                    
+
                     weatherListEl.innerHTML = '';
                     listRenderIndex = 0;
 
@@ -2979,7 +3010,7 @@
         }
     }
 
-    async function handleGenerateClick() {
+    async function handleGenerateClick(event, isAutoLoad = false) {
         if (typeof pako === 'undefined') {
             showStatus("Error: Required libraries failed to load.", true);
             return;
@@ -3074,10 +3105,14 @@
             // Start Auto Refresh
             startAutoRefresh();
 
-            // Auto-Scroll to Results (Requirement #1)
-            setTimeout(() => {
-                resultsContainerEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
-            }, 100);
+            // Auto-Scroll to Results Logic
+            // If it's an auto-load (app startup), do NOT scroll.
+            // If the user clicked the button (event is present or !isAutoLoad), DO scroll.
+            if (!isAutoLoad) {
+                setTimeout(() => {
+                    resultsContainerEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                }, 100);
+            }
 
         } catch (error) {
             console.error(error);
