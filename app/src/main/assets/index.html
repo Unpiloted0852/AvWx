@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="en" class="h-full antialiased">
 <head>
@@ -194,6 +193,12 @@
             z-index: 1000;
         }
 
+        /* GPS Button Position (Stacked above Radar) */
+        .gps-trigger {
+            position: absolute; bottom: 4.5rem; left: 1rem;
+            z-index: 1000;
+        }
+
         .floating-pill {
             pointer-events: auto;
             background: rgba(255, 255, 255, 0.9);
@@ -265,24 +270,25 @@
             box-shadow: 0 2px 4px rgba(0,0,0,0.3);
         }
 
-        /* Radar Time Display (Styled EXACTLY like Zulu Clock) */
+        /* Radar Time Display (Adjusted for mobile) */
         #radarTimeDisplay {
             position: absolute;
-            bottom: 1rem;
-            left: 4rem; /* To the right of the button */
-            z-index: 1100; /* Same high z-index */
+            bottom: 8rem; /* MOVED UP higher to avoid blocking the new GPS button */
+            left: 1rem;   /* Aligned with the button on the left */
+            z-index: 1100;
             font-family: 'JetBrains Mono', monospace;
             font-weight: 700;
             background: rgba(255, 255, 255, 0.8);
-            color: #2563eb; /* Blue to match radar button */
+            color: #2563eb; 
             border: 1px solid rgba(0, 0, 0, 0.1);
             backdrop-filter: blur(4px);
             padding: 0.25rem 0.75rem;
             border-radius: 0.5rem;
-            font-size: 0.875rem;
+            font-size: 0.75rem;
             pointer-events: none;
             box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-            display: none; /* Hidden by default */
+            display: none; 
+            white-space: nowrap;
         }
 
         .dark #radarTimeDisplay {
@@ -697,7 +703,7 @@
 
     <button id="themeToggleBtn" type="button" onclick="toggleTheme()" aria-label="Toggle Dark Mode"
             class="z-[100] absolute top-0 right-4 md:top-8 md:right-8 p-2 rounded-full
-               bg-gray-200 dark:bg-gray-800 text-gray-700 dark:text-yellow-400
+               bg-gray-200 dark:bg-gray-800 text-gray-700 dark:text-gray-200
                hover:bg-gray-200 dark:hover:bg-gray-800
                active:bg-gray-200 dark:active:bg-gray-800
                shadow-sm cursor-pointer">
@@ -868,6 +874,12 @@
                     </svg>
                 </button>
 
+                <!-- GPS Button -->
+                <button id="gpsBtn" onclick="centerOnGPS()"
+                        class="gps-trigger p-2 bg-white dark:bg-gray-800 rounded-lg shadow-md hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors text-gray-700 dark:text-gray-200 font-bold text-xs font-mono w-10 h-10 flex items-center justify-center" aria-label="Locate Me">
+                    GPS
+                </button>
+
                 <!-- Radar Toggle Button -->
                 <button id="radarToggleBtn" onclick="toggleRadar()"
                         class="radar-trigger p-2 bg-white dark:bg-gray-800 rounded-lg shadow-md hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors text-gray-700 dark:text-gray-200" aria-label="Toggle Radar">
@@ -907,7 +919,7 @@
 
 <script>
     // --- APP CONFIG ---
-    const CURRENT_VERSION = 'v2.3.0';
+    const CURRENT_VERSION = 'v2.3.0'; // Incremented Version
     const GITHUB_REPO = 'Unpiloted0852/AvWx';
 
     // Global Data Storage for Modal Access
@@ -937,10 +949,14 @@
     
     let currentStationsData = []; // Store data globally to render map on tab switch
     let radarLayer = null; // Radar Layer Global
+    let radarRefreshInterval = null; // Store interval ID for radar
 
     // Lazy Loading Globals
     let listRenderIndex = 0;
-    const LIST_BATCH_SIZE = 50; // Increased to ensure scrollbar
+    const LIST_BATCH_SIZE = 20; // Reduced to ensure scrollbar trigger and performance
+
+    // Wake Lock Global
+    let wakeLock = null;
 
     // --- LIBRARIES SAFE LOADING ---
     let jsPDF = null;
@@ -979,19 +995,18 @@
     const zuluClockEl = document.getElementById('zuluClock');
     const unitToggleBtn = document.getElementById('unitToggleBtn');
     const radarToggleBtn = document.getElementById('radarToggleBtn');
-    // Ensure element is selected correctly for use in function
-    // (Note: elements with IDs are global variables in browsers, but explicit selection is safer)
     const radarTimeDisplay = document.getElementById('radarTimeDisplay'); 
 
     // Attach scroll listener for Lazy Loading
+    // We target the direct parent of weatherListEl that handles the overflow
     const scrollContainer = resultsContainerEl.querySelector('.flex-grow');
     if (scrollContainer) {
         scrollContainer.addEventListener('scroll', () => {
             // Only relevant if list tab is visible
             if (!weatherListEl.classList.contains('hidden')) {
                 const { scrollTop, scrollHeight, clientHeight } = scrollContainer;
-                // If close to bottom (within 500px), load more
-                if (scrollTop + clientHeight >= scrollHeight - 500) {
+                // If close to bottom (within 300px), load more
+                if (scrollTop + clientHeight >= scrollHeight - 300) {
                     renderNextBatch();
                 }
             }
@@ -1376,59 +1391,128 @@
     }
 
     // --- RADAR LOGIC ---
+    async function updateRadarLayer() {
+        const timeDisplay = document.getElementById('radarTimeDisplay');
+        
+        try {
+            // 1. Fetch latest timestamp from RainViewer DIRECTLY
+            const res = await fetch('https://api.rainviewer.com/public/weather-maps.json');
+            const data = await res.json();
+
+            if (data && data.radar && data.radar.past && data.radar.past.length > 0) {
+                const lastFrame = data.radar.past[data.radar.past.length - 1];
+                const time = lastFrame.time;
+                const host = data.host;
+
+                // Reverting to classic method: Remove old, add new. 
+                // This is robust against event listener failures.
+                if (radarLayer) {
+                    mapInstance.removeLayer(radarLayer);
+                }
+
+                radarLayer = L.tileLayer(`${host}/v2/radar/${time}/256/{z}/{x}/{y}/4/1_1.png`, {
+                    pane: 'radarPane',
+                    opacity: 0.8,
+                    maxZoom: 10,
+                    attribution: '&copy; <a href="https://www.rainviewer.com">RainViewer</a>'
+                });
+
+                radarLayer.addTo(mapInstance);
+
+                // 3. Update Timestamp
+                const date = new Date(time * 1000);
+                const h = String(date.getUTCHours()).padStart(2, '0');
+                const m = String(date.getUTCMinutes()).padStart(2, '0');
+                timeDisplay.textContent = `Radar: ${h}:${m}Z`;
+                timeDisplay.style.display = 'block';
+            }
+        } catch (err) {
+            console.error("Radar update failed", err);
+            timeDisplay.textContent = "Radar Error";
+        }
+    }
+
     function toggleRadar() {
         const btn = document.getElementById('radarToggleBtn');
         const timeDisplay = document.getElementById('radarTimeDisplay');
-        
-        if (radarLayer) {
-            // Remove
-            mapInstance.removeLayer(radarLayer);
-            radarLayer = null;
+
+        if (radarRefreshInterval) {
+            // --- TURN OFF ---
+            clearInterval(radarRefreshInterval);
+            radarRefreshInterval = null;
+            
+            if (radarLayer) {
+                mapInstance.removeLayer(radarLayer);
+                radarLayer = null;
+            }
             btn.classList.remove('radar-active');
             timeDisplay.style.display = 'none';
         } else {
-            // Add
+            // --- TURN ON ---
             btn.classList.add('radar-active');
-            timeDisplay.textContent = 'Radar Loading...';
+            timeDisplay.textContent = 'Loading Radar...';
             timeDisplay.style.display = 'block';
-            
-            // 1. Fetch latest timestamp from RainViewer DIRECTLY (No Proxy needed for standard JSON)
-            fetch('https://api.rainviewer.com/public/weather-maps.json')
-                .then(res => res.json())
-                .then(data => {
-                    if (data && data.radar && data.radar.past && data.radar.past.length > 0) {
-                        // Get last frame (most recent past)
-                        const lastFrame = data.radar.past[data.radar.past.length - 1];
-                        const time = lastFrame.time;
-                        const host = data.host;
-                        
-                        // 2. Create TileLayer
-                        // Color Scheme 4 = The Weather Channel
-                        // Important: Free tier strictly limits zoom to 10
-                        radarLayer = L.tileLayer(`${host}/v2/radar/${time}/256/{z}/{x}/{y}/4/1_1.png`, {
-                            pane: 'radarPane', 
-                            opacity: 0.8,
-                            maxZoom: 10,
-                            attribution: '&copy; <a href="https://www.rainviewer.com">RainViewer</a>'
-                        });
-                        
-                        radarLayer.addTo(mapInstance);
 
-                        // 3. Update Timestamp Display
-                        const date = new Date(time * 1000);
-                        const h = String(date.getUTCHours()).padStart(2, '0');
-                        const m = String(date.getUTCMinutes()).padStart(2, '0');
-                        timeDisplay.textContent = `Radar Valid: ${h}${m}Z`;
-                    }
-                })
-                .catch(err => {
-                    console.error("Radar fetch failed", err);
-                    btn.classList.remove('radar-active');
-                    timeDisplay.style.display = 'none';
-                    alert("Could not load radar data. Please check your connection.");
+            // Initial Load
+            updateRadarLayer();
+
+            // Set Auto-Refresh (every 5 minutes)
+            radarRefreshInterval = setInterval(updateRadarLayer, 300000);
+        }
+    }
+
+    // --- GPS LOGIC ---
+    function centerOnGPS() {
+        if (!navigator.geolocation) {
+            alert("Geolocation is not supported by your browser.");
+            return;
+        }
+
+        navigator.geolocation.getCurrentPosition(
+            (position) => {
+                const lat = position.coords.latitude;
+                const lon = position.coords.longitude;
+                if (mapInstance) {
+                    mapInstance.flyTo([lat, lon], 10);
+                }
+            },
+            (error) => {
+                console.error("GPS Error", error);
+                alert("Unable to retrieve location. Please ensure location services are enabled.");
+            },
+            { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
+        );
+    }
+
+    // --- WAKE LOCK (PREVENT SLEEP) ---
+    async function requestWakeLock() {
+        if ('wakeLock' in navigator) {
+            try {
+                wakeLock = await navigator.wakeLock.request('screen');
+                console.log('Wake Lock active');
+            } catch (err) {
+                console.error(`${err.name}, ${err.message}`);
+            }
+        }
+    }
+
+    function releaseWakeLock() {
+        if (wakeLock !== null) {
+            wakeLock.release()
+                .then(() => {
+                    wakeLock = null;
+                    console.log('Wake Lock released');
                 });
         }
     }
+
+    // Re-acquire lock if visibility changes (e.g. user tabs out and back in)
+    document.addEventListener('visibilitychange', async () => {
+        const mapView = document.getElementById('mapView');
+        if (wakeLock !== null && document.visibilityState === 'visible' && mapView.classList.contains('fullscreen-active')) {
+            await requestWakeLock();
+        }
+    });
 
     // --- OPTIMIZED LABEL RENDERING ---
     // Instead of creating 5000 DOM elements (tooltip) which kills performance,
@@ -1787,11 +1871,13 @@
             fsControls.classList.remove('hidden'); // Show floating island controls
             triggerBtn.classList.add('hidden');    // Hide the small toggle button
             document.body.classList.add('map-mode'); // Prevent background scrolling
+            requestWakeLock(); // Prevent screen sleep
         } else {
             // Exited Fullscreen (Back to Embedded)
             fsControls.classList.add('hidden');
             triggerBtn.classList.remove('hidden');
             document.body.classList.remove('map-mode');
+            releaseWakeLock(); // Allow screen sleep
         }
 
         // Re-render Leaflet size
@@ -1855,6 +1941,15 @@
 
     loadSavedInputs();
 
+    // Auto-generate on load (Requirement: show map on startup)
+    if (!icaoInput.value.trim()) {
+        icaoInput.value = "KOKC"; // Default if nothing saved
+    }
+    // Small delay to ensure DOM is ready and UI updates don't clash
+    setTimeout(() => {
+        handleGenerateClick();
+    }, 100);
+
     function toggleAdvancedPanel() {
         const isHidden = advancedInputsEl.classList.contains('hidden');
         if (isHidden) {
@@ -1901,7 +1996,11 @@
             weatherListEl.classList.remove('hidden');
             tabStandard.classList.remove(...TAB_INACTIVE_CLASSES);
             tabStandard.classList.add(...TAB_ACTIVE_CLASSES);
-            // Ensure lazy loader fills screen if needed when switching tabs
+            
+            // Ensure data is loaded if the list is empty (e.g. initial generation was on map tab)
+            if (weatherListEl.children.length === 0 && currentReportData.stationsData.length > 0) {
+                 renderInBrowser(currentReportData.stationsData, currentReportData.refName, null);
+            }
             fillListContainer();
         }
         else if (tabId === 'map') {
@@ -2759,10 +2858,15 @@
 
     // Lazy Loading Function
     function renderNextBatch() {
+        // Validation to ensure data exists
+        if (!currentReportData || !currentReportData.stationsData) return;
+
         // If we have rendered everything, stop.
         if (listRenderIndex >= currentReportData.stationsData.length) return;
 
+        // Slice the next batch
         const batch = currentReportData.stationsData.slice(listRenderIndex, listRenderIndex + LIST_BATCH_SIZE);
+        
         if (batch.length === 0) return;
 
         const fragment = document.createDocumentFragment();
@@ -2774,16 +2878,17 @@
         listRenderIndex += batch.length;
     }
 
+    // Helper to fill screen if 20 items isn't enough (e.g. large desktop monitor)
     function fillListContainer() {
         const container = resultsContainerEl.querySelector('.flex-grow');
         if (!container) return;
         
-        // Safety break to prevent infinite loop if css is broken
+        // Safety break to prevent infinite loop
         let safeGuard = 0;
-        // Keep loading batches until scrollHeight > clientHeight (scrollbar appears) OR we run out of data
+        // Keep loading batches until scrollbar appears OR we run out of data
         // We check if container is visible because clientHeight might be 0 if hidden
         if (container.clientHeight > 0) {
-            while (container.scrollHeight <= container.clientHeight && listRenderIndex < currentReportData.stationsData.length && safeGuard < 20) {
+            while (container.scrollHeight <= container.clientHeight && listRenderIndex < currentReportData.stationsData.length && safeGuard < 10) {
                 renderNextBatch();
                 safeGuard++;
             }
@@ -2845,10 +2950,9 @@
 
                 // 2. If Standard List Tab is visible - Efficient Update
                 if (!weatherListEl.classList.contains('hidden')) {
-                    // Simulating an Infinite Scroll refresh:
-                    // We try to restore roughly the same amount of items the user had loaded
-                    const currentCount = listRenderIndex || LIST_BATCH_SIZE;
-
+                    // We want to maintain position, but refreshing DOM usually resets scroll.
+                    // For simplicity in this version, we reset the list to avoid duplication bugs.
+                    
                     weatherListEl.innerHTML = '';
                     listRenderIndex = 0;
 
@@ -2859,19 +2963,8 @@
                         weatherListEl.appendChild(refHeader);
                     }
 
-                    // Render up to previous count or at least one batch
-                    const restoreCount = Math.max(currentCount, LIST_BATCH_SIZE);
-                    // Temporarily increase batch size logic manually for restore
-                    const batch = currentReportData.stationsData.slice(0, restoreCount);
-
-                    const fragment = document.createDocumentFragment();
-                    batch.forEach(data => {
-                        fragment.appendChild(createStationCard(data));
-                    });
-                    weatherListEl.appendChild(fragment);
-                    listRenderIndex = restoreCount;
-                    
-                    // Ensure full screen
+                    // Load fresh batch
+                    renderNextBatch();
                     fillListContainer();
                 }
 
@@ -3184,15 +3277,14 @@
 
     function renderInBrowser(stationsData, refName, routeAnalysisResult) {
         weatherListEl.innerHTML = '';
-        listRenderIndex = 0; // Reset lazy load index
+        listRenderIndex = 0; // Reset index
 
         // --- MAP DATA HANDLER ---
         currentStationsData = stationsData;
-        // Render Map immediately (it will handle its own visibility)
         renderMap(currentStationsData);
         // --- END MAP DATA HANDLER ---
 
-        // Prepare List View (but load efficiently)
+        // Prepare List View
         if (refName) {
             const refHeader = document.createElement('div');
             refHeader.className = "bg-blue-50 dark:bg-blue-900/30 p-3 rounded-lg mb-4 text-center text-sm font-bold text-blue-800 dark:text-blue-200 transition-colors duration-300";
@@ -3200,10 +3292,10 @@
             weatherListEl.appendChild(refHeader);
         }
 
-        // Render First Batch
+        // Render First Batch Only (Immediate Performance Gain)
         renderNextBatch();
         
-        // Auto-fill screen if 50 items aren't enough to trigger scroll
+        // Check if we need more to fill the screen
         fillListContainer();
 
         if (routeAnalysisResult) {
@@ -3396,7 +3488,6 @@
                 const blob = doc.output('blob');
                 const blobUrl = URL.createObjectURL(blob);
                 window.open(blobUrl, '_blank');
-                // doc.save("weather-report-combined.pdf"); // Optional fallback
             }
         } catch (e) {
             console.error('PDF export failed:', e);
