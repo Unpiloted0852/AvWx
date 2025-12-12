@@ -306,7 +306,7 @@
         }
         .modal-enter { animation: fadeIn 0.2s ease-out forwards; }
 
-        /* Inline Tailwind utility styles for offline support - simplified for brevity */
+        /* Tailwind utilities (Simulated) */
         .bg-gray-100 { background-color: #f3f4f6; }
         .dark .dark\:bg-black { background-color: #000000; }
         .bg-blue-600 { background-color: #2563eb; }
@@ -314,8 +314,8 @@
         .bg-gray-50 { background-color: #f9fafb; }
         .bg-white { background-color: #ffffff; }
         .bg-white\/20 { background-color: rgba(255,255,255,0.2); }
-        .bg-white\/30 { background-color: rgba(255,255,255,0.3); }
-        .bg-white\/10 { background-color: rgba(255,255,255,0.1); }
+        .bg-white\/50 { background-color: rgba(255,255,255,0.5); }
+        .dark .dark\:bg-black\/50 { background-color: rgba(0,0,0,0.5); }
         .bg-yellow-500 { background-color: #eab308; }
         .bg-blue-50 { background-color: #eff6ff; }
         .bg-blue-900\/30 { background-color: rgba(30,58,138,0.3); }
@@ -326,8 +326,10 @@
         .dark .dark\:bg-gray-800 { background-color: #1f2937; }
         .bg-gray-700 { background-color: #374151; }
         .dark .dark\:bg-gray-700 { background-color: #374151; }
+        .bg-yellow-400 { background-color: #facc15; }
         .bg-yellow-600 { background-color: #ca8a04; }
         .hover\:bg-yellow-600:hover { background-color: #ca8a04; }
+        .hover\:bg-yellow-500:hover { background-color: #eab308; }
         .bg-blue-700 { background-color: #1d4ed8; }
         .hover\:bg-blue-700:hover { background-color: #1d4ed8; }
         .bg-gray-300 { background-color: #d1d5db; }
@@ -349,12 +351,11 @@
         .hover\:bg-blue-50:hover { background-color: #eff6ff; }
         .hover\:bg-blue-700:hover { background-color: #1d4ed8; }
         .hover\:bg-gray-300:hover { background-color: #d1d5db; }
-        .hover\:bg-yellow-600:hover { background-color: #ca8a04; }
         .dark .dark\:hover\:bg-gray-700:hover { background-color: #374151; }
-        .dark .dark\:hover\:bg-gray-800:hover { background-color: #1f2937; }
         .hover\:bg-white\/20:hover { background-color: rgba(255, 255, 255, 0.2); }
         .bg-white\/25 { background-color: rgba(255, 255, 255, 0.25); }
         .hover\:bg-green-700:hover { background-color: #15803d; }
+        .bg-black\/60 { background-color: rgba(0, 0, 0, 0.6); }
 
         .text-gray-900 { color: #111827; }
         .dark .dark\:text-gray-100 { color: #f3f4f6; }
@@ -368,6 +369,7 @@
         .text-gray-700 { color: #374151; }
         .dark .dark\:text-gray-200 { color: #e5e7eb; }
         .text-yellow-400 { color: #facc15; }
+        .text-yellow-900 { color: #713f12; }
         .text-blue-700 { color: #1d4ed8; }
         .dark .dark\:text-blue-200 { color: #bfdbfe; }
         .text-blue-800 { color: #1e40af; }
@@ -377,63 +379,57 @@
         .text-white { color: #ffffff; }
         .text-red-700 { color: #b91c1c; }
         .dark .dark\:text-red-200 { color: #fecaca; }
-        .text-blue-700 { color: #1d4ed8; }
-        .dark .dark\:text-blue-200 { color: #bfdbfe; }
         .text-green-700 { color: #15803d; }
         .dark .dark\:text-green-200 { color: #bbf7d0; }
         .text-gray-400 { color: #9ca3af; }
+        .text-transparent { color: transparent; }
 
         .border-gray-200 { border-color: #e5e7eb; }
         .dark .dark\:border-gray-200 { border-color: #1f2937; }
         .border-transparent { border-color: transparent; }
         .border-gray-300 { border-color: #d1d5db; }
         .dark .dark\:border-gray-300 { border-color: #374151; }
+        .dark .dark\:border-gray-700 { border-color: #374151; }
+        .dark .dark\:border-gray-800 { border-color: #1f2937; }
         .border-green-500 { border-color: #10b981; }
         .border-blue-500 { border-color: #3b82f6; }
         .border-red-500 { border-color: #ef4444; }
         .border-pink-500 { border-color: #ec4899; }
+        .border-yellow-500 { border-color: #eab308; }
+        .border-orange-400 { border-color: #fb923c; }
+        .border-purple-500 { border-color: #a855f7; }
+        .border-teal-500 { border-color: #14b8a6; }
+        .border-gray-500 { border-color: #6b7280; }
+        .border-indigo-500 { border-color: #6366f1; }
         .border-white\/40 { border-color: rgba(255,255,255,0.4); }
         .border-black\/20 { border-color: rgba(0,0,0,0.2); }
         .border-none { border-style: none; }
         .border-l-2 { border-left-width: 2px; }
-
         .border-l-4 { border-left-width: 4px; }
         .border-b { border-bottom-width: 1px; }
         .border-t { border-top-width: 1px; }
         .border { border-width: 1px; border-style: solid; }
-        .dark .dark\:border { border-color: #1f2937; }
-        .dark .dark\:border-gray-800 { border-color: #1f2937; }
         .border-yellow-400 { border-color: #facc15; }
 
+        .bg-clip-text { -webkit-background-clip: text; background-clip: text; }
+        .bg-gradient-to-r { background-image: linear-gradient(to right, var(--tw-gradient-stops)); }
+        .from-blue-600 { --tw-gradient-from: #2563eb; --tw-gradient-stops: var(--tw-gradient-from), var(--tw-gradient-to); }
+        .to-purple-600 { --tw-gradient-to: #9333ea; }
+        .dark .dark\:from-blue-400 { --tw-gradient-from: #60a5fa; --tw-gradient-stops: var(--tw-gradient-from), var(--tw-gradient-to); }
+        .dark .dark\:to-purple-400 { --tw-gradient-to: #c084fc; }
+        .from-blue-50 { --tw-gradient-from: #eff6ff; --tw-gradient-stops: var(--tw-gradient-from), var(--tw-gradient-to); }
+        .to-indigo-50 { --tw-gradient-to: #eef2ff; }
+        .dark .dark\:from-gray-800 { --tw-gradient-from: #1f2937; --tw-gradient-stops: var(--tw-gradient-from), var(--tw-gradient-to); }
+        .dark .dark\:to-gray-900 { --tw-gradient-to: #111827; }
+
         .focus\:ring-2 {
-          --tw-ring-offset-shadow: var(--tw-ring-inset) 0 0 0 var(--tw-ring-offset-width) var(--tw-ring-offset-color);
-          --tw-ring-shadow: var(--tw-ring-inset) 0 0 0 calc(2px + var(--tw-ring-offset-width)) var(--tw-ring-color);
-          box-shadow: var(--tw-ring-offset-shadow), var(--tw-ring-shadow), var(--tw-shadow, 0 0 #0000);
+          box-shadow: 0 0 0 2px var(--tw-ring-color);
         }
-
-        .focus\:ring-blue-500 {
-          --tw-ring-color: #3b82f6;
-        }
-
-        .focus\:ring-yellow-500 {
-          --tw-ring-color: #eab308;
-        }
-
-        .focus\:ring-green-500 {
-          --tw-ring-color: #16a34a;
-        }
-
-        .focus\:ring-white\/50 {
-             --tw-ring-color: rgba(255,255,255,0.5);
-        }
-
-        .focus\:ring-offset-2 {
-          --tw-ring-offset-width: 2px;
-        }
-
-        .dark\:focus\:ring-offset-gray-900 {
-          --tw-ring-offset-color: #111827;
-        }
+        .focus\:ring-blue-500 { --tw-ring-color: #3b82f6; }
+        .focus\:ring-yellow-500 { --tw-ring-color: #eab308; }
+        .focus\:ring-green-500 { --tw-ring-color: #16a34a; }
+        .focus\:ring-white\/50 { --tw-ring-color: rgba(255,255,255,0.5); }
+        .focus\:outline-none { outline: 2px solid transparent; outline-offset: 2px; }
 
         .p-0\.5 { padding: 0.125rem; }
         .p-1 { padding: 0.25rem; }
@@ -484,6 +480,7 @@
         .rounded-lg { border-radius: 0.5rem; }
         .rounded-md { border-radius: 0.375rem; }
         .rounded-xl { border-radius: 0.75rem; }
+        .rounded-2xl { border-radius: 1rem; }
 
         .shadow { box-shadow: 0 1px 3px 0 rgba(0,0,0,0.1), 0 1px 2px -1px rgba(0,0,0,0.1); }
         .shadow-inner { box-shadow: inset 0 2px 4px 0 rgba(0,0,0,0.05); }
@@ -522,6 +519,7 @@
         .md\:grid-cols-2 { @media (min-width: 768px) { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
         .lg\:grid-cols-3 { @media (min-width: 1024px) { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
         .sm\:grid-cols-2 { @media (min-width: 640px) { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+        .md\:grid-cols-3 { @media (min-width: 768px) { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
         .md\:grid-cols-4 { @media (min-width: 768px) { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
         .lg\:grid-cols-4 { @media (min-width: 1024px) { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
         .lg\:grid-cols-5 { @media (min-width: 1024px) { grid-template-columns: repeat(5, minmax(0, 1fr)); } }
@@ -531,10 +529,13 @@
         .w-full { width: 100%; }
         .w-6 { width: 1.5rem; }
         .w-8 { width: 2rem; }
+        .w-10 { width: 2.5rem; }
+        .h-10 { height: 2.5rem; }
         .w-5 { width: 1.25rem; }
         .w-24 { width: 6rem; }
         .w-auto { width: auto; }
         .max-w-5xl { max-width: 64rem; }
+        .max-w-3xl { max-width: 48rem; }
         .max-w-2xl { max-width: 42rem; }
         .h-full { height: 100%; }
         .h-6 { height: 1.5rem; }
@@ -572,6 +573,8 @@
         .text-4xl { font-size: 2.25rem; line-height: 2.5rem; }
         .text-base { font-size: 1rem; line-height: 1.5rem; }
         .text-lg { font-size: 1.125rem; line-height: 1.75rem; }
+        .text-2xl { font-size: 1.5rem; line-height: 2rem; }
+        .text-6xl { font-size: 3.75rem; line-height: 1; }
         .text-sm { font-size: 0.875rem; line-height: 1.25rem; }
         .text-xl { font-size: 1.25rem; line-height: 1.75rem; }
         .text-xs { font-size: 0.75rem; line-height: 1rem; }
@@ -598,9 +601,15 @@
         .right-4 { right: 1rem; }
         .md\:top-8 { @media (min-width: 768px) { top: 2rem; } }
         .md\:right-8 { @media (min-width: 768px) { right: 2rem; } }
+        /* Adjusted positioning for buttons */
+        .right-16 { right: 4rem; }
+        .right-28 { right: 7rem; }
+        .md\:right-20 { @media (min-width: 768px) { right: 5rem; } }
+        .md\:right-32 { @media (min-width: 768px) { right: 8rem; } }
 
         .z-\[100\] { z-index: 100; }
         .z-\[110\] { z-index: 110; }
+        .z-10 { z-index: 10; }
         .z-50 { z-index: 50; }
 
         .z-\[5000\] { z-index: 5000; } /* Added explicitly */
@@ -615,6 +624,7 @@
 
         .cursor-pointer { cursor: pointer; }
         .cursor-default { cursor: default; }
+        .pointer-events-none { pointer-events: none; }
         .list-none { list-style-type: none; }
 
         .transform { transform: translate(var(--tw-translate-x), var(--tw-translate-y)) rotate(var(--tw-rotate)) skewX(var(--tw-skew-x)) skewY(var(--tw-skew-y)) scaleX(var(--tw-scale-x)) scaleY(var(--tw-scale-y)); }
@@ -624,14 +634,20 @@
 
         .hover\:scale-\[1\.02\]:hover { --tw-scale-x: 1.02; --tw-scale-y: 1.02; transform: translate(var(--tw-translate-x), var(--tw-translate-y)) rotate(var(--tw-rotate)) skewX(var(--tw-skew-x)) skewY(var(--tw-skew-y)) scaleX(var(--tw-scale-x)) scaleY(var(--tw-scale-y)); }
         .hover\:scale-\[1\.05\]:hover { --tw-scale-x: 1.05; --tw-scale-y: 1.05; transform: translate(var(--tw-translate-x), var(--tw-translate-y)) rotate(var(--tw-rotate)) skewX(var(--tw-skew-x)) skewY(var(--tw-skew-y)) scaleX(var(--tw-scale-x)) scaleY(var(--tw-scale-y)); }
+        .hover\:scale-110:hover { --tw-scale-x: 1.10; --tw-scale-y: 1.10; transform: translate(var(--tw-translate-x), var(--tw-translate-y)) rotate(var(--tw-rotate)) skewX(var(--tw-skew-x)) skewY(var(--tw-skew-y)) scaleX(var(--tw-scale-x)) scaleY(var(--tw-scale-y)); }
+        .active\:scale-95:active { --tw-scale-x: 0.95; --tw-scale-y: 0.95; transform: translate(var(--tw-translate-x), var(--tw-translate-y)) rotate(var(--tw-rotate)) skewX(var(--tw-skew-x)) skewY(var(--tw-skew-y)) scaleX(var(--tw-scale-x)) scaleY(var(--tw-scale-y)); }
+
         .hover\:shadow-xl:hover { box-shadow: 0 20px 25px -5px rgba(0,0,0,0.1), 0 8px 10px -6px rgba(0,0,0,0.1); }
 
+        .opacity-10 { opacity: 0.1; }
         .opacity-70 { opacity: 0.7; }
         .opacity-80 { opacity: 0.8; }
         .opacity-90 { opacity: 0.9; }
         .opacity-50 { opacity: 0.5; }
         .opacity-100 { opacity: 1; }
         .opacity-60 { opacity: 0.6; }
+        .grayscale { filter: grayscale(100%); }
+        .select-none { user-select: none; }
 
         .backdrop-blur-sm { backdrop-filter: blur(4px); -webkit-backdrop-filter: blur(4px); }
 
@@ -693,6 +709,31 @@
     </div>
 </div>
 
+<!-- Records Modal -->
+<div id="recordsModal" class="hidden fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 transition-opacity duration-300" onclick="closeRecordsModal()">
+    <div class="bg-white dark:bg-gray-900 rounded-2xl shadow-2xl w-full max-w-3xl max-h-[90vh] overflow-y-auto modal-enter border border-gray-200 dark:border-gray-700 relative" onclick="event.stopPropagation()">
+
+        <!-- Header -->
+        <div class="p-6 text-center border-b border-gray-100 dark:border-gray-800 bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-gray-800 dark:to-gray-900">
+            <h2 class="text-3xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-blue-600 to-purple-600 dark:from-blue-400 dark:to-purple-400">
+                🏆 Current Extremes
+            </h2>
+            <p class="text-gray-500 dark:text-gray-400 text-sm mt-1">Highs, Lows, and Wildest Weather from current report</p>
+
+            <button onclick="closeRecordsModal()" class="absolute top-4 right-4 p-2 bg-white/50 dark:bg-black/50 hover:bg-gray-200 dark:hover:bg-gray-700 rounded-full transition-colors">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                </svg>
+            </button>
+        </div>
+
+        <!-- Grid Content -->
+        <div id="recordsContent" class="p-6 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
+            <!-- Injected via JS -->
+        </div>
+    </div>
+</div>
+
 <div class="container mx-auto p-3 md:p-8 max-w-5xl pt-4 mt-2">
 
     <button id="themeToggleBtn" type="button" onclick="toggleTheme()" aria-label="Toggle Dark Mode"
@@ -715,6 +756,17 @@
                hover:bg-gray-300 dark:hover:bg-gray-700
                shadow-sm cursor-pointer transition-colors">
         °F
+    </button>
+
+    <!-- Records Button -->
+    <button id="recordsBtn" type="button" onclick="showRecords()" aria-label="View Weather Records"
+            class="z-[100] absolute top-0 right-28 md:top-8 md:right-32 p-2 rounded-full w-10 h-10 flex items-center justify-center
+               bg-yellow-400 text-yellow-900 hover:bg-yellow-500
+               shadow-md cursor-pointer transition-transform hover:scale-110 active:scale-95">
+        <!-- Award Ribbon Icon -->
+        <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" viewBox="0 0 24 24" fill="currentColor">
+            <path fill-rule="evenodd" d="M12 2C8.13 2 5 5.13 5 9c0 2.38 1.19 4.47 3 5.74V21l4-2 4 2v-6.26c1.81-1.27 3-3.36 3-5.74 0-3.87-3.13-7-7-7zm0 12c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5z" clip-rule="evenodd"/>
+        </svg>
     </button>
 
     <header class="mb-6 text-center pt-12 md:pt-16">
@@ -913,7 +965,7 @@
 
 <script>
     // --- APP CONFIG ---
-    const CURRENT_VERSION = 'v2.3.1'; // Incremented Version
+    const CURRENT_VERSION = 'v2.3.2'; // Incremented Version
     const GITHUB_REPO = 'Unpiloted0852/AvWx';
 
     // Global Data Storage for Modal Access
@@ -2190,12 +2242,21 @@
     function calculateTempFAndRH(metarNode) {
         const tempC = parseFloat(metarNode.querySelector("temp_c")?.textContent);
         const dewpointC = parseFloat(metarNode.querySelector("dewpoint_c")?.textContent);
-        if (isNaN(tempC) || isNaN(dewpointC)) return { tempF: "N/A", tempC: "N/A", rh: "N/A" };
+
+        // Pass dewpointC back so we can use it in records
+        if (isNaN(tempC) || isNaN(dewpointC)) return { tempF: "N/A", tempC: "N/A", rh: "N/A", rawDewC: null };
+
         const tempF = Math.round(tempC * 9/5 + 32);
         const satVP = 6.112 * Math.exp((17.67 * tempC) / (tempC + 243.5));
         const actVP = 6.112 * Math.exp((17.67 * dewpointC) / (dewpointC + 243.5));
         const rh = Math.round(actVP / satVP * 100);
-        return { tempF: `${tempF}°F`, tempC: `${Math.round(tempC)}°C`, rh: `RH ${rh}%` };
+
+        return {
+            tempF: `${tempF}°F`,
+            tempC: `${Math.round(tempC)}°C`,
+            rh: `RH ${rh}%`,
+            rawDewC: dewpointC
+        };
     }
 
     function cleanRawText(text) {
@@ -2629,12 +2690,12 @@
             const stationId = node.querySelector("station_id")?.textContent?.trim();
             if (!stationId) return;
             const station = getOrCreateStation(stationId);
-            const { tempF, tempC, rh } = calculateTempFAndRH(node);
+            const { tempF, tempC, rh, rawDewC } = calculateTempFAndRH(node);
             const rawText = node.querySelector("raw_text")?.textContent?.trim() || 'N/A';
             const category = node.querySelector("flight_category")?.textContent?.trim() || analyzeCondition(rawText);
             const obsTimeText = node.querySelector("observation_time")?.textContent;
             const metarAgeMinutes = calculateAgeInMinutes(obsTimeText);
-            station.metar = { rawText, category, tempF, tempC, rh, age: metarAgeMinutes, obsTime: obsTimeText };
+            station.metar = { rawText, category, tempF, tempC, rh, rawDewC, age: metarAgeMinutes, obsTime: obsTimeText };
         });
 
         tafDoc.querySelectorAll("TAF").forEach(node => {
@@ -3329,7 +3390,7 @@
 
         // Render First Batch Only (Immediate Performance Gain)
         renderNextBatch();
-        
+
         // Check if we need more to fill the screen
         fillListContainer();
 
@@ -3528,6 +3589,269 @@
             console.error('PDF export failed:', e);
             try { doc.save("weather-report-combined.pdf"); } catch (ee) { }
         }
+    }
+
+    // --- RECORDS / EXTREMES FEATURE ---
+
+    const recordsModal = document.getElementById('recordsModal');
+    const recordsContent = document.getElementById('recordsContent');
+
+    function showRecords() {
+        if (!currentStationsData || currentStationsData.length === 0) {
+            alert("No data available to analyze yet.");
+            return;
+        }
+
+        const stats = calculateExtremes(currentStationsData);
+        renderRecords(stats);
+
+        recordsModal.classList.remove('hidden');
+        document.body.style.overflow = 'hidden'; // Prevent scrolling
+    }
+
+    function closeRecordsModal() {
+        recordsModal.classList.add('hidden');
+        document.body.style.overflow = '';
+    }
+
+    function calculateExtremes(stations) {
+        let maxTemp = { val: -999, st: null };
+        let minTemp = { val: 999, st: null };
+        let maxDew  = { val: -999, st: null }; // NEW
+        let maxWind = { val: -1, st: null, text: '' };
+        let minHum  = { val: 101, st: null };
+        let maxPres = { val: -1, st: null, label: '' };
+        let minPres = { val: 2000, st: null, label: '' };
+        let minVis  = { val: 999, st: null, label: '' }; // NEW (Store miles for comparison)
+
+        stations.forEach(s => {
+            if (!s.metar) return;
+            const m = s.metar;
+            const raw = m.rawText;
+
+            // 1. Temp
+            if (m.tempC !== undefined && m.tempC !== null && !isNaN(m.tempC)) {
+                if (m.tempC > maxTemp.val) maxTemp = { val: m.tempC, st: s };
+                if (m.tempC < minTemp.val) minTemp = { val: m.tempC, st: s };
+            }
+
+            // 2. Dew Point
+            if (m.rawDewC !== null && !isNaN(m.rawDewC)) {
+                 if (m.rawDewC > maxDew.val) maxDew = { val: m.rawDewC, st: s };
+            }
+
+            // 3. Humidity
+            if (m.rh) {
+                // Parse "RH 45%" -> 45
+                const rhVal = parseInt(m.rh.replace(/\D/g, ''));
+                if (!isNaN(rhVal) && rhVal < minHum.val) {
+                    minHum = { val: rhVal, st: s };
+                }
+            }
+
+            // 4. Wind (Gust, Sustained, and PK WND)
+            let windSpeed = 0;
+            let windText = "";
+
+            // Standard Body
+            const windMatch = raw.match(/([0-9]{3}|VRB)([0-9]{2,3})(?:G([0-9]{2,3}))?KT/);
+            if (windMatch) {
+                const sustained = parseInt(windMatch[2]);
+                const gust = windMatch[3] ? parseInt(windMatch[3]) : 0;
+                windSpeed = Math.max(sustained, gust);
+                windText = windMatch[0];
+            }
+
+            // PK WND Check
+            const pkMatch = raw.match(/PK WND (\d{3})(\d{2,3})\/\d{2,4}/);
+            if (pkMatch) {
+                const pkSpeed = parseInt(pkMatch[2]);
+                if (pkSpeed > windSpeed) {
+                    windSpeed = pkSpeed;
+                    windText = pkMatch[0]; // "PK WND 33045/1820"
+                }
+            }
+
+            if (windSpeed > maxWind.val) {
+                maxWind = { val: windSpeed, st: s, text: windText };
+            }
+
+            // 5. Visibility (Lowest of Prevailing or RVR)
+            let currentVisVal = 999;
+            let currentVisLabel = "";
+
+            // Standard SM: M1/4SM, 1/2SM, 10SM
+            // Handle "M" (less than) as a tiny epsilon lower
+            const visMatch = raw.match(/\b(M)?(\d+(?:\/\d+)?)SM\b/);
+            if (visMatch) {
+                const isLess = !!visMatch[1];
+                let num = 0;
+                if(visMatch[2].includes('/')) {
+                    const parts = visMatch[2].split('/');
+                    num = parseInt(parts[0]) / parseInt(parts[1]);
+                } else {
+                    num = parseFloat(visMatch[2]);
+                }
+                currentVisVal = isLess ? num - 0.001 : num;
+                currentVisLabel = visMatch[0];
+            }
+
+            // RVR (R04/1200FT) -> Convert to SM (1 SM = 5280 FT)
+            const rvrMatch = raw.match(/R\d+[LCR]?\/([MP]?)(\d{4})V?(\d{4})?FT/);
+            if (rvrMatch) {
+                let ft = parseInt(rvrMatch[2]);
+                if(rvrMatch[1] === 'M') ft -= 1; // Make slightly smaller for 'M' logic
+                const sm = ft / 5280;
+                if (sm < currentVisVal) {
+                    currentVisVal = sm;
+                    currentVisLabel = rvrMatch[0];
+                }
+            }
+
+            if (currentVisVal < minVis.val) {
+                minVis = { val: currentVisVal, st: s, label: currentVisLabel };
+            }
+
+            // 6. Pressure (QNH)
+            const altimMatch = raw.match(/\b(A|Q)([0-9]{4})\b/);
+            if (altimMatch) {
+                let hPa = 0;
+                let label = altimMatch[0];
+                const val = parseInt(altimMatch[2]);
+
+                if (altimMatch[1] === 'A') {
+                    // Convert InHg (e.g. 2992 => 29.92) to hPa
+                    // 29.92 * 33.8639
+                    hPa = (val / 100) * 33.8639;
+                } else {
+                    hPa = val; // Already hPa
+                }
+
+                if (hPa > maxPres.val) maxPres = { val: hPa, st: s, label: label };
+                if (hPa > 0 && hPa < minPres.val) minPres = { val: hPa, st: s, label: label };
+            }
+        });
+
+        return { maxTemp, minTemp, maxDew, maxWind, minHum, maxPres, minPres, minVis };
+    }
+
+    function renderRecords(stats) {
+        const createCard = (emoji, title, valueHtml, station, colorClass) => {
+            if (!station) return '';
+
+            return `
+                <div class="relative overflow-hidden bg-white dark:bg-gray-800 rounded-xl p-4 shadow-lg border-l-4 ${colorClass} hover:scale-[1.02] transition-transform duration-200">
+                    <div class="absolute top-0 right-0 p-2 opacity-10 text-6xl select-none pointer-events-none grayscale">
+                        ${emoji}
+                    </div>
+                    <div class="relative z-10">
+                        <div class="flex items-center gap-2 mb-2">
+                            <span class="text-2xl">${emoji}</span>
+                            <h3 class="font-bold text-gray-500 dark:text-gray-400 text-sm uppercase tracking-wider">${title}</h3>
+                        </div>
+                        <div class="text-3xl font-extrabold text-gray-800 dark:text-gray-100 mb-1">
+                            ${valueHtml}
+                        </div>
+                        <div class="flex flex-col mt-2">
+                             <span class="font-mono font-bold text-blue-600 dark:text-blue-400 text-sm cursor-pointer hover:underline" onclick="closeRecordsModal(); jumpToStation('${station.id}')">${station.id}</span>
+                             <span class="text-xs text-gray-500 truncate">${station.name || ''}</span>
+                        </div>
+                    </div>
+                </div>
+            `;
+        };
+
+        let html = '';
+
+        // Hot
+        if (stats.maxTemp.st) {
+            html += createCard('🔥', 'Hottest',
+                getDisplayTemp(stats.maxTemp.st.metar),
+                stats.maxTemp.st, 'border-red-500');
+        }
+
+        // Cold
+        if (stats.minTemp.st) {
+            html += createCard('🧊', 'Coldest',
+                getDisplayTemp(stats.minTemp.st.metar),
+                stats.minTemp.st, 'border-blue-500');
+        }
+
+        // Highest Dew Point
+        if (stats.maxDew.st) {
+            // Check current unit preference
+            const dewC = stats.maxDew.val;
+            const dewF = Math.round(dewC * 9/5 + 32);
+            const displayDew = useCelsius ? `${Math.round(dewC)}°C` : `${dewF}°F`;
+
+            html += createCard('💧', 'Highest Dew Point',
+                displayDew,
+                stats.maxDew.st, 'border-indigo-500');
+        }
+
+        // Wind
+        if (stats.maxWind.st) {
+            html += createCard('💨', 'Strongest Wind',
+                `${stats.maxWind.val} <span class="text-lg text-gray-500 font-normal">KT</span> <div class="text-xs text-gray-400 font-normal font-mono mt-1">${stats.maxWind.text}</div>`,
+                stats.maxWind.st, 'border-yellow-500');
+        }
+
+        // Lowest Visibility
+        if (stats.minVis.st) {
+            html += createCard('🌫️', 'Lowest Visibility',
+                `${stats.minVis.label}`,
+                stats.minVis.st, 'border-gray-500');
+        }
+
+        // Humidity
+        if (stats.minHum.st) {
+            html += createCard('🌵', 'Driest (RH)',
+                `${stats.minHum.val}<span class="text-lg text-gray-500 font-normal">%</span>`,
+                stats.minHum.st, 'border-orange-400');
+        }
+
+        // High Pressure
+        if (stats.maxPres.st) {
+            html += createCard('🎈', 'Highest Pressure',
+                `${stats.maxPres.label}`,
+                stats.maxPres.st, 'border-purple-500');
+        }
+
+        // Low Pressure
+        if (stats.minPres.st) {
+            html += createCard('🌪️', 'Lowest Pressure',
+                `${stats.minPres.label}`,
+                stats.minPres.st, 'border-teal-500');
+        }
+
+        recordsContent.innerHTML = html;
+    }
+
+    // Helper to jump to a specific station from the modal
+    function jumpToStation(id) {
+        // Switch to list tab
+        switchTab('standard');
+
+        // Wait for tab switch, then find element
+        setTimeout(() => {
+            // Actually, let's switch to Map, it's cooler.
+            switchTab('map');
+
+            // Find coords
+            const station = currentStationsData.find(s => s.id === id);
+            if(station && station.latitude) {
+                mapInstance.flyTo([station.latitude, station.longitude], 10);
+
+                // Open Popup
+                setTimeout(() => {
+                    markerLayerGroup.eachLayer(layer => {
+                        if (layer.stationId === id) {
+                            layer.openPopup();
+                        }
+                    });
+                }, 1500); // Wait for flyTo
+            }
+        }, 100);
     }
 </script>
 </body>
