@@ -148,7 +148,7 @@
         #mapView {
             position: relative;
             width: 100%;
-            height: 100%; /* UPDATED: Changed from 60vh to 100% to fill flex parent */
+            height: 100%;
             min-height: 400px;
             border-radius: 0.75rem;
             overflow: hidden;
@@ -171,7 +171,7 @@
         .map-overlay-top {
             position: absolute; top: 0; left: 0; right: 0;
             padding: 1rem; z-index: 1000; pointer-events: none;
-            display: flex; justify-content: center; /* Centered to avoid overlapping Zulu clock on left */
+            display: flex; justify-content: center;
         }
 
         .map-overlay-bottom {
@@ -190,6 +190,12 @@
         /* Radar Button Position */
         .radar-trigger {
             position: absolute; bottom: 1rem; left: 1rem;
+            z-index: 1000;
+        }
+
+        /* GPS Button Position */
+        .gps-trigger {
+            position: absolute; top: 4rem; right: 1rem;
             z-index: 1000;
         }
 
@@ -290,6 +296,21 @@
             color: #60a5fa; /* Light blue */
             border-color: rgba(255, 255, 255, 0.1);
             box-shadow: 0 2px 4px rgba(0,0,0,0.3);
+        }
+
+        /* GPS Marker Pulse Animation */
+        @keyframes pulse-blue {
+            0% { box-shadow: 0 0 0 0 rgba(59, 130, 246, 0.7); }
+            70% { box-shadow: 0 0 0 10px rgba(59, 130, 246, 0); }
+            100% { box-shadow: 0 0 0 0 rgba(59, 130, 246, 0); }
+        }
+
+        .user-location-marker {
+            background-color: #3b82f6;
+            border: 2px solid white;
+            border-radius: 50%;
+            box-shadow: 0 0 10px rgba(0,0,0,0.5);
+            animation: pulse-blue 2s infinite;
         }
 
         /* -------------------------- */
@@ -616,7 +637,7 @@
 
 <script>
     // --- APP CONFIG ---
-    const CURRENT_VERSION = 'v2.3.3'; // Incremented Version
+    const CURRENT_VERSION = 'v2.3.4'; // Incremented Version
     const GITHUB_REPO = 'Unpiloted0852/AvWx';
 
     // Global Data Storage for Modal Access
@@ -647,6 +668,9 @@
     let currentStationsData = []; // Store data globally to render map on tab switch
     let radarLayer = null; // Radar Layer Global
     let radarRefreshInterval = null; // Store interval ID for radar
+
+    // GPS Marker Global
+    let userLocationMarker = null;
 
     // Lazy Loading Globals
     let listRenderIndex = 0;
@@ -1080,18 +1104,22 @@
         }).addTo(mapInstance);
 
         // --- CUSTOM PANES FOR Z-INDEX CONTROL ---
-        // 1. Radar Pane (Above Tiles, Below Routes)
+
+        // 1. Radar Pane (Lowest Custom Pane)
         mapInstance.createPane('radarPane');
         mapInstance.getPane('radarPane').style.zIndex = 250;
         mapInstance.getPane('radarPane').style.pointerEvents = 'none'; // Don't block clicks
 
-        // 2. Route Pane (Above Radar, Below Markers)
+        // 2. User Location Pane (Above Radar, Below Routes)
+        mapInstance.createPane('userLocationPane');
+        mapInstance.getPane('userLocationPane').style.zIndex = 350;
+        mapInstance.getPane('userLocationPane').style.pointerEvents = 'none';
+
+        // 3. Route Pane (Above User, Below Markers)
         mapInstance.createPane('routePane');
         mapInstance.getPane('routePane').style.zIndex = 400;
-        // Important: This pane must allow clicks to pass through if we draw lines on it
-        // We handle interactivity on the polyline itself via `interactive: false`
 
-        // 3. Marker Pane (Topmost)
+        // 4. Marker Pane (Topmost)
         mapInstance.createPane('markerPane');
         mapInstance.getPane('markerPane').style.zIndex = 600; // Standard marker pane is usually 600
 
@@ -1186,15 +1214,30 @@
         btn.disabled = true;
         btn.textContent = "...";
 
-        // Helper to fly to coords
+        // Helper to fly to coords and place user marker
         const flyTo = (lat, lon, msg) => {
             if (mapInstance) {
+                // Remove old marker if exists
+                if (userLocationMarker) {
+                    mapInstance.removeLayer(userLocationMarker);
+                }
+
+                // Create Blue Dot Marker using DivIcon with CSS animation
+                const userIcon = L.divIcon({
+                    className: 'user-location-marker',
+                    iconSize: [20, 20],
+                    iconAnchor: [10, 10]
+                });
+
+                userLocationMarker = L.marker([lat, lon], {
+                    icon: userIcon,
+                    pane: 'userLocationPane', // Uses our custom Z-Index pane (350)
+                    interactive: false // Don't block clicks
+                }).addTo(mapInstance);
+
                 mapInstance.flyTo([lat, lon], 10);
-                // Simple popup to tell user source
-                L.popup()
-                    .setLatLng([lat, lon])
-                    .setContent(`<div class="text-center font-bold text-sm">${msg}</div>`)
-                    .openOn(mapInstance);
+
+                // Popup removed per request
             }
             btn.disabled = false;
             btn.textContent = originalText;
@@ -1207,7 +1250,7 @@
                 .then(response => response.json())
                 .then(data => {
                     if (data.success) {
-                        flyTo(data.latitude, data.longitude, "Approximate Location (IP)");
+                        flyTo(data.latitude, data.longitude, "");
                     } else {
                         throw new Error("IP Lookup failed");
                     }
@@ -1221,6 +1264,7 @@
         };
 
         // Primary: GPS (Navigator)
+        // This triggers the Android permission prompt via WebChromeClient
         if (!navigator.geolocation) {
             tryIPLocation();
             return;
@@ -1228,13 +1272,13 @@
 
         navigator.geolocation.getCurrentPosition(
             (position) => {
-                flyTo(position.coords.latitude, position.coords.longitude, "Exact GPS Location");
+                flyTo(position.coords.latitude, position.coords.longitude, "");
             },
             (error) => {
                 console.warn("GPS failed/denied, falling back to IP.", error);
                 tryIPLocation();
             },
-            { enableHighAccuracy: true, timeout: 4000, maximumAge: 0 }
+            { enableHighAccuracy: true, timeout: 5000, maximumAge: 0 }
         );
     }
 
