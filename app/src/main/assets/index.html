@@ -289,10 +289,10 @@
             box-shadow: 0 2px 4px rgba(0,0,0,0.3);
         }
 
-        /* Radar Time Display (Adjusted for mobile) */
+        /* Radar Time Display (UPDATED POSITION & SIZE) */
         #radarTimeDisplay {
             position: absolute;
-            bottom: 7.5rem; /* Moved up to make room for Guess button */
+            top: 3.5rem;  /* Moved to top, below clock */
             left: 1rem;
             z-index: 1100;
             font-family: 'JetBrains Mono', monospace;
@@ -301,9 +301,9 @@
             color: #2563eb;
             border: 1px solid rgba(0, 0, 0, 0.1);
             backdrop-filter: blur(4px);
-            padding: 0.25rem 0.75rem;
+            padding: 0.2rem 0.6rem; /* Slightly smaller padding */
             border-radius: 0.5rem;
-            font-size: 0.75rem;
+            font-size: 0.65rem; /* Smaller font */
             pointer-events: none;
             box-shadow: 0 2px 4px rgba(0,0,0,0.1);
             display: none;
@@ -338,7 +338,7 @@
             top: -50px;
             left: 50%;
             transform: translateX(-50%);
-            z-index: 9000;
+            z-index: 11000; /* Increased Z */
             background: white;
             padding: 8px 16px;
             border-radius: 20px;
@@ -409,16 +409,16 @@
     </div>
 </div>
 
-<!-- Modal Overlay for TAF Details -->
-<div id="tileModal" class="hidden fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4 transition-opacity duration-300" onclick="handleModalClick(event)">
+<!-- Modal Overlay for TAF Details (Increased Z-Index) -->
+<div id="tileModal" class="hidden fixed inset-0 z-[10000] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4 transition-opacity duration-300" onclick="handleModalClick(event)">
     <div class="rounded-xl shadow-2xl w-full max-w-2xl max-h-[90vh] flex flex-col modal-enter transition-all transform border-none" onclick="event.stopPropagation()">
         <!-- Content injected via JS -->
         <div id="modalContent"></div>
     </div>
 </div>
 
-<!-- Records Modal -->
-<div id="recordsModal" class="hidden fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 transition-opacity duration-300" onclick="closeRecordsModal()">
+<!-- Records Modal (Increased Z-Index) -->
+<div id="recordsModal" class="hidden fixed inset-0 z-[10000] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 transition-opacity duration-300" onclick="closeRecordsModal()">
     <div class="bg-white dark:bg-gray-900 rounded-2xl shadow-2xl w-full max-w-3xl max-h-[90vh] overflow-y-auto modal-enter border border-gray-200 dark:border-gray-700 relative" onclick="event.stopPropagation()">
 
         <!-- Header -->
@@ -442,8 +442,8 @@
     </div>
 </div>
 
-<!-- Interpolation Experimental Modal -->
-<div id="interpolationModal" class="hidden fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-md p-4 transition-opacity duration-300" onclick="closeInterpolationModal()">
+<!-- Interpolation Experimental Modal (Increased Z-Index) -->
+<div id="interpolationModal" class="hidden fixed inset-0 z-[10000] flex items-center justify-center bg-black/70 backdrop-blur-md p-4 transition-opacity duration-300" onclick="closeInterpolationModal()">
     <div class="bg-white dark:bg-gray-900 rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden modal-enter border border-purple-500/30" onclick="event.stopPropagation()">
         <!-- Warning Header -->
         <div class="bg-yellow-400 text-yellow-900 p-3 text-center text-sm font-bold uppercase tracking-widest flex items-center justify-center gap-2">
@@ -733,7 +733,7 @@
 
 <script>
     // --- APP CONFIG ---
-    const CURRENT_VERSION = 'v2.4.0'; // Incremented Version
+    const CURRENT_VERSION = 'v2.4.1'; // Incremented Version
     const GITHUB_REPO = 'Unpiloted0852/AvWx';
 
     // Global Data Storage for Modal Access
