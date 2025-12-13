@@ -690,9 +690,9 @@
                 <!-- Radar Timestamp Display -->
                 <div id="radarTimeDisplay">Radar Valid: --:--z</div>
 
-                <!-- Freezing Level Warning -->
-                <div id="freezingWarning" class="hidden absolute bottom-0 right-0 z-[1100] p-1 pointer-events-none">
-                    <div class="bg-red-600/75 hover:bg-red-600/90 text-white px-2 py-1 rounded text-[9px] font-medium shadow-sm backdrop-blur-[1px] transition-colors">
+                <!-- Freezing Level Warning (Bottom Right) -->
+                <div id="freezingWarning" class="hidden absolute bottom-2 right-2 z-[1100] p-1 pointer-events-none max-w-[200px] text-right">
+                    <div class="bg-red-600/75 text-white px-2 py-1 rounded text-[9px] font-medium shadow-sm backdrop-blur-[1px] inline-block">
                         Warning: Estimated freezing area is experimental and could be wrong
                     </div>
                 </div>
@@ -790,7 +790,7 @@
 
 <script>
     // --- APP CONFIG ---
-    const CURRENT_VERSION = 'v2.4.4'; // Incremented Version
+    const CURRENT_VERSION = 'v2.4.5'; // Incremented Version
     const GITHUB_REPO = 'Unpiloted0852/AvWx';
 
     // Global Data Storage for Modal Access
@@ -822,7 +822,12 @@
     let routeRenderer = null;
     let markerRenderer = null;
 
-    let currentStationsData = []; // Store data globally to render map on tab switch
+    // TWO Data Sets:
+    // 1. currentStationsData: Filtered by runway (for display/list)
+    // 2. allStationsData: Unfiltered (for math/interpolation)
+    let currentStationsData = [];
+    let allStationsData = [];
+
     let radarLayer = null; // Radar Layer Global
     let radarRefreshInterval = null; // Store interval ID for radar
 
@@ -1371,7 +1376,8 @@
 
                     ctx.clearRect(0, 0, width, height);
 
-                    if (!currentStationsData || currentStationsData.length === 0) return;
+                    // Use allStationsData to allow gap bridging (runway filter ignored)
+                    if (!allStationsData || allStationsData.length === 0) return;
 
                     // 1. Filter stations to visible area + LARGE buffer (matching Point Tool range)
                     // 15 degrees is roughly 900NM, effectively covering the same "Gap Bridging" logic.
@@ -1382,7 +1388,7 @@
                     const west = bounds.getWest() - pad;
                     const east = bounds.getEast() + pad;
 
-                    const relevantStations = currentStationsData.filter(s =>
+                    const relevantStations = allStationsData.filter(s =>
                         s.latitude !== null && s.longitude !== null &&
                         s.latitude >= south && s.latitude <= north &&
                         s.longitude >= west && s.longitude <= east &&
@@ -2049,6 +2055,156 @@
 
         // Initial label update if zoomed in
         updateMapLabels();
+
+        // --- FREEZING LAYER CLASS DEFINTION (Inside initMap scope to ensure L is ready) ---
+        if (typeof L.FreezingLayer === 'undefined') {
+            L.FreezingLayer = L.Layer.extend({
+                onAdd: function(map) {
+                    this._map = map;
+                    this._canvas = L.DomUtil.create('canvas', 'leaflet-freezing-layer');
+                    this._canvas.style.pointerEvents = 'none';
+                    this._canvas.style.zIndex = 300; // Above Radar(250), Below Routes(400)
+                    map.getPanes().overlayPane.appendChild(this._canvas);
+
+                    // Trigger draw on move/zoom
+                    map.on('moveend', this._update, this);
+                    map.on('zoomend', this._update, this); // Re-calc on zoom
+
+                    this._update();
+                },
+
+                onRemove: function(map) {
+                    map.getPanes().overlayPane.removeChild(this._canvas);
+                    map.off('moveend', this._update, this);
+                    map.off('zoomend', this._update, this);
+                },
+
+                _update: function() {
+                    if (!this._map) return;
+
+                    const map = this._map;
+                    const size = map.getSize();
+                    const canvas = this._canvas;
+
+                    // Resize canvas to match map size (css pixels)
+                    canvas.width = size.x;
+                    canvas.height = size.y;
+
+                    // Standard approach:
+                    const bounds = map.getBounds();
+                    const topLeft = map.latLngToLayerPoint(bounds.getNorthWest());
+                    L.DomUtil.setPosition(canvas, topLeft);
+
+                    this._draw();
+                },
+
+                _draw: function() {
+                    const ctx = this._canvas.getContext('2d');
+                    const width = this._canvas.width;
+                    const height = this._canvas.height;
+                    const map = this._map;
+
+                    ctx.clearRect(0, 0, width, height);
+
+                    // Use allStationsData to allow gap bridging (runway filter ignored)
+                    if (!allStationsData || allStationsData.length === 0) return;
+
+                    // 1. Filter stations to visible area + LARGE buffer (matching Point Tool range)
+                    // 15 degrees is roughly 900NM, effectively covering the same "Gap Bridging" logic.
+                    const bounds = map.getBounds();
+                    const pad = 15.0;
+                    const south = bounds.getSouth() - pad;
+                    const north = bounds.getNorth() + pad;
+                    const west = bounds.getWest() - pad;
+                    const east = bounds.getEast() + pad;
+
+                    const relevantStations = allStationsData.filter(s =>
+                        s.latitude !== null && s.longitude !== null &&
+                        s.latitude >= south && s.latitude <= north &&
+                        s.longitude >= west && s.longitude <= east &&
+                        s.metar && s.metar.rawTempC !== null && !isNaN(s.metar.rawTempC)
+                    );
+
+                    if (relevantStations.length < 5) return;
+
+                    // 2. Define Grid Resolution (Pixels)
+                    const RES = 15;
+                    const cols = Math.ceil(width / RES);
+                    const rows = Math.ceil(height / RES);
+
+                    // Pre-calculate data needed for loop
+                    const stationData = relevantStations.map(s => ({
+                        lat: s.latitude,
+                        lon: s.longitude,
+                        temp: s.metar.rawTempC
+                    }));
+
+                    // Prepare Style
+                    ctx.fillStyle = 'rgba(6, 182, 212, 0.25)'; // Cyan-500, transparent
+
+                    // Optimization Variables
+                    const P = 2; // Power for IDW
+                    const NEIGHBOR_COUNT = 5; // Must match "Estimated Weather" tool logic
+
+                    for (let y = 0; y < rows; y++) {
+                        for (let x = 0; x < cols; x++) {
+                            const px = x * RES;
+                            const py = y * RES;
+
+                            // Get Lat/Lon of this grid center
+                            const ll = map.containerPointToLatLng(L.point(px + RES/2, py + RES/2));
+
+                            // Optimization: Cosine correction factor for this latitude (approximate for local area)
+                            const cosLat = Math.cos(ll.lat * Math.PI / 180);
+
+                            // 1. Find Nearest 5 Neighbors
+                            // We can't sort the whole array every pixel (too slow).
+                            // We do a single pass to maintain a sorted "Top 5" list.
+                            let closest = [];
+
+                            for (let i = 0; i < stationData.length; i++) {
+                                const s = stationData[i];
+                                const dLat = s.lat - ll.lat;
+                                const dLon = (s.lon - ll.lng) * cosLat; // Simple Flat Earth approx is fine for sorting nearby
+                                const distSq = dLat*dLat + dLon*dLon;
+
+                                // Insert into sorted closest array (capped at 5)
+                                if (closest.length < NEIGHBOR_COUNT) {
+                                    closest.push({ distSq: distSq, temp: s.temp });
+                                    // Keep sorted (descending) so we can pop largest easily?
+                                    // Actually better to sort ascending, check last.
+                                    closest.sort((a,b) => a.distSq - b.distSq);
+                                } else if (distSq < closest[NEIGHBOR_COUNT-1].distSq) {
+                                    // Replace last
+                                    closest[NEIGHBOR_COUNT-1] = { distSq: distSq, temp: s.temp };
+                                    closest.sort((a,b) => a.distSq - b.distSq);
+                                }
+                            }
+
+                            // 2. Perform IDW on the chosen 5
+                            let sumWeights = 0;
+                            let weightedTemp = 0;
+
+                            for(let i=0; i<closest.length; i++) {
+                                // Weight = 1 / dist^2 (which is 1/distSq)
+                                // Add tiny epsilon to avoid div/0
+                                const w = 1 / (closest[i].distSq + 0.000001);
+                                weightedTemp += closest[i].temp * w;
+                                sumWeights += w;
+                            }
+
+                            if (sumWeights > 0) {
+                                const estimatedTemp = weightedTemp / sumWeights;
+                                // Threshold for "Freezing"
+                                if (estimatedTemp < 0) {
+                                    ctx.fillRect(px, py, RES, RES);
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+        }
     }
 
     // --- EVENT LISTENERS ---
@@ -2979,15 +3135,18 @@
             }
         }
 
+        let allStations = Array.from(stationDataMap.values()); // Unfiltered
+
         if (refLat !== null && refLon !== null) {
-            for (let station of stationDataMap.values()) {
+            for (let station of allStations) {
                 if (station.latitude !== null && station.longitude !== null) {
                     station.distanceNM = haversineDistance(refLat, refLon, station.latitude, station.longitude);
                 }
             }
         }
 
-        let stations = Array.from(stationDataMap.values());
+        // CREATE FILTERED LIST
+        let stations = [...allStations];
 
         // Filter by Runway Length
         if (runwayMap && minRunwayLen > 0) {
@@ -3010,7 +3169,13 @@
             stations.sort((a, b) => a.id.localeCompare(b.id));
         }
 
-        return { stations, refName, stationDataMap };
+        // Return both the Filtered list AND the Raw list
+        return {
+            stations: stations,
+            allStations: allStations, // Added for interpolation
+            refName,
+            stationDataMap
+        };
     }
 
     function runRouteAnalysis(stationDataMap, depIcao, destIcao, takeOffTime, landingTime, maxDistanceInput, runwayMap, minRunwayLen) {
@@ -3255,6 +3420,7 @@
                 // Re-process
                 const processResult = processData(tafDoc, metarDoc, cachedStationMap, homeIcao, cachedRunwayMap, minRunwayLen, gpsReferenceCoords);
                 const stationsData = processResult.stations;
+                const allStations = processResult.allStations; // NEW
                 const usedRef = processResult.refName;
 
                 let routeAnalysisResult = null;
@@ -3272,6 +3438,7 @@
                     routeAnalysisResult: routeAnalysisResult
                 };
                 currentStationsData = stationsData;
+                allStationsData = allStations; // Update Unfiltered List
             }
 
             const stationsData = currentReportData.stationsData;
@@ -3377,7 +3544,8 @@
 
             showStatus("Processing stations...");
             const processResult = processData(tafDoc, metarDoc, stationMap, homeIcao, runwayMap, minRunwayLen, gpsReferenceCoords);
-            const stationsData = processResult.stations;
+            const stationsData = processResult.stations; // FILTERED
+            const allStations = processResult.allStations; // UNFILTERED (NEW)
             const stationDataMap = processResult.stationDataMap;
             const usedRef = processResult.refName;
 
@@ -3386,12 +3554,15 @@
                 routeAnalysisResult = runRouteAnalysis(stationDataMap, depIcao, destIcao, takeOffTime, landingTime, searchDist, runwayMap, minRunwayLen);
             }
 
-            // Save data for PDF Generation
+            // Save data for PDF Generation and Global State
             currentReportData = {
                 stationsData: stationsData,
                 refName: usedRef,
                 routeAnalysisResult: routeAnalysisResult
             };
+            // GLOBAL DATA UPDATE
+            currentStationsData = stationsData; // For Map Markers / List
+            allStationsData = allStations;      // For Math / Interpolation
 
             // Only show Analysis tab if we actually have results
             if (routeAnalysisResult) tabRouteAnalysis.classList.remove('hidden');
@@ -4186,7 +4357,8 @@
         const MAX_DIST = 900; // Increased to match Map
         const NEIGHBOR_COUNT = 5; // Must match Map
 
-        currentStationsData.forEach(st => {
+        // USE allStationsData to ignore runway filter
+        allStationsData.forEach(st => {
             if (st.latitude !== null && st.longitude !== null && st.metar) {
                 const dist = haversineDistance(lat, lon, st.latitude, st.longitude);
                 if (dist <= MAX_DIST) {
