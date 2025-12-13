@@ -289,10 +289,10 @@
             box-shadow: 0 2px 4px rgba(0,0,0,0.3);
         }
 
-        /* Radar Time Display (UPDATED POSITION & SIZE) */
+        /* Radar Time Display */
         #radarTimeDisplay {
             position: absolute;
-            top: 3.5rem;  /* Moved to top, below clock */
+            top: 3.5rem;
             left: 1rem;
             z-index: 1100;
             font-family: 'JetBrains Mono', monospace;
@@ -301,9 +301,9 @@
             color: #2563eb;
             border: 1px solid rgba(0, 0, 0, 0.1);
             backdrop-filter: blur(4px);
-            padding: 0.2rem 0.6rem; /* Slightly smaller padding */
+            padding: 0.2rem 0.6rem;
             border-radius: 0.5rem;
-            font-size: 0.65rem; /* Smaller font */
+            font-size: 0.65rem;
             pointer-events: none;
             box-shadow: 0 2px 4px rgba(0,0,0,0.1);
             display: none;
@@ -456,9 +456,9 @@
         <div class="p-6">
             <div class="text-center mb-6">
                 <div class="inline-block p-3 bg-purple-100 dark:bg-purple-900/50 rounded-full mb-3 text-3xl">🔮</div>
-                <h2 class="text-2xl font-bold text-gray-800 dark:text-gray-100">Hypothetical Weather</h2>
+                <h2 class="text-2xl font-bold text-gray-800 dark:text-gray-100">Estimated Weather</h2>
                 <p class="text-xs text-gray-500 dark:text-gray-400 mt-2">
-                    Estimated conditions at your GPS location based on mathematical interpolation of nearby METARs.
+                    Estimated conditions based on mathematical interpolation of nearby METARs.
                 </p>
                 <p class="text-[10px] font-bold text-red-500 mt-2 uppercase">Do not use for flight planning.</p>
             </div>
@@ -467,7 +467,14 @@
                 <!-- Results injected here -->
             </div>
 
-            <div class="mt-6 text-center">
+            <div class="mt-6 flex flex-col gap-3">
+                <button onclick="enterLocationSelectionMode()" class="w-full bg-blue-100 hover:bg-blue-200 dark:bg-blue-900/30 dark:hover:bg-blue-900/50 text-blue-700 dark:text-blue-300 font-bold py-2 px-4 rounded-lg transition-colors flex items-center justify-center gap-2">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                        <path fill-rule="evenodd" d="M5.05 4.05a7 7 0 119.9 9.9L10 18.9l-4.95-4.95a7 7 0 010-9.9zM10 11a2 2 0 100-4 2 2 0 000 4z" clip-rule="evenodd" />
+                    </svg>
+                    Pick Location on Map
+                </button>
+
                 <button onclick="closeInterpolationModal()" class="w-full bg-gray-200 dark:bg-gray-800 hover:bg-gray-300 dark:hover:bg-gray-700 text-gray-800 dark:text-gray-200 font-bold py-3 px-4 rounded-lg transition-colors">
                     Close
                 </button>
@@ -671,6 +678,31 @@
                 <!-- Radar Timestamp Display -->
                 <div id="radarTimeDisplay">Radar Valid: --:--z</div>
 
+                <!-- NEW: Crosshair for Selection Mode -->
+                <div id="mapCrosshair" class="hidden absolute inset-0 z-[2000] pointer-events-none flex items-center justify-center">
+                    <svg class="w-12 h-12 text-black dark:text-white drop-shadow-lg opacity-80" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                        <circle cx="12" cy="12" r="8" />
+                        <line x1="12" y1="2" x2="12" y2="22" />
+                        <line x1="2" y1="12" x2="22" y2="12" />
+                    </svg>
+                </div>
+
+                <!-- NEW: Selection Controls -->
+                <div id="mapSelectionControls" class="hidden absolute bottom-8 left-0 right-0 z-[2000] flex justify-center gap-4 pointer-events-auto pb-safe px-4">
+                    <button onclick="exitLocationSelectionMode()" class="bg-red-500 hover:bg-red-600 text-white font-bold py-3 px-6 rounded-full shadow-xl transition-transform active:scale-95 flex items-center gap-2">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                            <path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd" />
+                        </svg>
+                        Cancel
+                    </button>
+                    <button onclick="confirmLocationSelection()" class="bg-green-500 hover:bg-green-600 text-white font-bold py-3 px-6 rounded-full shadow-xl transition-transform active:scale-95 flex items-center gap-2">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                            <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd" />
+                        </svg>
+                        Calculate Here
+                    </button>
+                </div>
+
                 <!-- Toggle Fullscreen Button (Visible only in Embedded Mode) -->
                 <button id="btnEnterFullscreen" onclick="toggleMapFullscreen()"
                         class="fullscreen-trigger p-2 bg-white dark:bg-gray-800 rounded-lg shadow-md hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors text-gray-700 dark:text-gray-200">
@@ -687,7 +719,7 @@
 
                 <!-- NEW: Experimental Interpolation Button -->
                 <button id="guessWxBtn" onclick="triggerGuessWx()"
-                        class="guess-trigger p-2 bg-purple-600 hover:bg-purple-700 rounded-lg shadow-md transition-colors text-white font-bold text-lg w-10 h-10 flex items-center justify-center" aria-label="Hypothetical Weather" title="Guess Conditions at Location">
+                        class="guess-trigger p-2 bg-purple-600 hover:bg-purple-700 rounded-lg shadow-md transition-colors text-white font-bold text-lg w-10 h-10 flex items-center justify-center" aria-label="Estimated Weather" title="Estimate Conditions at Location">
                     🔮
                 </button>
 
@@ -733,7 +765,7 @@
 
 <script>
     // --- APP CONFIG ---
-    const CURRENT_VERSION = 'v2.4.1'; // Incremented Version
+    const CURRENT_VERSION = 'v2.4.3'; // Incremented Version
     const GITHUB_REPO = 'Unpiloted0852/AvWx';
 
     // Global Data Storage for Modal Access
@@ -3868,7 +3900,7 @@
         }, 100);
     }
 
-    // --- INTERPOLATION / GUESS WEATHER FEATURE ---
+    // --- ESTIMATED / GUESS WEATHER FEATURE ---
 
     function triggerGuessWx() {
         if (!navigator.geolocation) {
@@ -3885,7 +3917,7 @@
             (position) => {
                 const userLat = position.coords.latitude;
                 const userLon = position.coords.longitude;
-                calculateHypotheticalWeather(userLat, userLon);
+                calculateEstimatedWeather(userLat, userLon);
                 btn.innerHTML = originalContent;
                 btn.disabled = false;
             },
@@ -3897,7 +3929,34 @@
         );
     }
 
-    function calculateHypotheticalWeather(lat, lon) {
+    function enterLocationSelectionMode() {
+        // 1. Close Modal
+        closeInterpolationModal();
+
+        // 2. Switch to Map View if not already there
+        switchTab('map');
+
+        // 3. Show Crosshair and Controls
+        document.getElementById('mapCrosshair').classList.remove('hidden');
+        document.getElementById('mapSelectionControls').classList.remove('hidden');
+
+        // 4. Temporarily disable other controls/fullscreen to avoid conflict
+        // (Optional: In this simple app, we can just overlay them)
+    }
+
+    function exitLocationSelectionMode() {
+        document.getElementById('mapCrosshair').classList.add('hidden');
+        document.getElementById('mapSelectionControls').classList.add('hidden');
+    }
+
+    function confirmLocationSelection() {
+        if (!mapInstance) return;
+        const center = mapInstance.getCenter();
+        exitLocationSelectionMode();
+        calculateEstimatedWeather(center.lat, center.lng);
+    }
+
+    function calculateEstimatedWeather(lat, lon) {
         if (!currentStationsData || currentStationsData.length === 0) {
             alert("No station data loaded. Please run a report first.");
             return;
