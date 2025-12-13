@@ -192,7 +192,7 @@
             position: absolute; bottom: 1rem; left: 1rem;
             z-index: 1000;
         }
-        
+
         /* GPS Button Position */
         .gps-trigger {
             position: absolute; top: 4rem; right: 1rem;
@@ -310,14 +310,14 @@
             border-color: rgba(255, 255, 255, 0.1);
             box-shadow: 0 2px 4px rgba(0,0,0,0.3);
         }
-        
+
         /* GPS Marker Pulse Animation */
         @keyframes pulse-blue {
             0% { box-shadow: 0 0 0 0 rgba(59, 130, 246, 0.7); }
             70% { box-shadow: 0 0 0 25px rgba(59, 130, 246, 0); } /* Larger radius */
             100% { box-shadow: 0 0 0 0 rgba(59, 130, 246, 0); }
         }
-        
+
         .user-location-marker {
             background-color: #3b82f6;
             border: 2px solid white;
@@ -721,7 +721,7 @@
     let currentStationsData = []; // Store data globally to render map on tab switch
     let radarLayer = null; // Radar Layer Global
     let radarRefreshInterval = null; // Store interval ID for radar
-    
+
     // GPS Marker Global
     let userLocationMarker = null;
 
@@ -1186,12 +1186,12 @@
         }).addTo(mapInstance);
 
         // --- CUSTOM PANES FOR Z-INDEX CONTROL ---
-        
+
         // 1. Radar Pane (Lowest Custom Pane)
         mapInstance.createPane('radarPane');
         mapInstance.getPane('radarPane').style.zIndex = 250;
         mapInstance.getPane('radarPane').style.pointerEvents = 'none'; // Don't block clicks
-        
+
         // 2. User Location Pane (Above Radar, Below Routes)
         mapInstance.createPane('userLocationPane');
         mapInstance.getPane('userLocationPane').style.zIndex = 350;
@@ -1200,7 +1200,7 @@
         // 3. Route Pane (Above User, Below Markers)
         mapInstance.createPane('routePane');
         mapInstance.getPane('routePane').style.zIndex = 400;
-        
+
         // 4. Marker Pane (Topmost)
         mapInstance.createPane('markerPane');
         mapInstance.getPane('markerPane').style.zIndex = 600; // Standard marker pane is usually 600
@@ -1336,28 +1336,28 @@
             (position) => {
                 const lat = position.coords.latitude;
                 const lon = position.coords.longitude;
-                
+
                 // Show on map
                 updateUserLocationMarker(lat, lon);
                 if (mapInstance) {
                     mapInstance.flyTo([lat, lon], 10);
                 }
-                
+
                 btn.disabled = false;
                 btn.textContent = originalText;
             },
             (error) => {
                 console.warn("GPS failed/denied.", error);
-                alert("GPS Location Failed. Please ensure permissions are granted.");
+                // ERROR MESSAGE REMOVED PER USER REQUEST
                 btn.disabled = false;
                 btn.textContent = originalText;
             },
             { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
         );
     }
-    
+
     // --- HOME BY GPS LOGIC (STRICT GPS ONLY) ---
-    
+
     // Helper function to handle input focus (auto clear -GPS-)
     function handleInputFocus(el) {
         if (el.value === "-GPS-") {
@@ -1366,15 +1366,15 @@
             gpsReferenceCoords = null;
         }
     }
-    
+
     function setHomeToGPS() {
         // Reset manual input
-        gpsReferenceCoords = null; 
-        
+        gpsReferenceCoords = null;
+
         const btn = document.getElementById('gpsHomeBtn');
         const input = document.getElementById('icaoInput');
         const originalContent = btn.innerHTML;
-        
+
         // Show loading spinner icon on button
         btn.innerHTML = `<svg class="animate-spin h-5 w-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>`;
         btn.disabled = true;
@@ -1391,14 +1391,14 @@
             (position) => {
                 const lat = position.coords.latitude;
                 const lon = position.coords.longitude;
-                
+
                 // 1. Set Global Reference
                 gpsReferenceCoords = { lat: lat, lon: lon };
-                
+
                 // 2. Update Input UI
                 input.value = "-GPS-";
                 input.classList.add('gps-active-input');
-                
+
                 // 3. Ensure Map is Initialized (if this is first action)
                 if (!mapInstance) initMap();
 
@@ -1410,7 +1410,7 @@
 
                 // 5. Regenerate Report with new coordinates
                 handleGenerateClick(null, false);
-                
+
                 // 6. Restore button
                 btn.innerHTML = originalContent;
                 btn.disabled = false;
@@ -1422,14 +1422,14 @@
             },
             (error) => {
                 console.warn("GPS failed/denied.", error);
-                alert("GPS Location Failed. Please ensure permissions are granted.");
+                // ERROR MESSAGE REMOVED PER USER REQUEST
                 btn.innerHTML = originalContent;
                 btn.disabled = false;
             },
             { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
         );
     }
-    
+
     // Clear GPS mode if user types in the box manually (backup listener)
     icaoInput.addEventListener('input', () => {
         if (gpsReferenceCoords !== null) {
@@ -1588,14 +1588,14 @@
 
         // 1. HIGHLIGHT HOME AIRPORT (Requirement #4)
         const homeInput = document.getElementById('icaoInput').value.trim().toUpperCase();
-        
+
         // MODIFIED LOGIC: Use GPS coords if set, otherwise lookup ICAO
         // FIX: Only show blue ring if Home is manually set, NOT if GPS is active
         if (homeInput.length >= 3 && cachedStationMap && !gpsReferenceCoords) {
             const homeCoords = getCoordsForICAO(homeInput, cachedStationMap);
             if (homeCoords && homeCoords.lat !== null) {
                  L.circleMarker([homeCoords.lat, homeCoords.lon], {
-                    pane: 'routePane', 
+                    pane: 'routePane',
                     renderer: routeRenderer,
                     radius: 12,
                     fill: false,
@@ -1919,27 +1919,27 @@
         if (isHidden) {
             // ENABLE MODE
             advancedInputsEl.classList.remove('hidden');
-            
+
             // Change Button Style to "Ghost/Outline" to signify Disable
             toggleAdvancedButton.textContent = 'Disable Alternate Planning';
             // Remove the solid yellow
             toggleAdvancedButton.classList.remove('bg-yellow-500', 'hover:bg-yellow-600', 'text-white');
             // Add the outline style
             toggleAdvancedButton.classList.add('bg-transparent', 'border-2', 'border-yellow-500', 'text-yellow-600', 'hover:bg-yellow-50', 'dark:text-yellow-400', 'dark:hover:bg-gray-900');
-            
+
             routeAnalysisEnabled = true;
             nodataLegendEl.style.display = 'flex';
         } else {
             // DISABLE MODE
             advancedInputsEl.classList.add('hidden');
-            
+
             // Change Button Style back to Solid Yellow
             toggleAdvancedButton.textContent = 'Enable Alternate Planning';
             // Remove outline style
             toggleAdvancedButton.classList.remove('bg-transparent', 'border-2', 'border-yellow-500', 'text-yellow-600', 'hover:bg-yellow-50', 'dark:text-yellow-400', 'dark:hover:bg-gray-900');
             // Add solid yellow
             toggleAdvancedButton.classList.add('bg-yellow-500', 'hover:bg-yellow-600', 'text-white');
-            
+
             routeAnalysisEnabled = false;
             tabRouteAnalysis.classList.add('hidden');
             nodataLegendEl.style.display = 'none';
@@ -2033,27 +2033,40 @@
         const versionSpan = document.getElementById('newVersionTag');
         const downloadBtn = document.getElementById('downloadUpdateBtn');
         const closeBtn = document.getElementById('closeUpdateBanner');
-        
-        versionSpan.textContent = version;
-        
-        // Robust URL finding
-        const apkAsset = releaseData.assets && releaseData.assets.find(asset => asset.name.toLowerCase().endsWith('.apk'));
-        let downloadUrl = apkAsset ? apkAsset.browser_download_url : releaseData.html_url;
 
-        if (!downloadUrl) return; // Don't show if no URL
+        versionSpan.textContent = version;
+
+        // 1. Try to get direct APK asset link
+        let downloadUrl = null;
+        if (releaseData.assets) {
+            const apkAsset = releaseData.assets.find(asset => asset.name.toLowerCase().endsWith('.apk'));
+            if (apkAsset) downloadUrl = apkAsset.browser_download_url;
+        }
+
+        // 2. Fallback to standard "Latest" URL if asset parsing failed
+        // This is robust because GitHub handles the redirect
+        if (!downloadUrl) {
+            downloadUrl = `https://github.com/${GITHUB_REPO}/releases/latest/download/app-release.apk`;
+        }
 
         // Setup Button
-        downloadBtn.href = downloadUrl;
-        downloadBtn.target = "_blank"; // Force new tab/system browser
-        downloadBtn.rel = "noopener noreferrer"; // Security
+        downloadBtn.href = "#"; // Controlled by JS
 
-        // Handle Android Bridge or Fallback
         downloadBtn.onclick = (e) => {
+            e.preventDefault();
+
+            // A. Try Android Bridge
             if (window.Android && typeof window.Android.launchUpdate === 'function') {
-                e.preventDefault();
-                window.Android.launchUpdate(downloadUrl);
+                try {
+                    window.Android.launchUpdate(downloadUrl);
+                    return;
+                } catch (err) {
+                    console.error("Bridge update failed", err);
+                }
             }
-            // Otherwise allow default behavior (navigation to href in new tab)
+
+            // B. Force Navigation (Works better than window.open in WebViews)
+            window.location.href = downloadUrl;
         };
 
         banner.classList.remove('hidden');
