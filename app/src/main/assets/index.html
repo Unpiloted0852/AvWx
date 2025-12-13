@@ -199,6 +199,12 @@
             z-index: 1000;
         }
 
+        /* Experimental Guess Button Position */
+        .guess-trigger {
+            position: absolute; bottom: 4rem; left: 1rem;
+            z-index: 1000;
+        }
+
         .floating-pill {
             pointer-events: auto;
             background: rgba(255, 255, 255, 0.9);
@@ -286,8 +292,8 @@
         /* Radar Time Display (Adjusted for mobile) */
         #radarTimeDisplay {
             position: absolute;
-            bottom: 4.5rem;
-            left: 1rem;   /* Aligned with the button on the left */
+            bottom: 7.5rem; /* Moved up to make room for Guess button */
+            left: 1rem;
             z-index: 1100;
             font-family: 'JetBrains Mono', monospace;
             font-weight: 700;
@@ -432,6 +438,40 @@
         <!-- Grid Content -->
         <div id="recordsContent" class="p-6 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
             <!-- Injected via JS -->
+        </div>
+    </div>
+</div>
+
+<!-- Interpolation Experimental Modal -->
+<div id="interpolationModal" class="hidden fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-md p-4 transition-opacity duration-300" onclick="closeInterpolationModal()">
+    <div class="bg-white dark:bg-gray-900 rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden modal-enter border border-purple-500/30" onclick="event.stopPropagation()">
+        <!-- Warning Header -->
+        <div class="bg-yellow-400 text-yellow-900 p-3 text-center text-sm font-bold uppercase tracking-widest flex items-center justify-center gap-2">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                <path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd" />
+            </svg>
+            Experimental Feature
+        </div>
+
+        <div class="p-6">
+            <div class="text-center mb-6">
+                <div class="inline-block p-3 bg-purple-100 dark:bg-purple-900/50 rounded-full mb-3 text-3xl">🔮</div>
+                <h2 class="text-2xl font-bold text-gray-800 dark:text-gray-100">Hypothetical Weather</h2>
+                <p class="text-xs text-gray-500 dark:text-gray-400 mt-2">
+                    Estimated conditions at your GPS location based on mathematical interpolation of nearby METARs.
+                </p>
+                <p class="text-[10px] font-bold text-red-500 mt-2 uppercase">Do not use for flight planning.</p>
+            </div>
+
+            <div id="interpolationResults" class="space-y-4">
+                <!-- Results injected here -->
+            </div>
+
+            <div class="mt-6 text-center">
+                <button onclick="closeInterpolationModal()" class="w-full bg-gray-200 dark:bg-gray-800 hover:bg-gray-300 dark:hover:bg-gray-700 text-gray-800 dark:text-gray-200 font-bold py-3 px-4 rounded-lg transition-colors">
+                    Close
+                </button>
+            </div>
         </div>
     </div>
 </div>
@@ -645,6 +685,12 @@
                     GPS
                 </button>
 
+                <!-- NEW: Experimental Interpolation Button -->
+                <button id="guessWxBtn" onclick="triggerGuessWx()"
+                        class="guess-trigger p-2 bg-purple-600 hover:bg-purple-700 rounded-lg shadow-md transition-colors text-white font-bold text-lg w-10 h-10 flex items-center justify-center" aria-label="Hypothetical Weather" title="Guess Conditions at Location">
+                    🔮
+                </button>
+
                 <!-- Radar Toggle Button -->
                 <button id="radarToggleBtn" onclick="toggleRadar()"
                         class="radar-trigger p-2 bg-white dark:bg-gray-800 rounded-lg shadow-md hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors text-gray-700 dark:text-gray-200" aria-label="Toggle Radar">
@@ -687,7 +733,7 @@
 
 <script>
     // --- APP CONFIG ---
-    const CURRENT_VERSION = 'v2.3.5'; // Incremented Version
+    const CURRENT_VERSION = 'v2.4.0'; // Incremented Version
     const GITHUB_REPO = 'Unpiloted0852/AvWx';
 
     // Global Data Storage for Modal Access
@@ -766,6 +812,7 @@
     const searchRadiusInput = document.getElementById('searchRadius');
     const minRunwayInput = document.getElementById('minRunway');
     const modal = document.getElementById('tileModal');
+    const interpolationModal = document.getElementById('interpolationModal');
     const zuluClockEl = document.getElementById('zuluClock');
     const unitToggleBtn = document.getElementById('unitToggleBtn');
     const radarToggleBtn = document.getElementById('radarToggleBtn');
@@ -2071,7 +2118,7 @@
 
         banner.classList.remove('hidden');
         banner.classList.add('update-banner-enter');
-        
+
         closeBtn.onclick = () => banner.classList.add('hidden');
     }
     checkForUpdates();
@@ -2625,16 +2672,27 @@
             // Calculate raw tempC (needed for math) because calculateTempFAndRH formats it as string "20°C"
             const rawTempC = parseFloat(node.querySelector("temp_c")?.textContent);
 
+            // --- WIND PARSING FOR INTERPOLATION ---
+            const windDir = parseInt(node.querySelector("wind_dir_degrees")?.textContent);
+            const windSpeed = parseInt(node.querySelector("wind_speed_kt")?.textContent);
+            // ------------------------------------
+
             const densityAlt = calculateDensityAltitude(station.elevationFt, rawTempC, altimInHg);
-            // ---------------------------------------------
 
             const rawText = node.querySelector("raw_text")?.textContent?.trim() || 'N/A';
             const category = node.querySelector("flight_category")?.textContent?.trim() || analyzeCondition(rawText);
             const obsTimeText = node.querySelector("observation_time")?.textContent;
             const metarAgeMinutes = calculateAgeInMinutes(obsTimeText);
 
-            // Add densityAlt to the object
-            station.metar = { rawText, category, tempF, tempC, rh, rawDewC, densityAlt, age: metarAgeMinutes, obsTime: obsTimeText };
+            // Add densityAlt, Wind, Altimeter to the object for Interpolation logic
+            station.metar = {
+                rawText, category, tempF, tempC, rh, rawDewC, densityAlt,
+                age: metarAgeMinutes, obsTime: obsTimeText,
+                windDir: isNaN(windDir) ? null : windDir,
+                windSpeed: isNaN(windSpeed) ? null : windSpeed,
+                altimInHg: isNaN(altimInHg) ? null : altimInHg,
+                rawTempC: rawTempC // Explicitly storing numeric C for math
+            };
         });
 
         tafDoc.querySelectorAll("TAF").forEach(node => {
@@ -2660,7 +2718,7 @@
 
         // AUTO-SORT LOGIC REPLACEMENT
         // Priority: GPS -> Home -> Dep -> Dest -> Null
-        
+
         let refLat = null, refLon = null, refName = null;
 
         if (customRefCoords) {
@@ -3808,6 +3866,192 @@
                 }, 1500);
             }
         }, 100);
+    }
+
+    // --- INTERPOLATION / GUESS WEATHER FEATURE ---
+
+    function triggerGuessWx() {
+        if (!navigator.geolocation) {
+            alert("GPS is required for this feature.");
+            return;
+        }
+
+        const btn = document.getElementById('guessWxBtn');
+        const originalContent = btn.innerHTML;
+        btn.innerHTML = `<svg class="animate-spin h-5 w-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>`;
+        btn.disabled = true;
+
+        navigator.geolocation.getCurrentPosition(
+            (position) => {
+                const userLat = position.coords.latitude;
+                const userLon = position.coords.longitude;
+                calculateHypotheticalWeather(userLat, userLon);
+                btn.innerHTML = originalContent;
+                btn.disabled = false;
+            },
+            (err) => {
+                alert("GPS Error: " + err.message);
+                btn.innerHTML = originalContent;
+                btn.disabled = false;
+            }
+        );
+    }
+
+    function calculateHypotheticalWeather(lat, lon) {
+        if (!currentStationsData || currentStationsData.length === 0) {
+            alert("No station data loaded. Please run a report first.");
+            return;
+        }
+
+        // 1. Find nearest neighbors (within 150 NM)
+        const neighbors = [];
+        const MAX_DIST = 150;
+        const NEIGHBOR_COUNT = 5;
+
+        currentStationsData.forEach(st => {
+            if (st.latitude !== null && st.longitude !== null && st.metar) {
+                const dist = haversineDistance(lat, lon, st.latitude, st.longitude);
+                if (dist <= MAX_DIST) {
+                    neighbors.push({ ...st, dist: dist });
+                }
+            }
+        });
+
+        neighbors.sort((a, b) => a.dist - b.dist);
+        const closest = neighbors.slice(0, NEIGHBOR_COUNT);
+
+        if (closest.length === 0) {
+            alert("No stations found within 150NM to interpolate from.");
+            return;
+        }
+
+        // 2. Inverse Distance Weighting (IDW)
+        // Power parameter (p). Higher p gives more weight to closer points.
+        const P = 2;
+
+        // Weighted Sum Helpers
+        let sumWeights = 0;
+        let weightedTemp = 0;
+        let weightedDew = 0;
+        let weightedPressure = 0;
+
+        // Wind Vector Averaging
+        let weightedU = 0;
+        let weightedV = 0;
+        let sumWindWeights = 0;
+
+        closest.forEach(s => {
+            // IDW Weight (prevent division by zero if on top of station)
+            const w = 1 / Math.pow(Math.max(s.dist, 0.1), P);
+            sumWeights += w;
+
+            // Temp
+            if (s.metar.rawTempC !== null && !isNaN(s.metar.rawTempC)) {
+                weightedTemp += s.metar.rawTempC * w;
+            }
+
+            // Dew
+            if (s.metar.rawDewC !== null && !isNaN(s.metar.rawDewC)) {
+                weightedDew += s.metar.rawDewC * w;
+            }
+
+            // Pressure (must exist)
+            if (s.metar.altimInHg !== null && !isNaN(s.metar.altimInHg)) {
+                weightedPressure += s.metar.altimInHg * w;
+            }
+
+            // Wind (Speed & Dir must exist and not be VRB)
+            // VRB is hard to math, so we skip directional calc for VRB but keep speed if possible?
+            // Simplified: Only include if valid direction
+            if (s.metar.windSpeed !== null && s.metar.windDir !== null && !isNaN(s.metar.windDir)) {
+                // Convert to Radians
+                const rad = toRad(s.metar.windDir);
+                const u = -s.metar.windSpeed * Math.sin(rad);
+                const v = -s.metar.windSpeed * Math.cos(rad);
+
+                weightedU += u * w;
+                weightedV += v * w;
+                sumWindWeights += w;
+            }
+        });
+
+        // 3. Calculate Results
+        const finalTempC = weightedTemp / sumWeights;
+        const finalDewC = weightedDew / sumWeights;
+        const finalPress = weightedPressure / sumWeights;
+
+        // Reconstruct Wind
+        let finalSpeed = 0;
+        let finalDir = 0;
+        if (sumWindWeights > 0) {
+            const u = weightedU / sumWindWeights;
+            const v = weightedV / sumWindWeights;
+            finalSpeed = Math.sqrt(u*u + v*v);
+
+            // Atan2 returns -PI to PI. Convert to 0-360 degrees.
+            // Meteorology: Wind flows FROM. Math vectors flow TO.
+            // We inverted u/v earlier, so atan2 should give us direction FROM.
+            let angle = Math.atan2(-u, -v) * (180 / Math.PI);
+            if (angle < 0) angle += 360;
+            finalDir = angle;
+        }
+
+        // 4. Format Output
+        const tempF = Math.round(finalTempC * 9/5 + 32);
+        const dewF = Math.round(finalDewC * 9/5 + 32);
+        const displayTemp = useCelsius ? `${finalTempC.toFixed(1)}°C` : `${tempF}°F`;
+        const displayDew = useCelsius ? `${finalDewC.toFixed(1)}°C` : `${dewF}°F`;
+
+        // Calculate RH
+        const satVP = 6.112 * Math.exp((17.67 * finalTempC) / (finalTempC + 243.5));
+        const actVP = 6.112 * Math.exp((17.67 * finalDewC) / (finalDewC + 243.5));
+        const rh = Math.round(actVP / satVP * 100);
+
+        // Render HTML
+        const resultsEl = document.getElementById('interpolationResults');
+        resultsEl.innerHTML = `
+            <div class="grid grid-cols-2 gap-4">
+                <div class="bg-gray-50 dark:bg-gray-800 p-3 rounded-lg text-center">
+                    <div class="text-xs text-gray-500 uppercase tracking-wide">Temp</div>
+                    <div class="text-2xl font-bold text-gray-800 dark:text-gray-100">${displayTemp}</div>
+                </div>
+                <div class="bg-gray-50 dark:bg-gray-800 p-3 rounded-lg text-center">
+                    <div class="text-xs text-gray-500 uppercase tracking-wide">Dewpoint</div>
+                    <div class="text-2xl font-bold text-gray-800 dark:text-gray-100">${displayDew}</div>
+                </div>
+                <div class="bg-gray-50 dark:bg-gray-800 p-3 rounded-lg text-center">
+                    <div class="text-xs text-gray-500 uppercase tracking-wide">Pressure</div>
+                    <div class="text-2xl font-bold text-gray-800 dark:text-gray-100">${finalPress.toFixed(2)}"</div>
+                </div>
+                <div class="bg-gray-50 dark:bg-gray-800 p-3 rounded-lg text-center">
+                    <div class="text-xs text-gray-500 uppercase tracking-wide">Humidity</div>
+                    <div class="text-2xl font-bold text-blue-500">${rh}%</div>
+                </div>
+            </div>
+
+            <div class="mt-4 bg-blue-50 dark:bg-blue-900/20 p-4 rounded-lg flex items-center justify-between">
+                <div>
+                    <div class="text-xs text-gray-500 dark:text-gray-400 uppercase tracking-wide">Estimated Wind</div>
+                    <div class="text-3xl font-black text-gray-800 dark:text-gray-100 font-mono">
+                        ${Math.round(finalDir).toString().padStart(3,'0')}@${Math.round(finalSpeed)}KT
+                    </div>
+                </div>
+                <div class="text-4xl transform" style="transform: rotate(${finalDir + 180}deg)">
+                    ⬆️
+                </div>
+            </div>
+
+            <div class="mt-4 text-xs text-gray-400 text-center">
+                Interpolated from: ${closest.map(s => s.id).join(', ')}
+            </div>
+        `;
+
+        // Open Modal
+        interpolationModal.classList.remove('hidden');
+    }
+
+    function closeInterpolationModal() {
+        interpolationModal.classList.add('hidden');
     }
 </script>
 </body>
