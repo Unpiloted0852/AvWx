@@ -174,13 +174,6 @@
             display: flex; justify-content: center;
         }
 
-        .map-overlay-bottom {
-            position: absolute; bottom: 0; left: 0; right: 0;
-            padding: 1.5rem; z-index: 1000; pointer-events: none;
-            display: flex; justify-content: center;
-            padding-bottom: max(1.5rem, env(safe-area-inset-bottom));
-        }
-
         /* Toggle Button Position in Embedded Mode */
         .fullscreen-trigger {
             position: absolute; top: 1rem; right: 1rem;
@@ -205,10 +198,49 @@
             z-index: 1000;
         }
 
-        /* Experimental Guess Button Position */
+        /* Experimental Guess Button Position (Moved up) */
         .guess-trigger {
-            position: absolute; bottom: 7rem; left: 1rem; /* Moved up above freezing button */
+            position: absolute; bottom: 10rem; left: 1rem;
             z-index: 1000;
+        }
+
+        /* Heatmap Button Position (Below Guess, Above Freezing) */
+        .heatmap-trigger {
+            position: absolute; bottom: 7rem; left: 1rem;
+            z-index: 1000;
+        }
+
+        /* Heatmap Legend */
+        #heatmapLegend {
+            position: absolute;
+            bottom: 2rem;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 1000;
+            background: rgba(255, 255, 255, 0.9);
+            padding: 8px 12px;
+            border-radius: 8px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            display: none;
+            flex-direction: column;
+            align-items: center;
+            pointer-events: none;
+            backdrop-filter: blur(4px);
+            width: 240px;
+        }
+        .dark #heatmapLegend {
+            background: rgba(30, 41, 59, 0.9);
+            color: white;
+        }
+
+        .legend-labels {
+            width: 100%;
+            display: flex;
+            justify-content: center;
+            gap: 10px;
+            font-size: 10px;
+            font-family: monospace;
+            font-weight: bold;
         }
 
         .floating-pill {
@@ -513,8 +545,8 @@
             </svg>
         </button>
 
-        <!-- Unit Toggle Button -->
-        <button id="unitToggleBtn" type="button" onclick="toggleUnits()" aria-label="Toggle Units"
+        <!-- Temperature Unit Toggle Button -->
+        <button id="unitToggleBtn" type="button" onclick="toggleUnits()" aria-label="Toggle Temperature Units"
                 class="z-[100] absolute top-0 right-12 md:top-4 md:right-12 p-2 rounded-full w-10 h-10 flex items-center justify-center font-bold text-sm font-mono
                    bg-gray-200 dark:bg-gray-800 text-gray-700 dark:text-gray-200
                    hover:bg-gray-300 dark:hover:bg-gray-700
@@ -522,9 +554,18 @@
             °F
         </button>
 
-        <!-- Records Button -->
+        <!-- Pressure Unit Toggle Button (NEW) -->
+        <button id="pressureUnitToggleBtn" type="button" onclick="togglePressureUnits()" aria-label="Toggle Pressure Units"
+                class="z-[100] absolute top-0 right-24 md:top-4 md:right-24 p-2 rounded-full w-14 h-10 flex items-center justify-center font-bold text-xs font-mono
+                   bg-gray-200 dark:bg-gray-800 text-gray-700 dark:text-gray-200
+                   hover:bg-gray-300 dark:hover:bg-gray-700
+                   shadow-sm cursor-pointer transition-colors">
+            inHg
+        </button>
+
+        <!-- Records Button (Shifted Left) -->
         <button id="recordsBtn" type="button" onclick="showRecords()" aria-label="View Weather Records"
-                class="z-[100] absolute top-0 right-24 md:top-4 md:right-24 p-2 rounded-full w-10 h-10 flex items-center justify-center
+                class="z-[100] absolute top-0 right-40 md:top-4 md:right-40 p-2 rounded-full w-10 h-10 flex items-center justify-center
                    bg-yellow-400 text-yellow-900 hover:bg-yellow-500
                    shadow-md cursor-pointer transition-transform hover:scale-110 active:scale-95">
             <!-- Award Ribbon Icon -->
@@ -690,10 +731,13 @@
                 <!-- Radar Timestamp Display -->
                 <div id="radarTimeDisplay">Radar Valid: --:--z</div>
 
-                <!-- Freezing Level Warning (Bottom Right) -->
-                <div id="freezingWarning" class="hidden absolute bottom-2 right-2 z-[1100] p-1 pointer-events-none max-w-[200px] text-right">
-                    <div class="bg-red-600/75 text-white px-2 py-1 rounded text-[9px] font-medium shadow-sm backdrop-blur-[1px] inline-block">
-                        Warning: Estimated freezing area is experimental and could be wrong
+                <!-- Map Warnings Container (Freezing + Heatmap) -->
+                <div id="mapWarnings" class="absolute bottom-2 right-2 z-[1100] flex flex-col gap-1 items-end pointer-events-none max-w-[250px] text-right">
+                    <div id="freezingWarning" class="hidden bg-red-600/80 text-white px-2 py-1 rounded text-[9px] font-medium shadow-sm backdrop-blur-[1px]">
+                        Warning: Estimated freezing area is experimental
+                    </div>
+                    <div id="heatmapWarning" class="hidden bg-red-600/80 text-white px-2 py-1 rounded text-[9px] font-medium shadow-sm backdrop-blur-[1px]">
+                        Warning: Iso-lines are experimental interpolation
                     </div>
                 </div>
 
@@ -742,6 +786,12 @@
                     🔮
                 </button>
 
+                <!-- NEW: Heatmap Toggle Button -->
+                <button id="heatmapBtn" onclick="toggleHeatmap()"
+                        class="heatmap-trigger p-2 bg-white dark:bg-gray-800 rounded-lg shadow-md hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors text-gray-700 dark:text-gray-200 flex items-center justify-center w-10 h-10 text-lg" aria-label="Toggle Weather Heatmap" title="Toggle Temp/Pressure Heatmap">
+                    🌡️
+                </button>
+
                 <!-- NEW: Freezing Level Toggle Button -->
                 <button id="freezingBtn" onclick="toggleFreezingLayer()"
                         class="freezing-trigger p-2 bg-white dark:bg-gray-800 rounded-lg shadow-md hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors text-gray-700 dark:text-gray-200 flex items-center justify-center w-10 h-10 text-xl" aria-label="Toggle Freezing Line" title="Toggle Freezing Level (0°C)">
@@ -757,6 +807,14 @@
                     </svg>
                 </button>
 
+                <!-- NEW: Heatmap Legend -->
+                <div id="heatmapLegend">
+                    <div id="legendTitle" class="text-xs font-bold uppercase tracking-wider text-black dark:text-white">Temperature</div>
+                    <div id="legendLabels" class="legend-labels text-[10px] text-gray-600 dark:text-gray-300 mt-1">
+                        <!-- Injected text -->
+                    </div>
+                </div>
+
                 <!-- Floating Controls (Visible only in Fullscreen Mode) -->
                 <div id="fullscreenControls" class="hidden">
                     <div class="map-overlay-top">
@@ -767,15 +825,7 @@
                             Back to Report
                         </button>
                     </div>
-
-                    <div class="map-overlay-bottom">
-                        <div class="floating-pill px-4 py-2 flex gap-4 text-xs font-bold text-gray-700 dark:text-gray-200 shadow-lg">
-                            <span class="flex items-center gap-1"><span class="weather-dot vfr-dot"></span>VFR</span>
-                            <span class="flex items-center gap-1"><span class="weather-dot mvfr-dot"></span>MVFR</span>
-                            <span class="flex items-center gap-1"><span class="weather-dot ifr-dot"></span>IFR</span>
-                            <span class="flex items-center gap-1"><span class="weather-dot lifr-dot"></span>LIFR</span>
-                        </div>
-                    </div>
+                    <!-- Legend Pill Removed per request -->
                 </div>
             </div>
 
@@ -790,7 +840,7 @@
 
 <script>
     // --- APP CONFIG ---
-    const CURRENT_VERSION = 'v2.4.5'; // Incremented Version
+    const CURRENT_VERSION = 'v2.4.6'; // Incremented Version
     const GITHUB_REPO = 'Unpiloted0852/AvWx';
 
     // Global Data Storage for Modal Access
@@ -878,6 +928,7 @@
     const interpolationModal = document.getElementById('interpolationModal');
     const zuluClockEl = document.getElementById('zuluClock');
     const unitToggleBtn = document.getElementById('unitToggleBtn');
+    const pressureUnitToggleBtn = document.getElementById('pressureUnitToggleBtn'); // NEW
     const radarToggleBtn = document.getElementById('radarToggleBtn');
     const radarTimeDisplay = document.getElementById('radarTimeDisplay');
 
@@ -927,8 +978,11 @@
 
     // Unit State
     let useCelsius = false;
+    let useHpa = false; // Default to inHg (false)
+
     try {
         useCelsius = localStorage.getItem('useCelsius') === 'true';
+        useHpa = localStorage.getItem('useHpa') === 'true'; // Load pressure pref
     } catch(e) {}
 
     // Helper to get display temperature
@@ -937,19 +991,55 @@
         return useCelsius ? metarObj.tempC : metarObj.tempF;
     }
 
-    function updateUnitButtonText() {
+    function updateUnitButtons() {
         unitToggleBtn.textContent = useCelsius ? '°C' : '°F';
+        pressureUnitToggleBtn.textContent = useHpa ? 'hPa' : 'inHg';
     }
     // Initialize button text on load
-    updateUnitButtonText();
+    updateUnitButtons();
 
     function toggleUnits() {
         useCelsius = !useCelsius;
         try { localStorage.setItem('useCelsius', useCelsius); } catch(e){}
-        updateUnitButtonText();
+        updateUnitButtons();
+        // Refresh Heatmap if Temp mode is active
+        if (heatmapMode === 1 && heatmapLayer) {
+            // Re-create the layer to force re-draw with new units
+            mapInstance.removeLayer(heatmapLayer);
+            heatmapLayer = new L.WeatherIsoLayer({ mode: 'temp' });
+            mapInstance.addLayer(heatmapLayer);
+
+            // Refresh Legend Title
+            const legendTitle = document.getElementById('legendTitle');
+            if (legendTitle) legendTitle.textContent = `Temp Lines (${useCelsius ? '°C' : '°F'})`;
+        }
         // Re-render UI if data exists
         if (currentReportData && currentReportData.stationsData.length > 0) {
             refreshDataSilent(true); // Skip fetch, just redraw
+        }
+    }
+
+    function togglePressureUnits() {
+        useHpa = !useHpa;
+        try { localStorage.setItem('useHpa', useHpa); } catch(e){}
+        updateUnitButtons();
+         // Refresh Heatmap if Pressure mode is active
+         if (heatmapMode === 2 && heatmapLayer) {
+            // Re-create layer to force re-draw
+            mapInstance.removeLayer(heatmapLayer);
+            heatmapLayer = new L.WeatherIsoLayer({ mode: 'pressure' });
+            mapInstance.addLayer(heatmapLayer);
+
+            // Refresh Legend Title
+            const legendTitle = document.getElementById('legendTitle');
+            if (legendTitle) legendTitle.textContent = `Pressure Lines (${useHpa ? 'hPa' : 'inHg'})`;
+        }
+        // Re-render UI if data exists (affects Records modal mainly)
+        if (currentReportData && currentReportData.stationsData.length > 0) {
+             // If records modal is open, refresh it?
+             if (!recordsModal.classList.contains('hidden')) {
+                 showRecords();
+             }
         }
     }
 
@@ -1272,6 +1362,347 @@
         }
     }
 
+    // --- ISO-LINE HEATMAP CONFIGURATION ---
+    let heatmapLayer = null;
+    let heatmapMode = 0; // 0: Off, 1: Temp, 2: Pressure
+
+    // Define Leaflet Iso-Line Layer
+    if (typeof L.WeatherIsoLayer === 'undefined') {
+        L.WeatherIsoLayer = L.Layer.extend({
+            initialize: function(options) {
+                this.mode = options.mode || 'temp'; // 'temp' or 'pressure'
+            },
+
+            onAdd: function(map) {
+                this._map = map;
+                this._canvas = L.DomUtil.create('canvas', 'leaflet-weather-iso-layer');
+                this._canvas.style.pointerEvents = 'none';
+                this._canvas.style.zIndex = 200; // Below Radar(250)
+                map.getPanes().overlayPane.appendChild(this._canvas);
+
+                map.on('moveend', this._update, this);
+                map.on('zoomend', this._update, this);
+                this._update();
+            },
+
+            onRemove: function(map) {
+                map.getPanes().overlayPane.removeChild(this._canvas);
+                map.off('moveend', this._update, this);
+                map.off('zoomend', this._update, this);
+            },
+
+            _update: function() {
+                if (!this._map) return;
+                const map = this._map;
+                const size = map.getSize();
+                const canvas = this._canvas;
+
+                canvas.width = size.x;
+                canvas.height = size.y;
+
+                const bounds = map.getBounds();
+                const topLeft = map.latLngToLayerPoint(bounds.getNorthWest());
+                L.DomUtil.setPosition(canvas, topLeft);
+
+                this._draw();
+            },
+
+            _draw: function() {
+                const ctx = this._canvas.getContext('2d');
+                const width = this._canvas.width;
+                const height = this._canvas.height;
+                const map = this._map;
+
+                ctx.clearRect(0, 0, width, height);
+
+                // Use allStationsData regardless of filters
+                if (!allStationsData || allStationsData.length === 0) return;
+
+                // 1. Filter stations to visible buffer
+                const bounds = map.getBounds();
+                const pad = 10.0;
+                const south = bounds.getSouth() - pad;
+                const north = bounds.getNorth() + pad;
+                const west = bounds.getWest() - pad;
+                const east = bounds.getEast() + pad;
+
+                const relevantStations = allStationsData.filter(s => {
+                    if(s.latitude === null || s.longitude === null || !s.metar) return false;
+                    let val;
+                    if(this.mode === 'temp') val = s.metar.rawTempC;
+                    else val = s.metar.altimInHg;
+                    if (val === null || isNaN(val)) return false;
+                    return s.latitude >= south && s.latitude <= north &&
+                           s.longitude >= west && s.longitude <= east;
+                });
+
+                if (relevantStations.length < 5) return;
+
+                const stations = relevantStations.map(s => ({
+                    lat: s.latitude,
+                    lon: s.longitude,
+                    val: this.mode === 'temp' ? s.metar.rawTempC : s.metar.altimInHg
+                }));
+
+                // 2. Build Grid for Marching Squares
+                const RES = 15; // Grid resolution (pixels)
+                const cols = Math.ceil(width / RES);
+                const rows = Math.ceil(height / RES);
+                const NEIGHBOR_COUNT = 5;
+                const grid = [];
+
+                for (let y = 0; y <= rows; y++) {
+                    grid[y] = [];
+                    for (let x = 0; x <= cols; x++) {
+                        const px = x * RES;
+                        const py = y * RES;
+                        const ll = map.containerPointToLatLng(L.point(px, py));
+                        const cosLat = Math.cos(ll.lat * Math.PI / 180);
+
+                        let closest = [];
+                        for (let i = 0; i < stations.length; i++) {
+                            const s = stations[i];
+                            const dLat = s.lat - ll.lat;
+                            const dLon = (s.lon - ll.lng) * cosLat;
+                            const distSq = dLat*dLat + dLon*dLon;
+
+                            if (closest.length < NEIGHBOR_COUNT) {
+                                closest.push({ distSq: distSq, val: s.val });
+                                closest.sort((a,b) => a.distSq - b.distSq);
+                            } else if (distSq < closest[NEIGHBOR_COUNT-1].distSq) {
+                                closest[NEIGHBOR_COUNT-1] = { distSq: distSq, val: s.val };
+                                closest.sort((a,b) => a.distSq - b.distSq);
+                            }
+                        }
+
+                        let sumWeights = 0;
+                        let weightedVal = 0;
+                        // Mask distant points (approx 2 degrees squared)
+                        if (closest[0].distSq > 4) {
+                            grid[y][x] = null;
+                            continue;
+                        }
+
+                        for(let i=0; i<closest.length; i++) {
+                            const w = 1 / (closest[i].distSq + 0.000001);
+                            weightedVal += closest[i].val * w;
+                            sumWeights += w;
+                        }
+                        grid[y][x] = (sumWeights > 0) ? weightedVal / sumWeights : null;
+                    }
+                }
+
+                // 3. Define Thresholds (Using Base Units: C for Temp, inHg for Pressure)
+                let steps = [];
+                if (this.mode === 'temp') {
+                    // Every 5 degrees C
+                    for(let t = -40; t <= 50; t += 5) steps.push(t);
+                } else {
+                    // Every 0.10 inHg
+                    for(let p = 28.00; p <= 31.00; p += 0.10) steps.push(parseFloat(p.toFixed(2)));
+                }
+
+                // 4. Marching Squares (Simple Linear Interpolation)
+                ctx.lineWidth = 1.5;
+                ctx.lineCap = 'round';
+                ctx.lineJoin = 'round';
+
+                // Helpers
+                const getIsoColor = (val, type) => {
+                    if (type === 'temp') {
+                        if (val <= 0) return 'rgba(148,0,211,0.8)'; // Violet
+                        if (val <= 15) return 'rgba(0,0,255,0.8)'; // Blue
+                        if (val <= 25) return 'rgba(0,200,0,0.8)'; // Green
+                        if (val <= 30) return 'rgba(255,165,0,0.8)'; // Orange
+                        return 'rgba(255,0,0,0.8)'; // Red
+                    } else {
+                        // Pressure: Standard 29.92
+                        if (val < 29.92) return 'rgba(0,0,255,0.8)'; // Low (Blue)
+                        return 'rgba(255,0,0,0.8)'; // High (Red)
+                    }
+                };
+
+                const lerp = (val, v0, v1, p0, p1) => {
+                    const ratio = (val - v0) / (v1 - v0);
+                    return p0 + ratio * (p1 - p0);
+                };
+
+                // Store label positions to avoid overlaps (simple grid bucket)
+                const labels = [];
+
+                for (let y = 0; y < rows; y++) {
+                    for (let x = 0; x < cols; x++) {
+                        const vTL = grid[y][x];
+                        const vTR = grid[y][x+1];
+                        const vBR = grid[y+1][x+1];
+                        const vBL = grid[y+1][x];
+
+                        if (vTL === null || vTR === null || vBR === null || vBL === null) continue;
+
+                        const x0 = x * RES;
+                        const y0 = y * RES;
+
+                        // Check every contour level
+                        steps.forEach(level => {
+                            const minV = Math.min(vTL, vTR, vBR, vBL);
+                            const maxV = Math.max(vTL, vTR, vBR, vBL);
+
+                            if (level > minV && level <= maxV) {
+                                // Simple approach: Check edges
+                                const points = [];
+                                // Top Edge
+                                if ((vTL < level && vTR >= level) || (vTL >= level && vTR < level)) {
+                                    points.push({x: lerp(level, vTL, vTR, x0, x0 + RES), y: y0});
+                                }
+                                // Right Edge
+                                if ((vTR < level && vBR >= level) || (vTR >= level && vBR < level)) {
+                                    points.push({x: x0 + RES, y: lerp(level, vTR, vBR, y0, y0 + RES)});
+                                }
+                                // Bottom Edge
+                                if ((vBR < level && vBL >= level) || (vBR >= level && vBL < level)) {
+                                    points.push({x: lerp(level, vBR, vBL, x0 + RES, x0), y: y0 + RES});
+                                }
+                                // Left Edge
+                                if ((vBL < level && vTL >= level) || (vBL >= level && vTL < level)) {
+                                    points.push({x: x0, y: lerp(level, vBL, vTL, y0 + RES, y0)});
+                                }
+
+                                if (points.length === 2) {
+                                    ctx.strokeStyle = getIsoColor(level, this.mode);
+                                    ctx.beginPath();
+                                    ctx.moveTo(points[0].x, points[0].y);
+                                    ctx.lineTo(points[1].x, points[1].y);
+                                    ctx.stroke();
+
+                                    // Chance to add label
+                                    // Only label occasionally to avoid clutter
+                                    if (x % 6 === 0 && y % 6 === 0) {
+                                        let displayText = "";
+
+                                        // FORMAT LABEL BASED ON UNITS
+                                        if (this.mode === 'temp') {
+                                            if (useCelsius) {
+                                                displayText = Math.round(level).toString();
+                                            } else {
+                                                displayText = Math.round(level * 1.8 + 32).toString();
+                                            }
+                                        } else {
+                                            // Pressure
+                                            if (useHpa) {
+                                                // Convert inHg to hPa (approx 33.8639)
+                                                displayText = Math.round(level * 33.8639).toString();
+                                            } else {
+                                                // Keep inHg, ensure 2 decimals
+                                                displayText = level.toFixed(2);
+                                            }
+                                        }
+
+                                        labels.push({
+                                            x: (points[0].x + points[1].x)/2,
+                                            y: (points[0].y + points[1].y)/2,
+                                            text: displayText,
+                                            color: 'black' // High contrast text color
+                                        });
+                                    }
+                                }
+                            }
+                        });
+                    }
+                }
+
+                // Draw Labels on top
+                ctx.font = 'bold 11px sans-serif';
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+
+                labels.forEach(l => {
+                    const metrics = ctx.measureText(l.text);
+                    const pad = 2;
+                    const w = metrics.width + pad * 2;
+                    const h = 12; // Approx height
+
+                    // Draw High Contrast Box
+                    ctx.fillStyle = 'rgba(255, 255, 255, 0.85)';
+                    ctx.fillRect(l.x - w/2, l.y - h/2, w, h);
+
+                    // Draw Text
+                    ctx.fillStyle = 'black';
+                    ctx.fillText(l.text, l.x, l.y);
+                });
+            }
+        });
+    }
+
+    function toggleHeatmap() {
+        const btn = document.getElementById('heatmapBtn');
+        const legend = document.getElementById('heatmapLegend');
+        const legendTitle = document.getElementById('legendTitle');
+        const legendLabels = document.getElementById('legendLabels');
+        const warningEl = document.getElementById('heatmapWarning');
+
+        if (!mapInstance) return;
+
+        // Cycle Mode: Off (0) -> Temp (1) -> Pressure (2) -> Off (0)
+        heatmapMode = (heatmapMode + 1) % 3;
+
+        // 1. Remove Existing
+        if (heatmapLayer) {
+            mapInstance.removeLayer(heatmapLayer);
+            heatmapLayer = null;
+        }
+
+        // 2. Handle New State
+        if (heatmapMode === 0) {
+            // OFF
+            btn.classList.remove('bg-blue-100', 'text-blue-600', 'border-blue-500');
+            btn.innerHTML = '🌡️';
+            legend.style.display = 'none';
+            if(warningEl) warningEl.classList.add('hidden');
+        }
+        else if (heatmapMode === 1) {
+            // TEMP (Iso-lines)
+            btn.classList.add('bg-blue-100', 'text-blue-600');
+            btn.innerHTML = '🔥';
+            if(warningEl) warningEl.classList.remove('hidden');
+
+            // Setup Text Legend
+            const unitStr = useCelsius ? '°C' : '°F';
+            legend.style.display = 'flex';
+            legendTitle.textContent = `Temp Lines (${unitStr})`;
+
+            // Note: Legend values here are static ranges, just general guide
+            legendLabels.innerHTML = `
+                <span class="text-purple-600 font-bold">Cold</span> •
+                <span class="text-blue-600 font-bold">Cool</span> •
+                <span class="text-green-600 font-bold">Mild</span> •
+                <span class="text-red-500 font-bold">Hot</span>
+            `;
+
+            // Add Layer
+            heatmapLayer = new L.WeatherIsoLayer({ mode: 'temp' });
+            mapInstance.addLayer(heatmapLayer);
+        }
+        else if (heatmapMode === 2) {
+            // PRESSURE (Iso-lines)
+            btn.innerHTML = '🎈';
+            if(warningEl) warningEl.classList.remove('hidden');
+
+            // Setup Text Legend
+            const unitStr = useHpa ? 'hPa' : 'inHg';
+            legend.style.display = 'flex';
+            legendTitle.textContent = `Pressure Lines (${unitStr})`;
+            legendLabels.innerHTML = `
+                <span class="text-blue-600 font-bold">Low</span> •
+                <span class="text-red-600 font-bold">High</span>
+            `;
+
+            // Add Layer
+            heatmapLayer = new L.WeatherIsoLayer({ mode: 'pressure' });
+            mapInstance.addLayer(heatmapLayer);
+        }
+    }
+
+
     // --- MAP FUNCTIONS ---
     function initMap() {
         if (mapInstance) return;
@@ -1297,21 +1728,25 @@
 
         // --- CUSTOM PANES FOR Z-INDEX CONTROL ---
 
-        // 1. Radar Pane (Lowest Custom Pane)
+        // 1. Heatmap Pane (New) - Below Radar
+        mapInstance.createPane('heatmapPane');
+        mapInstance.getPane('heatmapPane').style.zIndex = 200;
+
+        // 2. Radar Pane (Lowest Custom Pane)
         mapInstance.createPane('radarPane');
         mapInstance.getPane('radarPane').style.zIndex = 250;
         mapInstance.getPane('radarPane').style.pointerEvents = 'none'; // Don't block clicks
 
-        // 2. User Location Pane (Above Radar, Below Routes)
+        // 3. User Location Pane (Above Radar, Below Routes)
         mapInstance.createPane('userLocationPane');
         mapInstance.getPane('userLocationPane').style.zIndex = 350;
         mapInstance.getPane('userLocationPane').style.pointerEvents = 'none';
 
-        // 3. Route Pane (Above User, Below Markers)
+        // 4. Route Pane (Above User, Below Markers)
         mapInstance.createPane('routePane');
         mapInstance.getPane('routePane').style.zIndex = 400;
 
-        // 4. Marker Pane (Topmost)
+        // 5. Marker Pane (Topmost)
         mapInstance.createPane('markerPane');
         mapInstance.getPane('markerPane').style.zIndex = 600; // Standard marker pane is usually 600
 
@@ -2055,156 +2490,6 @@
 
         // Initial label update if zoomed in
         updateMapLabels();
-
-        // --- FREEZING LAYER CLASS DEFINTION (Inside initMap scope to ensure L is ready) ---
-        if (typeof L.FreezingLayer === 'undefined') {
-            L.FreezingLayer = L.Layer.extend({
-                onAdd: function(map) {
-                    this._map = map;
-                    this._canvas = L.DomUtil.create('canvas', 'leaflet-freezing-layer');
-                    this._canvas.style.pointerEvents = 'none';
-                    this._canvas.style.zIndex = 300; // Above Radar(250), Below Routes(400)
-                    map.getPanes().overlayPane.appendChild(this._canvas);
-
-                    // Trigger draw on move/zoom
-                    map.on('moveend', this._update, this);
-                    map.on('zoomend', this._update, this); // Re-calc on zoom
-
-                    this._update();
-                },
-
-                onRemove: function(map) {
-                    map.getPanes().overlayPane.removeChild(this._canvas);
-                    map.off('moveend', this._update, this);
-                    map.off('zoomend', this._update, this);
-                },
-
-                _update: function() {
-                    if (!this._map) return;
-
-                    const map = this._map;
-                    const size = map.getSize();
-                    const canvas = this._canvas;
-
-                    // Resize canvas to match map size (css pixels)
-                    canvas.width = size.x;
-                    canvas.height = size.y;
-
-                    // Standard approach:
-                    const bounds = map.getBounds();
-                    const topLeft = map.latLngToLayerPoint(bounds.getNorthWest());
-                    L.DomUtil.setPosition(canvas, topLeft);
-
-                    this._draw();
-                },
-
-                _draw: function() {
-                    const ctx = this._canvas.getContext('2d');
-                    const width = this._canvas.width;
-                    const height = this._canvas.height;
-                    const map = this._map;
-
-                    ctx.clearRect(0, 0, width, height);
-
-                    // Use allStationsData to allow gap bridging (runway filter ignored)
-                    if (!allStationsData || allStationsData.length === 0) return;
-
-                    // 1. Filter stations to visible area + LARGE buffer (matching Point Tool range)
-                    // 15 degrees is roughly 900NM, effectively covering the same "Gap Bridging" logic.
-                    const bounds = map.getBounds();
-                    const pad = 15.0;
-                    const south = bounds.getSouth() - pad;
-                    const north = bounds.getNorth() + pad;
-                    const west = bounds.getWest() - pad;
-                    const east = bounds.getEast() + pad;
-
-                    const relevantStations = allStationsData.filter(s =>
-                        s.latitude !== null && s.longitude !== null &&
-                        s.latitude >= south && s.latitude <= north &&
-                        s.longitude >= west && s.longitude <= east &&
-                        s.metar && s.metar.rawTempC !== null && !isNaN(s.metar.rawTempC)
-                    );
-
-                    if (relevantStations.length < 5) return;
-
-                    // 2. Define Grid Resolution (Pixels)
-                    const RES = 15;
-                    const cols = Math.ceil(width / RES);
-                    const rows = Math.ceil(height / RES);
-
-                    // Pre-calculate data needed for loop
-                    const stationData = relevantStations.map(s => ({
-                        lat: s.latitude,
-                        lon: s.longitude,
-                        temp: s.metar.rawTempC
-                    }));
-
-                    // Prepare Style
-                    ctx.fillStyle = 'rgba(6, 182, 212, 0.25)'; // Cyan-500, transparent
-
-                    // Optimization Variables
-                    const P = 2; // Power for IDW
-                    const NEIGHBOR_COUNT = 5; // Must match "Estimated Weather" tool logic
-
-                    for (let y = 0; y < rows; y++) {
-                        for (let x = 0; x < cols; x++) {
-                            const px = x * RES;
-                            const py = y * RES;
-
-                            // Get Lat/Lon of this grid center
-                            const ll = map.containerPointToLatLng(L.point(px + RES/2, py + RES/2));
-
-                            // Optimization: Cosine correction factor for this latitude (approximate for local area)
-                            const cosLat = Math.cos(ll.lat * Math.PI / 180);
-
-                            // 1. Find Nearest 5 Neighbors
-                            // We can't sort the whole array every pixel (too slow).
-                            // We do a single pass to maintain a sorted "Top 5" list.
-                            let closest = [];
-
-                            for (let i = 0; i < stationData.length; i++) {
-                                const s = stationData[i];
-                                const dLat = s.lat - ll.lat;
-                                const dLon = (s.lon - ll.lng) * cosLat; // Simple Flat Earth approx is fine for sorting nearby
-                                const distSq = dLat*dLat + dLon*dLon;
-
-                                // Insert into sorted closest array (capped at 5)
-                                if (closest.length < NEIGHBOR_COUNT) {
-                                    closest.push({ distSq: distSq, temp: s.temp });
-                                    // Keep sorted (descending) so we can pop largest easily?
-                                    // Actually better to sort ascending, check last.
-                                    closest.sort((a,b) => a.distSq - b.distSq);
-                                } else if (distSq < closest[NEIGHBOR_COUNT-1].distSq) {
-                                    // Replace last
-                                    closest[NEIGHBOR_COUNT-1] = { distSq: distSq, temp: s.temp };
-                                    closest.sort((a,b) => a.distSq - b.distSq);
-                                }
-                            }
-
-                            // 2. Perform IDW on the chosen 5
-                            let sumWeights = 0;
-                            let weightedTemp = 0;
-
-                            for(let i=0; i<closest.length; i++) {
-                                // Weight = 1 / dist^2 (which is 1/distSq)
-                                // Add tiny epsilon to avoid div/0
-                                const w = 1 / (closest[i].distSq + 0.000001);
-                                weightedTemp += closest[i].temp * w;
-                                sumWeights += w;
-                            }
-
-                            if (sumWeights > 0) {
-                                const estimatedTemp = weightedTemp / sumWeights;
-                                // Threshold for "Freezing"
-                                if (estimatedTemp < 0) {
-                                    ctx.fillRect(px, py, RES, RES);
-                                }
-                            }
-                        }
-                    }
-                }
-            });
-        }
     }
 
     // --- EVENT LISTENERS ---
@@ -2410,7 +2695,7 @@
 
         if (tabId === 'standard') {
             weatherListEl.classList.remove('hidden');
-            tabStandard.classList.remove(...TAB_INACTIVE_CLASSES);
+            tabStandard.classList.remove(...TAB_ACTIVE_CLASSES);
             tabStandard.classList.add(...TAB_ACTIVE_CLASSES);
 
             // Ensure data is loaded if the list is empty (e.g. initial generation was on map tab)
@@ -4140,17 +4425,20 @@
                 let hPa = 0;
                 let label = altimMatch[0];
                 const val = parseInt(altimMatch[2]);
+                let inHgVal = 0;
 
                 if (altimMatch[1] === 'A') {
                     // Convert InHg (e.g. 2992 => 29.92) to hPa
-                    // 29.92 * 33.8639
-                    hPa = (val / 100) * 33.8639;
+                    inHgVal = val / 100;
+                    hPa = inHgVal * 33.8639;
                 } else {
                     hPa = val; // Already hPa
+                    inHgVal = hPa / 33.8639;
                 }
 
-                if (hPa > maxPres.val) maxPres = { val: hPa, st: s, label: label };
-                if (hPa > 0 && hPa < minPres.val) minPres = { val: hPa, st: s, label: label };
+                // Store both units in the object for toggling
+                if (hPa > maxPres.val) maxPres = { val: hPa, valInHg: inHgVal, st: s };
+                if (hPa > 0 && hPa < minPres.val) minPres = { val: hPa, valInHg: inHgVal, st: s };
             }
         });
 
@@ -4234,15 +4522,31 @@
 
         // High Pressure
         if (stats.maxPres.st) {
+            // Apply Toggle Logic
+            let pLabel = "";
+            if (useHpa) {
+                pLabel = `${Math.round(stats.maxPres.val)} <span class="text-lg text-gray-500 font-normal">hPa</span>`;
+            } else {
+                // Force XX.XX format
+                pLabel = `${stats.maxPres.valInHg.toFixed(2)} <span class="text-lg text-gray-500 font-normal">inHg</span>`;
+            }
+
             html += createCard('🎈', 'Highest Pressure',
-                `${stats.maxPres.label}`,
+                pLabel,
                 stats.maxPres.st, 'border-purple-500');
         }
 
         // Low Pressure
         if (stats.minPres.st) {
+            let pLabel = "";
+            if (useHpa) {
+                pLabel = `${Math.round(stats.minPres.val)} <span class="text-lg text-gray-500 font-normal">hPa</span>`;
+            } else {
+                pLabel = `${stats.minPres.valInHg.toFixed(2)} <span class="text-lg text-gray-500 font-normal">inHg</span>`;
+            }
+
             html += createCard('🌪️', 'Lowest Pressure',
-                `${stats.minPres.label}`,
+                pLabel,
                 stats.minPres.st, 'border-teal-500');
         }
 
@@ -4450,6 +4754,15 @@
         const displayTemp = useCelsius ? `${finalTempC.toFixed(1)}°C` : `${tempF}°F`;
         const displayDew = useCelsius ? `${finalDewC.toFixed(1)}°C` : `${dewF}°F`;
 
+        // Pressure Format Logic
+        let displayPress = "";
+        if (useHpa) {
+            const pressHpa = finalPress * 33.8639;
+            displayPress = `${Math.round(pressHpa)} hPa`;
+        } else {
+            displayPress = `${finalPress.toFixed(2)}"`;
+        }
+
         // Calculate RH
         const satVP = 6.112 * Math.exp((17.67 * finalTempC) / (finalTempC + 243.5));
         const actVP = 6.112 * Math.exp((17.67 * finalDewC) / (finalDewC + 243.5));
@@ -4469,7 +4782,7 @@
                 </div>
                 <div class="bg-gray-50 dark:bg-gray-800 p-3 rounded-lg text-center">
                     <div class="text-xs text-gray-500 uppercase tracking-wide">Pressure</div>
-                    <div class="text-2xl font-bold text-gray-800 dark:text-gray-100">${finalPress.toFixed(2)}"</div>
+                    <div class="text-2xl font-bold text-gray-800 dark:text-gray-100">${displayPress}</div>
                 </div>
                 <div class="bg-gray-50 dark:bg-gray-800 p-3 rounded-lg text-center">
                     <div class="text-xs text-gray-500 uppercase tracking-wide">Humidity</div>
