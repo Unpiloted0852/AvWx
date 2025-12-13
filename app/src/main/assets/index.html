@@ -139,6 +139,24 @@
         .leaflet-container a.leaflet-popup-close-button:hover { color: #000; }
         .dark .leaflet-container a.leaflet-popup-close-button:hover { color: #fff; }
 
+        /* Minimize Leaflet Attribution (Bottom Right) */
+        .leaflet-control-attribution {
+            font-size: 7px !important;
+            padding: 0 2px !important;
+            margin: 0 !important;
+            background: rgba(255, 255, 255, 0.4) !important;
+            line-height: 1.1 !important;
+            color: #666 !important;
+        }
+        .dark .leaflet-control-attribution {
+            background: rgba(0, 0, 0, 0.4) !important;
+            color: #888 !important;
+        }
+        .leaflet-control-attribution a {
+            color: inherit !important;
+            text-decoration: none !important;
+        }
+
         /* Map container height */
         #weatherMap { height: 100%; width: 100%; z-index: 0; }
 
@@ -172,6 +190,13 @@
             position: absolute; top: 0; left: 0; right: 0;
             padding: 1rem; z-index: 1000; pointer-events: none;
             display: flex; justify-content: center;
+        }
+
+        .map-overlay-bottom {
+            position: absolute; bottom: 0; left: 0; right: 0;
+            padding: 1.5rem; z-index: 1000; pointer-events: none;
+            display: flex; justify-content: center;
+            padding-bottom: max(1.5rem, env(safe-area-inset-bottom));
         }
 
         /* Toggle Button Position in Embedded Mode */
@@ -731,14 +756,9 @@
                 <!-- Radar Timestamp Display -->
                 <div id="radarTimeDisplay">Radar Valid: --:--z</div>
 
-                <!-- Map Warnings Container (Freezing + Heatmap) -->
-                <div id="mapWarnings" class="absolute bottom-2 right-2 z-[1100] flex flex-col gap-1 items-end pointer-events-none max-w-[250px] text-right">
-                    <div id="freezingWarning" class="hidden bg-red-600/80 text-white px-2 py-1 rounded text-[9px] font-medium shadow-sm backdrop-blur-[1px]">
-                        Warning: Estimated freezing area is experimental
-                    </div>
-                    <div id="heatmapWarning" class="hidden bg-red-600/80 text-white px-2 py-1 rounded text-[9px] font-medium shadow-sm backdrop-blur-[1px]">
-                        Warning: Iso-lines are experimental interpolation
-                    </div>
+                <!-- Unified Map Warning (Tiny Bottom Right) -->
+                <div id="combinedWarning" class="hidden absolute bottom-0 right-0 z-[1100] px-1 py-0.5 bg-black/50 text-[8px] text-white/70 pointer-events-none select-none">
+                    Experimental Data
                 </div>
 
                 <!-- NEW: Crosshair for Selection Mode -->
@@ -825,7 +845,7 @@
                             Back to Report
                         </button>
                     </div>
-                    <!-- Legend Pill Removed per request -->
+                    <!-- Legend Pill Removed -->
                 </div>
             </div>
 
@@ -1633,12 +1653,23 @@
         });
     }
 
+    function updateMapWarnings() {
+        const warningEl = document.getElementById('combinedWarning');
+        const hasFreezing = !!freezingLayer;
+        const hasHeatmap = !!heatmapLayer;
+
+        if (hasFreezing || hasHeatmap) {
+            warningEl.classList.remove('hidden');
+        } else {
+            warningEl.classList.add('hidden');
+        }
+    }
+
     function toggleHeatmap() {
         const btn = document.getElementById('heatmapBtn');
         const legend = document.getElementById('heatmapLegend');
         const legendTitle = document.getElementById('legendTitle');
         const legendLabels = document.getElementById('legendLabels');
-        const warningEl = document.getElementById('heatmapWarning');
 
         if (!mapInstance) return;
 
@@ -1657,13 +1688,11 @@
             btn.classList.remove('bg-blue-100', 'text-blue-600', 'border-blue-500');
             btn.innerHTML = '🌡️';
             legend.style.display = 'none';
-            if(warningEl) warningEl.classList.add('hidden');
         }
         else if (heatmapMode === 1) {
             // TEMP (Iso-lines)
             btn.classList.add('bg-blue-100', 'text-blue-600');
             btn.innerHTML = '🔥';
-            if(warningEl) warningEl.classList.remove('hidden');
 
             // Setup Text Legend
             const unitStr = useCelsius ? '°C' : '°F';
@@ -1685,7 +1714,6 @@
         else if (heatmapMode === 2) {
             // PRESSURE (Iso-lines)
             btn.innerHTML = '🎈';
-            if(warningEl) warningEl.classList.remove('hidden');
 
             // Setup Text Legend
             const unitStr = useHpa ? 'hPa' : 'inHg';
@@ -1700,6 +1728,8 @@
             heatmapLayer = new L.WeatherIsoLayer({ mode: 'pressure' });
             mapInstance.addLayer(heatmapLayer);
         }
+
+        updateMapWarnings();
     }
 
 
@@ -1990,7 +2020,6 @@
 
     function toggleFreezingLayer() {
         const btn = document.getElementById('freezingBtn');
-        const warningEl = document.getElementById('freezingWarning'); // NEW
 
         if (!mapInstance) return;
 
@@ -1999,7 +2028,6 @@
             mapInstance.removeLayer(freezingLayer);
             freezingLayer = null;
             btn.classList.remove('freezing-active');
-            warningEl.classList.add('hidden'); // Hide Warning
         } else {
             // Turn On
             // Show loading state briefly
@@ -2012,10 +2040,10 @@
                     mapInstance.addLayer(freezingLayer);
                     btn.classList.add('freezing-active');
                     btn.innerHTML = '🧊';
-                    warningEl.classList.remove('hidden'); // Show Warning
                 }
             }, 50);
         }
+        updateMapWarnings();
     }
 
     // --- USER LOCATION MARKER HELPER ---
@@ -4813,6 +4841,18 @@
 
     function closeInterpolationModal() {
         interpolationModal.classList.add('hidden');
+    }
+
+    function updateMapWarnings() {
+        const warningEl = document.getElementById('combinedWarning');
+        const hasFreezing = !!freezingLayer;
+        const hasHeatmap = !!heatmapLayer;
+
+        if (hasFreezing || hasHeatmap) {
+            warningEl.classList.remove('hidden');
+        } else {
+            warningEl.classList.add('hidden');
+        }
     }
 </script>
 </body>
