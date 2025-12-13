@@ -193,6 +193,12 @@
             z-index: 1000;
         }
 
+        /* Freezing Level Button Position */
+        .freezing-trigger {
+            position: absolute; bottom: 4rem; left: 1rem;
+            z-index: 1000;
+        }
+
         /* GPS Button Position */
         .gps-trigger {
             position: absolute; top: 4rem; right: 1rem;
@@ -201,7 +207,7 @@
 
         /* Experimental Guess Button Position */
         .guess-trigger {
-            position: absolute; bottom: 4rem; left: 1rem;
+            position: absolute; bottom: 7rem; left: 1rem; /* Moved up above freezing button */
             z-index: 1000;
         }
 
@@ -221,6 +227,12 @@
         /* Radar Active State */
         .radar-active {
             background-color: #3b82f6 !important;
+            color: white !important;
+        }
+
+        /* Freezing Active State */
+        .freezing-active {
+            background-color: #06b6d4 !important; /* Cyan-500 */
             color: white !important;
         }
 
@@ -678,6 +690,13 @@
                 <!-- Radar Timestamp Display -->
                 <div id="radarTimeDisplay">Radar Valid: --:--z</div>
 
+                <!-- Freezing Level Warning -->
+                <div id="freezingWarning" class="hidden absolute bottom-0 right-0 z-[1100] p-1 pointer-events-none">
+                    <div class="bg-red-600/75 hover:bg-red-600/90 text-white px-2 py-1 rounded text-[9px] font-medium shadow-sm backdrop-blur-[1px] transition-colors">
+                        Warning: Estimated freezing area is experimental and could be wrong
+                    </div>
+                </div>
+
                 <!-- NEW: Crosshair for Selection Mode -->
                 <div id="mapCrosshair" class="hidden absolute inset-0 z-[2000] pointer-events-none flex items-center justify-center">
                     <svg class="w-12 h-12 text-black dark:text-white drop-shadow-lg opacity-80" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
@@ -723,6 +742,12 @@
                     🔮
                 </button>
 
+                <!-- NEW: Freezing Level Toggle Button -->
+                <button id="freezingBtn" onclick="toggleFreezingLayer()"
+                        class="freezing-trigger p-2 bg-white dark:bg-gray-800 rounded-lg shadow-md hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors text-gray-700 dark:text-gray-200 flex items-center justify-center w-10 h-10 text-xl" aria-label="Toggle Freezing Line" title="Toggle Freezing Level (0°C)">
+                    🧊
+                </button>
+
                 <!-- Radar Toggle Button -->
                 <button id="radarToggleBtn" onclick="toggleRadar()"
                         class="radar-trigger p-2 bg-white dark:bg-gray-800 rounded-lg shadow-md hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors text-gray-700 dark:text-gray-200" aria-label="Toggle Radar">
@@ -765,7 +790,7 @@
 
 <script>
     // --- APP CONFIG ---
-    const CURRENT_VERSION = 'v2.4.3'; // Incremented Version
+    const CURRENT_VERSION = 'v2.4.4'; // Incremented Version
     const GITHUB_REPO = 'Unpiloted0852/AvWx';
 
     // Global Data Storage for Modal Access
@@ -791,6 +816,7 @@
     let mapInstance = null;
     let markerLayerGroup = null;
     let labelLayerGroup = null; // Optimized layer for text
+    let freezingLayer = null; // New Freezing Level Layer
     let mapRenderer = null;
     // We create separate renderers for the route pane and marker pane to solve click issues
     let routeRenderer = null;
@@ -1295,6 +1321,155 @@
         mapInstance.on('zoomend', updateMapLabels);
         mapInstance.on('moveend', updateMapLabels);
 
+        // --- FREEZING LAYER CLASS DEFINTION (Inside initMap scope to ensure L is ready) ---
+        if (typeof L.FreezingLayer === 'undefined') {
+            L.FreezingLayer = L.Layer.extend({
+                onAdd: function(map) {
+                    this._map = map;
+                    this._canvas = L.DomUtil.create('canvas', 'leaflet-freezing-layer');
+                    this._canvas.style.pointerEvents = 'none';
+                    this._canvas.style.zIndex = 300; // Above Radar(250), Below Routes(400)
+                    map.getPanes().overlayPane.appendChild(this._canvas);
+
+                    // Trigger draw on move/zoom
+                    map.on('moveend', this._update, this);
+                    map.on('zoomend', this._update, this); // Re-calc on zoom
+
+                    this._update();
+                },
+
+                onRemove: function(map) {
+                    map.getPanes().overlayPane.removeChild(this._canvas);
+                    map.off('moveend', this._update, this);
+                    map.off('zoomend', this._update, this);
+                },
+
+                _update: function() {
+                    if (!this._map) return;
+
+                    const map = this._map;
+                    const size = map.getSize();
+                    const canvas = this._canvas;
+
+                    // Resize canvas to match map size (css pixels)
+                    canvas.width = size.x;
+                    canvas.height = size.y;
+
+                    // Standard approach:
+                    const bounds = map.getBounds();
+                    const topLeft = map.latLngToLayerPoint(bounds.getNorthWest());
+                    L.DomUtil.setPosition(canvas, topLeft);
+
+                    this._draw();
+                },
+
+                _draw: function() {
+                    const ctx = this._canvas.getContext('2d');
+                    const width = this._canvas.width;
+                    const height = this._canvas.height;
+                    const map = this._map;
+
+                    ctx.clearRect(0, 0, width, height);
+
+                    if (!currentStationsData || currentStationsData.length === 0) return;
+
+                    // 1. Filter stations to visible area + LARGE buffer (matching Point Tool range)
+                    // 15 degrees is roughly 900NM, effectively covering the same "Gap Bridging" logic.
+                    const bounds = map.getBounds();
+                    const pad = 15.0;
+                    const south = bounds.getSouth() - pad;
+                    const north = bounds.getNorth() + pad;
+                    const west = bounds.getWest() - pad;
+                    const east = bounds.getEast() + pad;
+
+                    const relevantStations = currentStationsData.filter(s =>
+                        s.latitude !== null && s.longitude !== null &&
+                        s.latitude >= south && s.latitude <= north &&
+                        s.longitude >= west && s.longitude <= east &&
+                        s.metar && s.metar.rawTempC !== null && !isNaN(s.metar.rawTempC)
+                    );
+
+                    if (relevantStations.length < 5) return;
+
+                    // 2. Define Grid Resolution (Pixels)
+                    const RES = 15;
+                    const cols = Math.ceil(width / RES);
+                    const rows = Math.ceil(height / RES);
+
+                    // Pre-calculate data needed for loop
+                    const stationData = relevantStations.map(s => ({
+                        lat: s.latitude,
+                        lon: s.longitude,
+                        temp: s.metar.rawTempC
+                    }));
+
+                    // Prepare Style
+                    ctx.fillStyle = 'rgba(6, 182, 212, 0.25)'; // Cyan-500, transparent
+
+                    // Optimization Variables
+                    const P = 2; // Power for IDW
+                    const NEIGHBOR_COUNT = 5; // Must match "Estimated Weather" tool logic
+
+                    for (let y = 0; y < rows; y++) {
+                        for (let x = 0; x < cols; x++) {
+                            const px = x * RES;
+                            const py = y * RES;
+
+                            // Get Lat/Lon of this grid center
+                            const ll = map.containerPointToLatLng(L.point(px + RES/2, py + RES/2));
+
+                            // Optimization: Cosine correction factor for this latitude (approximate for local area)
+                            const cosLat = Math.cos(ll.lat * Math.PI / 180);
+
+                            // 1. Find Nearest 5 Neighbors
+                            // We can't sort the whole array every pixel (too slow).
+                            // We do a single pass to maintain a sorted "Top 5" list.
+                            let closest = [];
+
+                            for (let i = 0; i < stationData.length; i++) {
+                                const s = stationData[i];
+                                const dLat = s.lat - ll.lat;
+                                const dLon = (s.lon - ll.lng) * cosLat; // Simple Flat Earth approx is fine for sorting nearby
+                                const distSq = dLat*dLat + dLon*dLon;
+
+                                // Insert into sorted closest array (capped at 5)
+                                if (closest.length < NEIGHBOR_COUNT) {
+                                    closest.push({ distSq: distSq, temp: s.temp });
+                                    // Keep sorted (descending) so we can pop largest easily?
+                                    // Actually better to sort ascending, check last.
+                                    closest.sort((a,b) => a.distSq - b.distSq);
+                                } else if (distSq < closest[NEIGHBOR_COUNT-1].distSq) {
+                                    // Replace last
+                                    closest[NEIGHBOR_COUNT-1] = { distSq: distSq, temp: s.temp };
+                                    closest.sort((a,b) => a.distSq - b.distSq);
+                                }
+                            }
+
+                            // 2. Perform IDW on the chosen 5
+                            let sumWeights = 0;
+                            let weightedTemp = 0;
+
+                            for(let i=0; i<closest.length; i++) {
+                                // Weight = 1 / dist^2 (which is 1/distSq)
+                                // Add tiny epsilon to avoid div/0
+                                const w = 1 / (closest[i].distSq + 0.000001);
+                                weightedTemp += closest[i].temp * w;
+                                sumWeights += w;
+                            }
+
+                            if (sumWeights > 0) {
+                                const estimatedTemp = weightedTemp / sumWeights;
+                                // Threshold for "Freezing"
+                                if (estimatedTemp < 0) {
+                                    ctx.fillRect(px, py, RES, RES);
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
         // --- DEFAULT RADAR ON ---
         if (!radarLayer && !radarRefreshInterval) {
             toggleRadar();
@@ -1369,6 +1544,36 @@
 
             // Set Auto-Refresh (every 5 minutes)
             radarRefreshInterval = setInterval(updateRadarLayer, 300000);
+        }
+    }
+
+    function toggleFreezingLayer() {
+        const btn = document.getElementById('freezingBtn');
+        const warningEl = document.getElementById('freezingWarning'); // NEW
+
+        if (!mapInstance) return;
+
+        if (freezingLayer) {
+            // Turn Off
+            mapInstance.removeLayer(freezingLayer);
+            freezingLayer = null;
+            btn.classList.remove('freezing-active');
+            warningEl.classList.add('hidden'); // Hide Warning
+        } else {
+            // Turn On
+            // Show loading state briefly
+            btn.innerHTML = `<svg class="animate-spin h-5 w-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>`;
+
+            // Allow UI to update before running heavy calc
+            setTimeout(() => {
+                if(typeof L.FreezingLayer !== 'undefined') {
+                    freezingLayer = new L.FreezingLayer();
+                    mapInstance.addLayer(freezingLayer);
+                    btn.classList.add('freezing-active');
+                    btn.innerHTML = '🧊';
+                    warningEl.classList.remove('hidden'); // Show Warning
+                }
+            }, 50);
         }
     }
 
@@ -3903,15 +4108,26 @@
     // --- ESTIMATED / GUESS WEATHER FEATURE ---
 
     function triggerGuessWx() {
-        if (!navigator.geolocation) {
-            alert("GPS is required for this feature.");
-            return;
-        }
-
         const btn = document.getElementById('guessWxBtn');
         const originalContent = btn.innerHTML;
+
+        // UI Loading State
         btn.innerHTML = `<svg class="animate-spin h-5 w-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>`;
         btn.disabled = true;
+
+        // Fallback function for when GPS is denied or unavailable
+        const fallbackToMap = () => {
+            btn.innerHTML = originalContent;
+            btn.disabled = false;
+            // Brief alert to inform user (optional but helpful)
+            // alert("GPS unavailable. Use the crosshairs to select a location.");
+            enterLocationSelectionMode();
+        };
+
+        if (!navigator.geolocation) {
+            fallbackToMap();
+            return;
+        }
 
         navigator.geolocation.getCurrentPosition(
             (position) => {
@@ -3922,10 +4138,11 @@
                 btn.disabled = false;
             },
             (err) => {
-                alert("GPS Error: " + err.message);
-                btn.innerHTML = originalContent;
-                btn.disabled = false;
-            }
+                // If denied or error, fallback gracefully
+                console.warn("GPS Access Denied or Failed", err);
+                fallbackToMap();
+            },
+            { timeout: 5000, maximumAge: 60000 } // Add timeout to prevent hanging
         );
     }
 
@@ -3962,10 +4179,12 @@
             return;
         }
 
-        // 1. Find nearest neighbors (within 150 NM)
+        // --- UPDATED LOGIC TO MATCH MAP ---
+        // 1. Find ALL potential candidates within a very large radius (900NM/15 deg)
+        // This is the "Gap Bridging" logic.
         const neighbors = [];
-        const MAX_DIST = 150;
-        const NEIGHBOR_COUNT = 5;
+        const MAX_DIST = 900; // Increased to match Map
+        const NEIGHBOR_COUNT = 5; // Must match Map
 
         currentStationsData.forEach(st => {
             if (st.latitude !== null && st.longitude !== null && st.metar) {
@@ -3976,16 +4195,16 @@
             }
         });
 
+        // 2. Sort by distance and pick the TOP 5
         neighbors.sort((a, b) => a.dist - b.dist);
         const closest = neighbors.slice(0, NEIGHBOR_COUNT);
 
         if (closest.length === 0) {
-            alert("No stations found within 150NM to interpolate from.");
+            alert("No stations found within 900NM to interpolate from.");
             return;
         }
 
-        // 2. Inverse Distance Weighting (IDW)
-        // Power parameter (p). Higher p gives more weight to closer points.
+        // 3. Inverse Distance Weighting (IDW) P=2
         const P = 2;
 
         // Weighted Sum Helpers
@@ -4000,8 +4219,10 @@
         let sumWindWeights = 0;
 
         closest.forEach(s => {
-            // IDW Weight (prevent division by zero if on top of station)
-            const w = 1 / Math.pow(Math.max(s.dist, 0.1), P);
+            // IDW Weight
+            // Avoid division by zero
+            const dist = Math.max(s.dist, 0.01);
+            const w = 1 / Math.pow(dist, P);
             sumWeights += w;
 
             // Temp
@@ -4020,8 +4241,6 @@
             }
 
             // Wind (Speed & Dir must exist and not be VRB)
-            // VRB is hard to math, so we skip directional calc for VRB but keep speed if possible?
-            // Simplified: Only include if valid direction
             if (s.metar.windSpeed !== null && s.metar.windDir !== null && !isNaN(s.metar.windDir)) {
                 // Convert to Radians
                 const rad = toRad(s.metar.windDir);
@@ -4034,7 +4253,7 @@
             }
         });
 
-        // 3. Calculate Results
+        // 4. Calculate Results
         const finalTempC = weightedTemp / sumWeights;
         const finalDewC = weightedDew / sumWeights;
         const finalPress = weightedPressure / sumWeights;
@@ -4048,14 +4267,12 @@
             finalSpeed = Math.sqrt(u*u + v*v);
 
             // Atan2 returns -PI to PI. Convert to 0-360 degrees.
-            // Meteorology: Wind flows FROM. Math vectors flow TO.
-            // We inverted u/v earlier, so atan2 should give us direction FROM.
             let angle = Math.atan2(-u, -v) * (180 / Math.PI);
             if (angle < 0) angle += 360;
             finalDir = angle;
         }
 
-        // 4. Format Output
+        // 5. Format Output
         const tempF = Math.round(finalTempC * 9/5 + 32);
         const dewF = Math.round(finalDewC * 9/5 + 32);
         const displayTemp = useCelsius ? `${finalTempC.toFixed(1)}°C` : `${tempF}°F`;
