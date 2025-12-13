@@ -99,15 +99,15 @@
             flex-shrink: 0;
         }
 
-        /* Weather Colors */
+        /* Weather Colors - Updated MVFR to #2563eb */
         .vfr-dot { background-color: rgb(0, 170, 0); }
-        .mvfr-dot { background-color: rgb(0, 50, 160); }
+        .mvfr-dot { background-color: #2563eb; }
         .ifr-dot { background-color: rgb(200, 0, 0); }
         .lifr-dot { background-color: rgb(255, 20, 147); }
 
         /* Advanced Tab Tiles */
         .vfr-tile { background-color: rgb(0, 170, 0); }
-        .mvfr-tile { background-color: rgb(0, 50, 160); }
+        .mvfr-tile { background-color: #2563eb; }
         .ifr-tile { background-color: rgb(200, 0, 0); }
         .lifr-tile { background-color: rgb(255, 20, 147); }
         .nodata-tile { background-color: rgb(150, 150, 150); }
@@ -192,7 +192,7 @@
             position: absolute; bottom: 1rem; left: 1rem;
             z-index: 1000;
         }
-        
+
         /* GPS Button Position */
         .gps-trigger {
             position: absolute; top: 4rem; right: 1rem;
@@ -252,7 +252,7 @@
 
         /* Label Colors matching dots */
         .label-vfr { color: rgb(0, 170, 0); }
-        .label-mvfr { color: rgb(0, 50, 160); }
+        .label-mvfr { color: #2563eb; }
         .label-ifr { color: rgb(200, 0, 0); }
         .label-lifr { color: rgb(255, 20, 147); }
         .label-nodata { color: rgb(150, 150, 150); }
@@ -326,6 +326,29 @@
             animation: pulse-blue 2s infinite;
         }
 
+        /* Refresh Indicator styling */
+        #refreshIndicator {
+            position: fixed;
+            top: -50px;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 9000;
+            background: white;
+            padding: 8px 16px;
+            border-radius: 20px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            font-weight: bold;
+            color: #2563eb;
+            transition: top 0.3s ease;
+        }
+        #refreshIndicator.active {
+            top: 20px;
+        }
+        .dark #refreshIndicator {
+            background: #1f2937;
+            color: #60a5fa;
+        }
+
         /* -------------------------- */
 
         /* Tailwind utilities (Simulated) */
@@ -349,6 +372,9 @@
 </head>
 
 <body class="bg-gray-100 dark:bg-black text-gray-900 dark:text-gray-100 min-h-full antialiased transition-colors duration-300 overflow-x-hidden">
+
+<!-- Refresh Indicator -->
+<div id="refreshIndicator">Refreshing...</div>
 
 <!-- Update Banner -->
 <div id="updateBanner" class="hidden fixed top-0 left-0 right-0 z-[110] p-4 bg-blue-600 text-white shadow-xl">
@@ -555,7 +581,7 @@
             <div class="mt-6 text-center">
                 <button id="generateButton"
                         class="w-full md:w-auto bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-12 rounded-lg shadow-lg transform transition-transform hover:scale-[1.02] focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 dark:focus:ring-offset-gray-900 touch-manipulation">
-                    Generate Report
+                    Go!
                 </button>
             </div>
         </div>
@@ -572,11 +598,11 @@
             <div class="flex p-1 space-x-1 bg-gray-200 dark:bg-gray-900 rounded-xl overflow-x-auto flex-grow sm:flex-grow-0 sm:min-w-[300px] min-w-[200px] w-full sm:w-auto">
                 <button id="tabMap"
                         class="tab-button flex-1 py-2.5 px-2 text-sm font-medium leading-5 rounded-lg text-center transition-all duration-200 focus:outline-none bg-blue-600 text-white shadow touch-manipulation whitespace-nowrap">
-                    Map View
+                    Map
                 </button>
                 <button id="tabStandard"
                         class="tab-button flex-1 py-2.5 px-2 text-sm font-medium leading-5 rounded-lg text-center transition-all duration-200 focus:outline-none text-gray-700 dark:text-gray-400 hover:bg-gray-300 dark:hover:bg-gray-800 touch-manipulation whitespace-nowrap">
-                    List Report
+                    List
                 </button>
                 <button id="tabRouteAnalysis"
                         class="tab-button flex-1 py-2.5 px-2 text-sm font-medium leading-5 rounded-lg text-center transition-all duration-200 focus:outline-none text-gray-700 dark:text-gray-400 hover:bg-gray-300 dark:hover:bg-gray-800 hidden touch-manipulation whitespace-nowrap">
@@ -661,7 +687,7 @@
 
 <script>
     // --- APP CONFIG ---
-    const CURRENT_VERSION = 'v2.3.4'; // Incremented Version
+    const CURRENT_VERSION = 'v2.3.5'; // Incremented Version
     const GITHUB_REPO = 'Unpiloted0852/AvWx';
 
     // Global Data Storage for Modal Access
@@ -746,20 +772,48 @@
     const radarTimeDisplay = document.getElementById('radarTimeDisplay');
 
     // Attach scroll listener for Lazy Loading
-    // We target the direct parent of weatherListEl that handles the overflow
     const scrollContainer = resultsContainerEl.querySelector('.flex-grow');
     if (scrollContainer) {
         scrollContainer.addEventListener('scroll', () => {
-            // Only relevant if list tab is visible
             if (!weatherListEl.classList.contains('hidden')) {
                 const { scrollTop, scrollHeight, clientHeight } = scrollContainer;
-                // If close to bottom (within 300px), load more
                 if (scrollTop + clientHeight >= scrollHeight - 300) {
                     renderNextBatch();
                 }
             }
         });
     }
+
+    // --- PULL TO REFRESH LOGIC ---
+    let touchStartY = 0;
+    const refreshIndicator = document.getElementById('refreshIndicator');
+
+    document.addEventListener('touchstart', e => {
+        if (window.scrollY === 0) {
+            touchStartY = e.touches[0].clientY;
+        }
+    }, {passive: true});
+
+    document.addEventListener('touchend', e => {
+        const touchEndY = e.changedTouches[0].clientY;
+        // Trigger if pulled down > 150px and page is at top
+        if (window.scrollY === 0 && touchEndY - touchStartY > 150) {
+            refreshIndicator.classList.add('active');
+            refreshDataSilent(false).then(() => {
+                setTimeout(() => {
+                    refreshIndicator.classList.remove('active');
+                }, 1000);
+            });
+        }
+    }, {passive: true});
+
+    // --- ENTER KEY LISTENER ---
+    icaoInput.addEventListener("keydown", function(event) {
+        if (event.key === "Enter") {
+            event.preventDefault(); // Prevent default form submission if applicable
+            handleGenerateClick(event, false);
+        }
+    });
 
     // Unit State
     let useCelsius = false;
@@ -813,9 +867,10 @@
     let routeAnalysisEnabled = false;
 
     const CATEGORY_ORDER = { 'LIFR': 4, 'IFR': 3, 'MVFR': 2, 'VFR': 1, 'NODATA': 0 };
+    // UPDATED COLORS (MVFR IS NOW LIGHTER #2563eb = [37, 99, 235])
     const COLORS = {
         VFR: [0, 170, 0],
-        MVFR: [0, 50, 160],
+        MVFR: [37, 99, 235], // Updated
         IFR: [200, 0, 0],
         LIFR: [255, 20, 147],
         NODATA: [150, 150, 150]
@@ -1160,6 +1215,11 @@
         // Events for Optimized Label Rendering
         mapInstance.on('zoomend', updateMapLabels);
         mapInstance.on('moveend', updateMapLabels);
+
+        // --- DEFAULT RADAR ON ---
+        if (!radarLayer && !radarRefreshInterval) {
+            toggleRadar();
+        }
     }
 
     // --- RADAR LOGIC ---
@@ -1233,7 +1293,30 @@
         }
     }
 
-    // --- GPS / IP LOCATION LOGIC (SMART FALLBACK) ---
+    // --- USER LOCATION MARKER HELPER ---
+    function updateUserLocationMarker(lat, lon) {
+        if (!mapInstance) return;
+
+        // Remove old marker if exists
+        if (userLocationMarker) {
+            mapInstance.removeLayer(userLocationMarker);
+        }
+
+        // Create Blue Dot Marker using DivIcon with CSS animation
+        const userIcon = L.divIcon({
+            className: 'user-location-marker',
+            iconSize: [12, 12], // Reduced Size
+            iconAnchor: [6, 6]  // Adjusted anchor
+        });
+
+        userLocationMarker = L.marker([lat, lon], {
+            icon: userIcon,
+            pane: 'userLocationPane', // Uses our custom Z-Index pane (350)
+            interactive: false // Don't block clicks
+        }).addTo(mapInstance);
+    }
+
+    // --- GPS / IP LOCATION LOGIC (STRICT GPS ONLY) ---
     function centerOnGPS() {
         const btn = document.getElementById('gpsBtn');
         const originalText = btn.textContent;
@@ -1241,75 +1324,39 @@
         btn.disabled = true;
         btn.textContent = "...";
 
-        // Helper to fly to coords and place user marker
-        const flyTo = (lat, lon, msg) => {
-            if (mapInstance) {
-                // Remove old marker if exists
-                if (userLocationMarker) {
-                    mapInstance.removeLayer(userLocationMarker);
-                }
-
-                // Create Blue Dot Marker using DivIcon with CSS animation
-                const userIcon = L.divIcon({
-                    className: 'user-location-marker',
-                    iconSize: [12, 12], // Reduced Size
-                    iconAnchor: [6, 6]  // Adjusted anchor
-                });
-
-                userLocationMarker = L.marker([lat, lon], {
-                    icon: userIcon,
-                    pane: 'userLocationPane', // Uses our custom Z-Index pane (350)
-                    interactive: false // Don't block clicks
-                }).addTo(mapInstance);
-
-                mapInstance.flyTo([lat, lon], 10);
-
-                // Popup removed per request
-            }
+        // Primary: GPS (Navigator) - STRICTLY GPS
+        if (!navigator.geolocation) {
+            alert("GPS not supported by this browser.");
             btn.disabled = false;
             btn.textContent = originalText;
-        };
-
-        // Fallback: IP Geolocation (Works on file:// where GPS is blocked)
-        const tryIPLocation = () => {
-            console.log("Trying IP Location fallback...");
-            fetch('https://ipwho.is/') // Free IP geolocation API
-                .then(response => response.json())
-                .then(data => {
-                    if (data.success) {
-                        flyTo(data.latitude, data.longitude, "");
-                    } else {
-                        throw new Error("IP Lookup failed");
-                    }
-                })
-                .catch(err => {
-                    console.error(err);
-                    alert("Could not determine location via GPS or Network.");
-                    btn.disabled = false;
-                    btn.textContent = originalText;
-                });
-        };
-
-        // Primary: GPS (Navigator)
-        // This triggers the Android permission prompt via WebChromeClient
-        if (!navigator.geolocation) {
-            tryIPLocation();
             return;
         }
 
         navigator.geolocation.getCurrentPosition(
             (position) => {
-                flyTo(position.coords.latitude, position.coords.longitude, "");
+                const lat = position.coords.latitude;
+                const lon = position.coords.longitude;
+
+                // Show on map
+                updateUserLocationMarker(lat, lon);
+                if (mapInstance) {
+                    mapInstance.flyTo([lat, lon], 10);
+                }
+
+                btn.disabled = false;
+                btn.textContent = originalText;
             },
             (error) => {
-                console.warn("GPS failed/denied, falling back to IP.", error);
-                tryIPLocation();
+                console.warn("GPS failed/denied.", error);
+                alert("GPS Location Failed. Please ensure permissions are granted.");
+                btn.disabled = false;
+                btn.textContent = originalText;
             },
-            { enableHighAccuracy: true, timeout: 5000, maximumAge: 0 }
+            { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
         );
     }
 
-    // --- HOME BY GPS LOGIC ---
+    // --- HOME BY GPS LOGIC (STRICT GPS ONLY) ---
 
     // Helper function to handle input focus (auto clear -GPS-)
     function handleInputFocus(el) {
@@ -1332,57 +1379,54 @@
         btn.innerHTML = `<svg class="animate-spin h-5 w-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>`;
         btn.disabled = true;
 
-        // Callback for success
-        const onSuccess = (lat, lon) => {
-            gpsReferenceCoords = { lat: lat, lon: lon };
-
-            // Update UI text and style
-            input.value = "-GPS-";
-            input.classList.add('gps-active-input');
-
-            // Regenerate Report with new coordinates
-            handleGenerateClick(null, false);
-
-            // Restore button
-            btn.innerHTML = originalContent;
-            btn.disabled = false;
-        };
-
-        // Fallback: IP Geolocation (IDENTICAL LOGIC TO MAP BUTTON)
-        const tryIPLocation = () => {
-            console.log("Trying IP Location fallback for Home...");
-            fetch('https://ipwho.is/')
-                .then(response => response.json())
-                .then(data => {
-                    if (data.success) {
-                        onSuccess(data.latitude, data.longitude);
-                    } else {
-                        throw new Error("IP Lookup failed");
-                    }
-                })
-                .catch(err => {
-                    console.error(err);
-                    alert("Could not determine location via GPS or Network.");
-                    btn.innerHTML = originalContent;
-                    btn.disabled = false;
-                });
-        };
-
-        // Primary: GPS (Navigator) - Triggers Android Prompt
+        // Primary: GPS (Navigator) - STRICTLY GPS
         if (!navigator.geolocation) {
-            tryIPLocation();
-            return;
+             alert("GPS not supported.");
+             btn.innerHTML = originalContent;
+             btn.disabled = false;
+             return;
         }
 
         navigator.geolocation.getCurrentPosition(
             (position) => {
-                onSuccess(position.coords.latitude, position.coords.longitude);
+                const lat = position.coords.latitude;
+                const lon = position.coords.longitude;
+
+                // 1. Set Global Reference
+                gpsReferenceCoords = { lat: lat, lon: lon };
+
+                // 2. Update Input UI
+                input.value = "-GPS-";
+                input.classList.add('gps-active-input');
+
+                // 3. Ensure Map is Initialized (if this is first action)
+                if (!mapInstance) initMap();
+
+                // 4. Place "You are here" marker on map and fly there
+                updateUserLocationMarker(lat, lon);
+                if (mapInstance) {
+                     mapInstance.flyTo([lat, lon], 10);
+                }
+
+                // 5. Regenerate Report with new coordinates
+                handleGenerateClick(null, false);
+
+                // 6. Restore button
+                btn.innerHTML = originalContent;
+                btn.disabled = false;
+
+                // 7. Ensure Map View is Visible (Scroll to it)
+                setTimeout(() => {
+                    resultsContainerEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                }, 100);
             },
             (error) => {
-                console.warn("GPS failed/denied, falling back to IP.", error);
-                tryIPLocation();
+                console.warn("GPS failed/denied.", error);
+                alert("GPS Location Failed. Please ensure permissions are granted.");
+                btn.innerHTML = originalContent;
+                btn.disabled = false;
             },
-            { enableHighAccuracy: true, timeout: 5000, maximumAge: 0 }
+            { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
         );
     }
 
@@ -1551,7 +1595,7 @@
             const homeCoords = getCoordsForICAO(homeInput, cachedStationMap);
             if (homeCoords && homeCoords.lat !== null) {
                  L.circleMarker([homeCoords.lat, homeCoords.lon], {
-                    pane: 'routePane', 
+                    pane: 'routePane',
                     renderer: routeRenderer,
                     radius: 12,
                     fill: false,
@@ -1873,17 +1917,29 @@
     function toggleAdvancedPanel() {
         const isHidden = advancedInputsEl.classList.contains('hidden');
         if (isHidden) {
+            // ENABLE MODE
             advancedInputsEl.classList.remove('hidden');
+
+            // Change Button Style to "Ghost/Outline" to signify Disable
             toggleAdvancedButton.textContent = 'Disable Alternate Planning';
-            toggleAdvancedButton.classList.remove('bg-yellow-500', 'hover:bg-yellow-600');
-            toggleAdvancedButton.classList.add('bg-gray-500', 'hover:bg-gray-600');
+            // Remove the solid yellow
+            toggleAdvancedButton.classList.remove('bg-yellow-500', 'hover:bg-yellow-600', 'text-white');
+            // Add the outline style
+            toggleAdvancedButton.classList.add('bg-transparent', 'border-2', 'border-yellow-500', 'text-yellow-600', 'hover:bg-yellow-50', 'dark:text-yellow-400', 'dark:hover:bg-gray-900');
+
             routeAnalysisEnabled = true;
             nodataLegendEl.style.display = 'flex';
         } else {
+            // DISABLE MODE
             advancedInputsEl.classList.add('hidden');
+
+            // Change Button Style back to Solid Yellow
             toggleAdvancedButton.textContent = 'Enable Alternate Planning';
-            toggleAdvancedButton.classList.add('bg-yellow-500', 'hover:bg-yellow-600');
-            toggleAdvancedButton.classList.remove('bg-gray-500', 'hover:bg-gray-600');
+            // Remove outline style
+            toggleAdvancedButton.classList.remove('bg-transparent', 'border-2', 'border-yellow-500', 'text-yellow-600', 'hover:bg-yellow-50', 'dark:text-yellow-400', 'dark:hover:bg-gray-900');
+            // Add solid yellow
+            toggleAdvancedButton.classList.add('bg-yellow-500', 'hover:bg-yellow-600', 'text-white');
+
             routeAnalysisEnabled = false;
             tabRouteAnalysis.classList.add('hidden');
             nodataLegendEl.style.display = 'none';
@@ -2578,7 +2634,7 @@
 
         // AUTO-SORT LOGIC REPLACEMENT
         // Priority: GPS -> Home -> Dep -> Dest -> Null
-        
+
         let refLat = null, refLon = null, refName = null;
 
         if (customRefCoords) {
@@ -2780,7 +2836,7 @@
             if (data.distanceNM !== null) infoTextParts.push(`${data.distanceNM.toFixed(0)} NM`);
             const dotClassToBorderColor = {
                 'vfr-dot': 'border-green-500',
-                'mvfr-dot': 'border-blue-500',
+                'mvfr-dot': 'border-blue-600', // UPDATED to match new lighter MVFR
                 'ifr-dot': 'border-red-500',
                 'lifr-dot': 'border-pink-500'
             };
@@ -3049,7 +3105,7 @@
             showStatus(`Error: ${error.message}`, true, "Check console for details.");
         } finally {
             generateButton.disabled = false;
-            generateButton.textContent = "Generate Report";
+            generateButton.textContent = "Go!"; // Updated Text
             generateButton.classList.remove('opacity-50', 'cursor-not-allowed');
         }
     }
