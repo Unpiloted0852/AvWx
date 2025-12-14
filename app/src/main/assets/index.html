@@ -192,48 +192,83 @@
             display: flex; justify-content: center;
         }
 
-        .map-overlay-bottom {
-            position: absolute; bottom: 0; left: 0; right: 0;
-            padding: 1.5rem; z-index: 1000; pointer-events: none;
-            display: flex; justify-content: center;
-            padding-bottom: max(1.5rem, env(safe-area-inset-bottom));
-        }
-
         /* Toggle Button Position in Embedded Mode */
         .fullscreen-trigger {
             position: absolute; top: 1rem; right: 1rem;
             z-index: 1000;
         }
 
-        /* Radar Button Position */
-        .radar-trigger {
-            position: absolute; bottom: 1rem; left: 1rem;
-            z-index: 1000;
-        }
-
-        /* Freezing Level Button Position */
-        .freezing-trigger {
-            position: absolute; bottom: 4rem; left: 1rem;
-            z-index: 1000;
-        }
-
-        /* GPS Button Position */
+        /* GPS Button Position (Moved to top right) */
         .gps-trigger {
             position: absolute; top: 4rem; right: 1rem;
             z-index: 1000;
         }
 
-        /* Experimental Guess Button Position (Moved up) */
-        .guess-trigger {
-            position: absolute; bottom: 10rem; left: 1rem;
+        /* LAYER MENU STYLES */
+        .layer-btn {
+            width: 44px;
+            height: 44px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 12px;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+            transition: all 0.2s ease-in-out;
+            cursor: pointer;
+            pointer-events: auto;
+            position: relative; /* For tooltip or labels */
+        }
+        .layer-btn:active { transform: scale(0.95); }
+
+        /* Layer Label (slides out on hover/focus - optional, currently keeping clean with just icons) */
+
+        .layer-menu-container {
+            position: absolute;
+            bottom: 2rem;
+            left: 1rem;
             z-index: 1000;
+            display: flex;
+            flex-direction: column-reverse; /* Main button at bottom, menu expands up */
+            gap: 12px;
+            align-items: flex-start;
         }
 
-        /* Heatmap Button Position (Below Guess, Above Freezing) */
-        .heatmap-trigger {
-            position: absolute; bottom: 7rem; left: 1rem;
-            z-index: 1000;
+        .layer-items {
+            display: flex;
+            flex-direction: column-reverse;
+            gap: 10px;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            opacity: 0;
+            transform: translateY(20px) scale(0.9);
+            pointer-events: none;
+            margin-bottom: 4px;
         }
+
+        .layer-menu-open .layer-items {
+            opacity: 1;
+            transform: translateY(0) scale(1);
+            pointer-events: auto;
+        }
+
+        /* Rotation for main menu button when open */
+        .menu-toggle-icon { transition: transform 0.3s ease; }
+        .layer-menu-open .menu-toggle-icon { transform: rotate(45deg); }
+
+        /* Active Indicator Dot on Main Button */
+        .active-indicator {
+            position: absolute;
+            top: -2px;
+            right: -2px;
+            width: 10px;
+            height: 10px;
+            background-color: #22c55e; /* Green */
+            border-radius: 50%;
+            border: 2px solid white;
+            display: none;
+        }
+        .dark .active-indicator { border-color: #1f2937; }
+        .has-active-layers .active-indicator { display: block; }
+
 
         /* Heatmap Legend */
         #heatmapLegend {
@@ -293,6 +328,12 @@
             color: white !important;
         }
 
+        /* PIREP Active State */
+        .pirep-active {
+            background-color: #f59e0b !important; /* Amber-500 */
+            color: white !important;
+        }
+
         /* GPS Status Text Style */
         .gps-active-input {
             color: #059669 !important; /* Emerald 600 */
@@ -310,6 +351,16 @@
         .leaflet-div-icon {
             background: transparent;
             border: none;
+        }
+
+        /* Custom PIREP Icon Container */
+        .pirep-icon {
+            /* Handled by Leaflet divIcon, essentially a wrapper for the SVG */
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer !important;
+            pointer-events: auto !important;
         }
 
         .map-icao-label {
@@ -761,6 +812,11 @@
                     Experimental Data
                 </div>
 
+                <!-- NEW: PIREP Attribution Label (Centered Bottom) -->
+                <div id="pirepAttribution" class="hidden absolute bottom-1 left-1/2 transform -translate-x-1/2 z-[1000] px-2 py-1 bg-white/75 dark:bg-black/75 backdrop-blur-sm rounded text-[9px] text-gray-700 dark:text-gray-300 pointer-events-none border border-gray-200 dark:border-gray-700 shadow-sm whitespace-nowrap">
+                    PIREPS/AIREPS provided by NWS Aviation Weather Center
+                </div>
+
                 <!-- NEW: Crosshair for Selection Mode -->
                 <div id="mapCrosshair" class="hidden absolute inset-0 z-[2000] pointer-events-none flex items-center justify-center">
                     <svg class="w-12 h-12 text-black dark:text-white drop-shadow-lg opacity-80" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
@@ -794,38 +850,56 @@
                     </svg>
                 </button>
 
-                <!-- GPS Button (With Smart Fallback) -->
+                <!-- GPS Button (Moved to Top Right) -->
                 <button id="gpsBtn" onclick="centerOnGPS()"
                         class="gps-trigger p-2 bg-white dark:bg-gray-800 rounded-lg shadow-md hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors text-gray-700 dark:text-gray-200 font-bold text-xs font-mono w-10 h-10 flex items-center justify-center" aria-label="Locate Me">
                     GPS
                 </button>
 
-                <!-- NEW: Experimental Interpolation Button -->
-                <button id="guessWxBtn" onclick="triggerGuessWx()"
-                        class="guess-trigger p-2 bg-purple-600 hover:bg-purple-700 rounded-lg shadow-md transition-colors text-white font-bold text-lg w-10 h-10 flex items-center justify-center" aria-label="Estimated Weather" title="Estimate Conditions at Location">
-                    🔮
-                </button>
+                <!-- LAYER MENU (FAB STYLE) -->
+                <div class="layer-menu-container">
 
-                <!-- NEW: Heatmap Toggle Button -->
-                <button id="heatmapBtn" onclick="toggleHeatmap()"
-                        class="heatmap-trigger p-2 bg-white dark:bg-gray-800 rounded-lg shadow-md hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors text-gray-700 dark:text-gray-200 flex items-center justify-center w-10 h-10 text-lg" aria-label="Toggle Weather Heatmap" title="Toggle Temp/Pressure Heatmap">
-                    🌡️
-                </button>
+                    <!-- Expanded Items -->
+                    <div id="layerMenuItems" class="layer-items">
 
-                <!-- NEW: Freezing Level Toggle Button -->
-                <button id="freezingBtn" onclick="toggleFreezingLayer()"
-                        class="freezing-trigger p-2 bg-white dark:bg-gray-800 rounded-lg shadow-md hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors text-gray-700 dark:text-gray-200 flex items-center justify-center w-10 h-10 text-xl" aria-label="Toggle Freezing Line" title="Toggle Freezing Level (0°C)">
-                    🧊
-                </button>
+                        <!-- Radar -->
+                        <button id="radarToggleBtn" onclick="toggleRadar()" class="layer-btn bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700" aria-label="Toggle Radar" title="Radar">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 16a8 8 0 11-16 0c0-4.135 3.5-7.5 8-14 4.5 6.5 8 9.865 8 14z" />
+                            </svg>
+                        </button>
 
-                <!-- Radar Toggle Button -->
-                <button id="radarToggleBtn" onclick="toggleRadar()"
-                        class="radar-trigger p-2 bg-white dark:bg-gray-800 rounded-lg shadow-md hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors text-gray-700 dark:text-gray-200" aria-label="Toggle Radar">
-                    <!-- Rain Droplet Icon -->
-                    <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 16a8 8 0 11-16 0c0-4.135 3.5-7.5 8-14 4.5 6.5 8 9.865 8 14z" />
-                    </svg>
-                </button>
+                        <!-- Freezing Level -->
+                        <button id="freezingBtn" onclick="toggleFreezingLayer()" class="layer-btn bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 text-xl flex items-center justify-center" aria-label="Toggle Freezing Line" title="Freezing Level">
+                            🧊
+                        </button>
+
+                        <!-- Heatmap -->
+                        <button id="heatmapBtn" onclick="toggleHeatmap()" class="layer-btn bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 text-lg flex items-center justify-center" aria-label="Toggle Heatmap" title="Heatmap">
+                            🌡️
+                        </button>
+
+                        <!-- PIREP -->
+                        <button id="pirepBtn" onclick="togglePireps()" class="layer-btn bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 text-xl flex items-center justify-center" aria-label="Toggle PIREPs" title="PIREPs">
+                            ✈️
+                        </button>
+
+                        <!-- Guess Weather -->
+                        <button id="guessWxBtn" onclick="triggerGuessWx()" class="layer-btn bg-purple-600 hover:bg-purple-700 text-white text-lg flex items-center justify-center" aria-label="Estimated Weather" title="Guess Weather">
+                            🔮
+                        </button>
+
+                    </div>
+
+                    <!-- Main Toggle Button -->
+                    <button id="mainLayerToggle" onclick="toggleLayerMenu()" class="layer-btn bg-blue-600 hover:bg-blue-700 text-white z-50">
+                        <span class="active-indicator"></span>
+                        <svg id="menuIcon" class="menu-toggle-icon h-6 w-6" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16" />
+                        </svg>
+                    </button>
+
+                </div>
 
                 <!-- NEW: Heatmap Legend -->
                 <div id="heatmapLegend">
@@ -860,7 +934,7 @@
 
 <script>
     // --- APP CONFIG ---
-    const CURRENT_VERSION = 'v2.4.6'; // Incremented Version
+    const CURRENT_VERSION = 'v2.4.7'; // Incremented Version
     const GITHUB_REPO = 'Unpiloted0852/AvWx';
 
     // Global Data Storage for Modal Access
@@ -887,6 +961,7 @@
     let markerLayerGroup = null;
     let labelLayerGroup = null; // Optimized layer for text
     let freezingLayer = null; // New Freezing Level Layer
+    let pirepLayer = null; // NEW PIREP Layer
     let mapRenderer = null;
     // We create separate renderers for the route pane and marker pane to solve click issues
     let routeRenderer = null;
@@ -910,6 +985,45 @@
 
     // Wake Lock Global
     let wakeLock = null;
+
+    // --- LAYER MENU LOGIC ---
+    let isLayerMenuOpen = false;
+
+    function toggleLayerMenu() {
+        const menu = document.getElementById('layerMenuItems');
+        const icon = document.getElementById('menuIcon');
+        const container = document.querySelector('.layer-menu-container');
+
+        isLayerMenuOpen = !isLayerMenuOpen;
+
+        if (isLayerMenuOpen) {
+            container.classList.add('layer-menu-open');
+            // Change icon to X
+            icon.innerHTML = '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />';
+        } else {
+            container.classList.remove('layer-menu-open');
+            // Change icon back to Stack/Map
+            icon.innerHTML = '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16" />';
+        }
+    }
+
+    // Function to update the green dot on the main button
+    function updateLayerActiveState() {
+        const hasRadar = !!radarLayer;
+        const hasFreezing = !!freezingLayer;
+        const hasHeatmap = (heatmapMode !== 0);
+        const hasPirep = !!pirepLayer;
+
+        const mainBtn = document.getElementById('mainLayerToggle');
+        if (hasRadar || hasFreezing || hasHeatmap || hasPirep) {
+            mainBtn.classList.add('has-active-layers');
+        } else {
+            mainBtn.classList.remove('has-active-layers');
+        }
+
+        // Also update map warning
+        updateMapWarnings();
+    }
 
     // --- LIBRARIES SAFE LOADING ---
     let jsPDF = null;
@@ -1070,6 +1184,7 @@
     const TAF_DATA_URL = 'https://aviationweather.gov/data/cache/tafs.cache.xml.gz';
     const METAR_DATA_URL = 'https://aviationweather.gov/data/cache/metars.cache.xml.gz';
     const STATIONS_DATA_URL = 'https://aviationweather.gov/data/cache/stations.cache.xml.gz';
+    const PIREP_DATA_URL = 'https://aviationweather.gov/data/cache/aircraftreports.cache.xml.gz';
     const RUNWAY_DATA_URL = 'https://raw.githubusercontent.com/davidmegginson/ourairports-data/main/runways.csv';
     const PROXY_URL = 'https://corsproxy.io/?';
 
@@ -1730,6 +1845,7 @@
         }
 
         updateMapWarnings();
+        updateLayerActiveState(); // New logic
     }
 
 
@@ -1767,16 +1883,23 @@
         mapInstance.getPane('radarPane').style.zIndex = 250;
         mapInstance.getPane('radarPane').style.pointerEvents = 'none'; // Don't block clicks
 
-        // 3. User Location Pane (Above Radar, Below Routes)
+        // 3. PIREP Pane (Moved ABOVE markers for clickability)
+        mapInstance.createPane('pirepPane');
+        mapInstance.getPane('pirepPane').style.zIndex = 625; // Above markerPane (600), below tooltipPane (650)
+
+        // 4. Freezing Pane
+        // (Freezing layer logic already adds canvas to overlayPane, but we can manage it here if needed later)
+
+        // 5. User Location Pane (Above Radar, Below Routes)
         mapInstance.createPane('userLocationPane');
         mapInstance.getPane('userLocationPane').style.zIndex = 350;
         mapInstance.getPane('userLocationPane').style.pointerEvents = 'none';
 
-        // 4. Route Pane (Above User, Below Markers)
+        // 6. Route Pane (Above User, Below Markers)
         mapInstance.createPane('routePane');
         mapInstance.getPane('routePane').style.zIndex = 400;
 
-        // 5. Marker Pane (Topmost)
+        // 7. Marker Pane (Topmost)
         mapInstance.createPane('markerPane');
         mapInstance.getPane('markerPane').style.zIndex = 600; // Standard marker pane is usually 600
 
@@ -2016,6 +2139,178 @@
             // Set Auto-Refresh (every 5 minutes)
             radarRefreshInterval = setInterval(updateRadarLayer, 300000);
         }
+        updateLayerActiveState(); // New logic
+    }
+
+    // --- PIREP LOGIC (NEW - UPDATED WITH NWS SYMBOLS & ROTATION) ---
+    async function updatePireps() {
+        if (!mapInstance) return;
+
+        // Clear existing
+        if (pirepLayer) {
+            mapInstance.removeLayer(pirepLayer);
+        }
+
+        try {
+            const pirepDoc = await fetchAndParse(PIREP_DATA_URL);
+            const reports = [];
+
+            pirepDoc.querySelectorAll("AircraftReport").forEach(node => {
+                const lat = parseFloat(node.querySelector("latitude")?.textContent);
+                const lon = parseFloat(node.querySelector("longitude")?.textContent);
+                if (isNaN(lat) || isNaN(lon)) return;
+
+                const type = node.querySelector("report_type")?.textContent || "UA"; // UA or UUA
+                const aircraft = node.querySelector("aircraft_ref")?.textContent || "Unknown";
+                const time = node.querySelector("observation_time")?.textContent;
+                const rawText = node.querySelector("raw_text")?.textContent || "";
+
+                // Parse Conditions
+                let turbInt = null;
+                const turbNode = node.querySelector("turbulence_condition");
+                if (turbNode) turbInt = turbNode.getAttribute("turbulence_intensity");
+
+                let icingInt = null;
+                const icingNode = node.querySelector("icing_condition");
+                if (icingNode) icingInt = icingNode.getAttribute("icing_intensity");
+
+                reports.push({ lat, lon, type, aircraft, time, rawText, turbInt, icingInt });
+            });
+
+            const markers = [];
+
+            reports.forEach(rep => {
+                // Determine Symbol and Color
+                let svgContent = '';
+                let color = '#fb923c'; // Default Orange
+                let strokeWidth = 2;
+
+                const isUrgent = (rep.type === 'UUA');
+                if (isUrgent) color = '#ef4444'; // Red
+
+                // ---- NWS SYMBOL LOGIC ----
+
+                if (rep.icingInt && (rep.icingInt.includes('LGT') || rep.icingInt.includes('MOD') || rep.icingInt.includes('SEV'))) {
+                    // Icing Symbol (U / Pitchfork style)
+                    if (rep.icingInt.includes('SEV')) {
+                        color = '#ef4444'; // Red
+                        // U with two vertical lines
+                        svgContent = `<path d="M3 6 L3 12 A5 5 0 0 0 13 12 L13 6 M6 6 L6 14 M10 6 L10 14" fill="none" stroke="${color}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>`;
+                    } else if (rep.icingInt.includes('MOD')) {
+                        color = '#f97316'; // Orange
+                        // U with one vertical line in center
+                         svgContent = `<path d="M3 6 L3 12 A5 5 0 0 0 13 12 L13 6 M8 6 L8 14" fill="none" stroke="${color}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>`;
+                    } else { // LGT
+                        color = '#22c55e'; // Green
+                        // Simple U
+                        svgContent = `<path d="M4 6 L4 12 A4 4 0 0 0 12 12 L12 6" fill="none" stroke="${color}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>`;
+                    }
+                }
+                else if (rep.turbInt && (rep.turbInt.includes('LGT') || rep.turbInt.includes('MOD') || rep.turbInt.includes('SEV') || rep.turbInt.includes('EXTRM'))) {
+                    // Turbulence Symbol (Chevron/Peak)
+                    if (rep.turbInt.includes('SEV') || rep.turbInt.includes('EXTRM')) {
+                         color = '#ef4444'; // Red
+                         // Double Chevron
+                         svgContent = `<path d="M4 12 L8 5 L12 12 M4 7 L8 0 L12 7" fill="none" stroke="${color}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>`;
+                    } else if (rep.turbInt.includes('MOD')) {
+                         color = '#f97316'; // Orange
+                         // Single Chevron (Thicker/Larger)
+                         svgContent = `<path d="M3 13 L8 4 L13 13" fill="none" stroke="${color}" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>`;
+                    } else { // LGT
+                         color = '#22c55e'; // Green
+                         // Single Chevron
+                         svgContent = `<path d="M4 12 L8 6 L12 12" fill="none" stroke="${color}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>`;
+                    }
+                }
+                else if (rep.rawText.includes('NEG') || rep.rawText.includes('NIL')) {
+                     // NIL Symbol (Blue Circle Slash)
+                     color = '#3b82f6';
+                     svgContent = `<circle cx="8" cy="8" r="6" stroke="${color}" stroke-width="2" fill="none"/><line x1="4" y1="12" x2="12" y2="4" stroke="${color}" stroke-width="2"/>`;
+                }
+                else {
+                    // Generic / Other Report (Aircraft Icon)
+                    color = '#ffffff'; // White
+                    // Rotated 45 degrees
+                    svgContent = `<g transform="rotate(45 8 8)"><path d="M8 1 L10 6 L15 8 L15 10 L10 9 L10 13 L12 15 L12 16 L8 15 L4 16 L4 15 L6 13 L6 9 L1 10 L1 8 L6 6 Z" fill="${color}" stroke="black" stroke-width="0.5"/></g>`;
+                }
+
+                const iconHtml = `
+                    <svg width="20" height="20" viewBox="0 0 16 16" xmlns="http://www.w3.org/2000/svg" style="overflow: visible;">
+                        ${isUrgent ? `<circle cx="8" cy="8" r="9" fill="rgba(239, 68, 68, 0.3)" stroke="red" stroke-width="1" />` : ''}
+                        ${svgContent}
+                    </svg>
+                `;
+
+                const icon = L.divIcon({
+                    className: 'pirep-icon',
+                    html: iconHtml,
+                    iconSize: [20, 20],
+                    iconAnchor: [10, 10]
+                });
+
+                const marker = L.marker([rep.lat, rep.lon], {
+                    icon: icon,
+                    pane: 'pirepPane',
+                    zIndexOffset: isUrgent ? 1000 : 0,
+                    interactive: true // Ensure clickable
+                });
+
+                // Formatted Time
+                const age = calculateAgeInMinutes(rep.time);
+                const ageText = formatAge(age);
+
+                marker.bindPopup(`
+                    <div class="font-sans min-w-[200px]">
+                        <div class="flex items-center justify-between border-b pb-1 mb-2">
+                            <span class="font-bold ${isUrgent ? 'text-red-600' : 'text-blue-600'}">
+                                ${rep.type} PIREP
+                            </span>
+                            <span class="text-xs text-gray-500">${ageText}</span>
+                        </div>
+                        <div class="text-sm font-bold mb-1">${rep.aircraft}</div>
+                        <div class="bg-gray-100 dark:bg-gray-800 p-2 rounded text-xs font-mono mb-2 whitespace-pre-wrap">${rep.rawText}</div>
+                        ${rep.turbInt ? `<div class="text-xs"><span class="font-bold">Turb:</span> ${rep.turbInt}</div>` : ''}
+                        ${rep.icingInt ? `<div class="text-xs"><span class="font-bold">Icing:</span> ${rep.icingInt}</div>` : ''}
+                    </div>
+                `);
+
+                markers.push(marker);
+            });
+
+            pirepLayer = L.layerGroup(markers).addTo(mapInstance);
+
+        } catch (e) {
+            console.warn("Failed to fetch PIREPs", e);
+            document.getElementById('pirepBtn').classList.remove('pirep-active');
+        } finally {
+            const btn = document.getElementById('pirepBtn');
+            if (btn.textContent === '...') btn.innerHTML = '✈️'; // Restore icon if it was loading
+        }
+    }
+
+    function togglePireps() {
+        const btn = document.getElementById('pirepBtn');
+        const attrib = document.getElementById('pirepAttribution');
+        if (!mapInstance) return;
+
+        if (pirepLayer) {
+            // OFF
+            mapInstance.removeLayer(pirepLayer);
+            pirepLayer = null;
+            btn.classList.remove('pirep-active');
+            if(attrib) attrib.classList.add('hidden');
+        } else {
+            // ON
+            btn.classList.add('pirep-active');
+            if(attrib) attrib.classList.remove('hidden');
+            btn.innerHTML = `<svg class="animate-spin h-5 w-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>`;
+            setTimeout(() => {
+                updatePireps().then(() => {
+                     if(btn.classList.contains('pirep-active')) btn.innerHTML = '✈️';
+                });
+            }, 50);
+        }
+        updateLayerActiveState(); // New logic
     }
 
     function toggleFreezingLayer() {
@@ -2044,6 +2339,7 @@
             }, 50);
         }
         updateMapWarnings();
+        updateLayerActiveState(); // New logic
     }
 
     // --- USER LOCATION MARKER HELPER ---
@@ -4745,7 +5041,8 @@
             }
 
             // Wind (Speed & Dir must exist and not be VRB)
-            if (s.metar.windSpeed !== null && s.metar.windDir !== null && !isNaN(s.metar.windDir)) {
+            if (s.metar.windSpeed !==
+null && s.metar.windDir !== null && !isNaN(s.metar.windDir)) {
                 // Convert to Radians
                 const rad = toRad(s.metar.windDir);
                 const u = -s.metar.windSpeed * Math.sin(rad);
