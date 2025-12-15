@@ -934,7 +934,7 @@
 
 <script>
     // --- APP CONFIG ---
-    const CURRENT_VERSION = 'v2.4.8'; // Incremented Version
+    const CURRENT_VERSION = 'v2.4.9'; // Incremented Version
     const GITHUB_REPO = 'Unpiloted0852/AvWx';
 
     // Global Data Storage for Modal Access
@@ -4168,21 +4168,23 @@
             const validMetars = metarDoc.querySelectorAll("METAR").length;
 
             if (validTafs === 0 || validMetars === 0) {
+                console.warn("NWS returned empty data files. Silently aborting update.");
+
+                // Restore UI state manually since we are returning early
+                generateButton.disabled = false;
+                generateButton.textContent = "Go!";
+                generateButton.classList.remove('opacity-50', 'cursor-not-allowed');
+
+                // Hide any status that might be showing "Fetching Data..."
+                statusEl.style.display = 'none';
+
                 if (currentStationsData.length > 0) {
-                    console.warn("NWS Empty File - Retaining Old Data");
-                    // Restore buttons
+                    // We have old data, ensure PDF is enabled and auto-refresh continues
                     downloadPdfBtn.disabled = false;
-                    generateButton.disabled = false;
-                    generateButton.textContent = "Go!";
-                    generateButton.classList.remove('opacity-50', 'cursor-not-allowed');
-                    // Hide status since we are staying on the old view
-                    statusEl.style.display = 'none';
-                    // Restart auto-refresh to try again later
                     startAutoRefresh();
-                    return; // SILENT FAIL - Keep old data
-                } else {
-                    throw new Error("NWS returned empty data files. Please try again later.");
                 }
+
+                return; // Stop processing, keep existing state
             }
             // ----------------------------------------
 
@@ -5124,65 +5126,63 @@ function calculateEstimatedWeather(lat, lon) {
     // Calculate RH
     const satVP = 6.112 * Math.exp((17.67 * finalTempC) / (finalTempC + 243.5));
     const actVP = 6.112 * Math.exp((17.67 * finalDewC) / (finalDewC + 243.5));
-    const rh = Math.round(actVP / satVP * 100);
+const rh = Math.round(actVP / satVP * 100);
+// Render HTML
+const resultsEl = document.getElementById('interpolationResults');
+resultsEl.innerHTML = `
+    <div class="grid grid-cols-2 gap-4">
+        <div class="bg-gray-50 dark:bg-gray-800 p-3 rounded-lg text-center">
+            <div class="text-xs text-gray-500 uppercase tracking-wide">Temp</div>
+            <div class="text-2xl font-bold text-gray-800 dark:text-gray-100">${displayTemp}</div>
+        </div>
+        <div class="bg-gray-50 dark:bg-gray-800 p-3 rounded-lg text-center">
+            <div class="text-xs text-gray-500 uppercase tracking-wide">Dewpoint</div>
+            <div class="text-2xl font-bold text-gray-800 dark:text-gray-100">${displayDew}</div>
+        </div>
+        <div class="bg-gray-50 dark:bg-gray-800 p-3 rounded-lg text-center">
+            <div class="text-xs text-gray-500 uppercase tracking-wide">Pressure</div>
+            <div class="text-2xl font-bold text-gray-800 dark:text-gray-100">${displayPress}</div>
+        </div>
+        <div class="bg-gray-50 dark:bg-gray-800 p-3 rounded-lg text-center">
+            <div class="text-xs text-gray-500 uppercase tracking-wide">Humidity</div>
+            <div class="text-2xl font-bold text-blue-500">${rh}%</div>
+        </div>
+    </div>
 
-    // Render HTML
-    const resultsEl = document.getElementById('interpolationResults');
-    resultsEl.innerHTML = `
-        <div class="grid grid-cols-2 gap-4">
-            <div class="bg-gray-50 dark:bg-gray-800 p-3 rounded-lg text-center">
-                <div class="text-xs text-gray-500 uppercase tracking-wide">Temp</div>
-                <div class="text-2xl font-bold text-gray-800 dark:text-gray-100">${displayTemp}</div>
-            </div>
-            <div class="bg-gray-50 dark:bg-gray-800 p-3 rounded-lg text-center">
-                <div class="text-xs text-gray-500 uppercase tracking-wide">Dewpoint</div>
-                <div class="text-2xl font-bold text-gray-800 dark:text-gray-100">${displayDew}</div>
-            </div>
-            <div class="bg-gray-50 dark:bg-gray-800 p-3 rounded-lg text-center">
-                <div class="text-xs text-gray-500 uppercase tracking-wide">Pressure</div>
-                <div class="text-2xl font-bold text-gray-800 dark:text-gray-100">${displayPress}</div>
-            </div>
-            <div class="bg-gray-50 dark:bg-gray-800 p-3 rounded-lg text-center">
-                <div class="text-xs text-gray-500 uppercase tracking-wide">Humidity</div>
-                <div class="text-2xl font-bold text-blue-500">${rh}%</div>
+    <div class="mt-4 bg-blue-50 dark:bg-blue-900/20 p-4 rounded-lg flex items-center justify-between">
+        <div>
+            <div class="text-xs text-gray-500 dark:text-gray-400 uppercase tracking-wide">Estimated Wind</div>
+            <div class="text-3xl font-black text-gray-800 dark:text-gray-100 font-mono">
+                ${Math.round(finalDir).toString().padStart(3,'0')}@${Math.round(finalSpeed)}KT
             </div>
         </div>
-
-        <div class="mt-4 bg-blue-50 dark:bg-blue-900/20 p-4 rounded-lg flex items-center justify-between">
-            <div>
-                <div class="text-xs text-gray-500 dark:text-gray-400 uppercase tracking-wide">Estimated Wind</div>
-                <div class="text-3xl font-black text-gray-800 dark:text-gray-100 font-mono">
-                    ${Math.round(finalDir).toString().padStart(3,'0')}@${Math.round(finalSpeed)}KT
-                </div>
-            </div>
-            <div class="text-4xl transform" style="transform: rotate(${finalDir + 180}deg)">
-                ⬆️
-            </div>
+        <div class="text-4xl transform" style="transform: rotate(${finalDir + 180}deg)">
+            ⬆️
         </div>
+    </div>
 
-        <div class="mt-4 text-xs text-gray-400 text-center">
-            Interpolated from: ${closest.map(s => s.id).join(', ')}
-        </div>
-    `;
+    <div class="mt-4 text-xs text-gray-400 text-center">
+        Interpolated from: ${closest.map(s => s.id).join(', ')}
+    </div>
+`;
 
-    // Open Modal
-    interpolationModal.classList.remove('hidden');
+// Open Modal
+interpolationModal.classList.remove('hidden');
 }
 
 function closeInterpolationModal() {
-    interpolationModal.classList.add('hidden');
+interpolationModal.classList.add('hidden');
 }
 
 function updateMapWarnings() {
-    const warningEl = document.getElementById('combinedWarning');
-    const hasFreezing = !!freezingLayer;
-    const hasHeatmap = !!heatmapLayer;
-
-    if (hasFreezing || hasHeatmap) {
-        warningEl.classList.remove('hidden');
-    } else {
-        warningEl.classList.add('hidden');
-    }
+const warningEl = document.getElementById('combinedWarning');
+const hasFreezing = !!freezingLayer;
+const hasHeatmap = !!heatmapLayer;
+if (hasFreezing || hasHeatmap) {
+    warningEl.classList.remove('hidden');
+} else {
+    warningEl.classList.add('hidden');
+}
 }
 </script>
 </body>
