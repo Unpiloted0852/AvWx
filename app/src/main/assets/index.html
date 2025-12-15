@@ -546,7 +546,7 @@
             <h2 class="text-3xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-blue-600 to-purple-600 dark:from-blue-400 dark:to-purple-400">
                 🏆 Current Extremes
             </h2>
-            <p class="text-gray-500 dark:text-gray-400 text-sm mt-1">Highs, Lows, and Wildest Weather from current report</p>
+            <p class="text-gray-500 dark:text-gray-400 text-sm mt-1">Highs, Lows, and Extreme Weather from current report. Note: this tool often displays data from malfunctioning sensors. It may not reflect reality.</p>
 
             <button onclick="closeRecordsModal()" class="absolute top-4 right-4 p-2 bg-white/50 dark:bg-black/50 hover:bg-gray-200 dark:hover:bg-gray-700 rounded-full transition-colors">
                 <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -870,7 +870,7 @@
                         </button>
 
                         <!-- Freezing Level -->
-                        <button id="freezingBtn" onclick="toggleFreezingLayer()" class="layer-btn bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 text-xl flex items-center justify-center" aria-label="Toggle Freezing Line" title="Freezing Level">
+                        <button id="freezingBtn" onclick="toggleFreezingLayer()" class="layer-btn bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 text-xl flex items-center justify-center" aria-label="Toggle Freezing Line" title="Freezing Area">
                             🧊
                         </button>
 
@@ -934,7 +934,7 @@
 
 <script>
     // --- APP CONFIG ---
-    const CURRENT_VERSION = 'v2.4.7'; // Incremented Version
+    const CURRENT_VERSION = 'v2.4.8'; // Incremented Version
     const GITHUB_REPO = 'Unpiloted0852/AvWx';
 
     // Global Data Storage for Modal Access
@@ -4016,6 +4016,18 @@
                     fetchAndParse(METAR_DATA_URL)
                 ]);
 
+                // --- DATA VALIDITY CHECK ---
+                // NWS sometimes returns valid XML with 0 reports. We must check counts.
+                // If the file is "empty" of data, we abort the update to preserve the existing view.
+                const validTafs = tafDoc.querySelectorAll("TAF").length;
+                const validMetars = metarDoc.querySelectorAll("METAR").length;
+
+                if (validTafs === 0 || validMetars === 0) {
+                    console.warn(`NWS Validation Failed: TAFs: ${validTafs}, METARs: ${validMetars}. Retaining old data.`);
+                    return; // Abort update, keep old data
+                }
+                // --------------------------
+
                 // Gather inputs again
                 const homeIcao = icaoInput.value.trim().toUpperCase();
                 const minRunwayLen = parseInt(minRunwayInput.value) || 0;
@@ -4150,6 +4162,15 @@
             const metarDoc = results[1];
             const stationMap = results[2];
             const runwayMap = (minRunwayLen > 0) ? results[3] : null;
+
+            // --- DATA VALIDITY CHECK (MANUAL LOAD) ---
+            const validTafs = tafDoc.querySelectorAll("TAF").length;
+            const validMetars = metarDoc.querySelectorAll("METAR").length;
+
+            if (validTafs === 0 || validMetars === 0) {
+                throw new Error("NWS returned empty data files. Please try again later.");
+            }
+            // ----------------------------------------
 
             showStatus("Processing stations...");
             const processResult = processData(tafDoc, metarDoc, stationMap, homeIcao, runwayMap, minRunwayLen, gpsReferenceCoords);
@@ -4936,7 +4957,7 @@
                 btn.innerHTML = originalContent;
                 btn.disabled = false;
             },
-            (err) => {
+(err) => {
                 // If denied or error, fallback gracefully
                 console.warn("GPS Access Denied or Failed", err);
                 fallbackToMap();
@@ -5041,8 +5062,7 @@
             }
 
             // Wind (Speed & Dir must exist and not be VRB)
-            if (s.metar.windSpeed !==
-null && s.metar.windDir !== null && !isNaN(s.metar.windDir)) {
+            if (s.metar.windSpeed !== null && s.metar.windDir !== null && !isNaN(s.metar.windDir)) {
                 // Convert to Radians
                 const rad = toRad(s.metar.windDir);
                 const u = -s.metar.windSpeed * Math.sin(rad);
