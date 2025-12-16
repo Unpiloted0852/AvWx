@@ -948,7 +948,7 @@
 
 <script>
     // --- APP CONFIG ---
-    const CURRENT_VERSION = 'v2.5.0'; // Incremented Version
+    const CURRENT_VERSION = 'v2.5.1'; // Incremented Version
     const GITHUB_REPO = 'Unpiloted0852/AvWx';
 
     // Global Data Storage for Modal Access
@@ -2777,7 +2777,7 @@ markerRenderer = L.svg({ pane: 'markerPane' });
         });
     }
 
-    function renderMap(stations) {
+function renderMap(stations) {
         if (!mapInstance) initMap();
 
         // --- NON-DISRUPTIVE POPUP HANDLING ---
@@ -2785,8 +2785,8 @@ markerRenderer = L.svg({ pane: 'markerPane' });
         let openPopupId = null;
         if (markerLayerGroup.getLayers().length > 0) {
             markerLayerGroup.eachLayer(layer => {
-                // Check if it's a marker and has a popup open
-                if (layer instanceof L.CircleMarker && layer.getPopup() && layer.isPopupOpen()) {
+                // Check if it's a marker (has stationId) and has a popup open
+                if (layer.stationId && layer.getPopup() && layer.isPopupOpen()) {
                     openPopupId = layer.stationId;
                 }
             });
@@ -2795,11 +2795,9 @@ markerRenderer = L.svg({ pane: 'markerPane' });
         markerLayerGroup.clearLayers();
         labelLayerGroup.clearLayers(); // Clear labels on new render
 
-        // 1. HIGHLIGHT HOME AIRPORT (Requirement #4)
+        // 1. HIGHLIGHT HOME AIRPORT
         const homeInput = document.getElementById('icaoInput').value.trim().toUpperCase();
 
-        // MODIFIED LOGIC: Use GPS coords if set, otherwise lookup ICAO
-        // FIX: Only show blue ring if Home is manually set, NOT if GPS is active
         if (homeInput.length >= 3 && cachedStationMap && !gpsReferenceCoords) {
             const homeCoords = getCoordsForICAO(homeInput, cachedStationMap);
             if (homeCoords && homeCoords.lat !== null) {
@@ -2815,7 +2813,7 @@ markerRenderer = L.svg({ pane: 'markerPane' });
             }
         }
 
-        // 2. Draw Route if Dep/Dest exist AND tool is enabled (Requirement #3)
+        // 2. Draw Route if Dep/Dest exist
         if (routeAnalysisEnabled) {
             const depInput = document.getElementById('depIcao').value.trim().toUpperCase();
             const destInput = document.getElementById('destIcao').value.trim().toUpperCase();
@@ -2831,27 +2829,24 @@ markerRenderer = L.svg({ pane: 'markerPane' });
             }
 
             if (depCoords && depCoords.lat !== null && destCoords && destCoords.lat !== null) {
-                // Check if coordinates are the same to avoid NaN error in Great Circle calculation
                 const isSameStation = (Math.abs(depCoords.lat - destCoords.lat) < 0.0001 && Math.abs(depCoords.lon - destCoords.lon) < 0.0001);
 
                 if (!isSameStation) {
-                    // Draw Dashed Line (Great Circle) only if stations are different
                     const pathPoints = getGreatCircleRoute(depCoords.lat, depCoords.lon, destCoords.lat, destCoords.lon);
                     L.polyline(pathPoints, {
-                        pane: 'routePane', // Force lower Z-index pane
+                        pane: 'routePane',
                         renderer: routeRenderer,
-                        color: '#fbbf24', // Tailwind amber-400
+                        color: '#fbbf24',
                         weight: 2,
                         opacity: 0.8,
                         dashArray: '5, 10',
                         lineCap: 'round',
-                        interactive: false // <--- CRITICAL FIX
+                        interactive: false
                     }).addTo(markerLayerGroup);
                 }
 
-                // Highlight Departure (Ring)
                 L.circleMarker([depCoords.lat, depCoords.lon], {
-                    pane: 'routePane', // Force lower Z-index pane
+                    pane: 'routePane',
                     renderer: routeRenderer,
                     radius: 12,
                     fill: false,
@@ -2860,10 +2855,9 @@ markerRenderer = L.svg({ pane: 'markerPane' });
                     interactive: false
                 }).addTo(markerLayerGroup);
 
-                // Highlight Destination (Ring) - Only if different from Departure to avoid double drawing
                 if (!isSameStation) {
                     L.circleMarker([destCoords.lat, destCoords.lon], {
-                        pane: 'routePane', // Force lower Z-index pane
+                        pane: 'routePane',
                         renderer: routeRenderer,
                         radius: 12,
                         fill: false,
@@ -2875,60 +2869,59 @@ markerRenderer = L.svg({ pane: 'markerPane' });
             }
         }
 
-        const markers = [];
-
         stations.forEach(station => {
-            // Skip if no coordinates
             if (station.latitude === null || station.longitude === null) return;
-
-            // CRITICAL FIX: Skip stations with no valid METAR (removes grey dots/clutter/lag)
             if (!station.metar || !station.metar.category || station.metar.category === 'NODATA') return;
 
-            // Determine Color based on METAR category ONLY
+            // Determine Color based on METAR category
             let cat = station.metar.category;
-
             const colorRgb = COLORS[cat] || COLORS.NODATA;
             const colorHex = rgbToHex(colorRgb);
 
-            // Circle Marker style - efficient canvas rendering
-            const marker = L.circleMarker([station.latitude, station.longitude], {
-                pane: 'markerPane', // Force Highest Z-Index Pane
-                renderer: markerRenderer, // Use the high-tolerance renderer on the correct pane
-                radius: 5,
-                fillColor: colorHex,
-                color: '#000', // Black border for contrast on dark map
-                weight: 1,
-                opacity: 0.8,
-                fillOpacity: 0.8
+            // --- HIT TARGET (THE GHOST) ---
+            // Large radius (20px), invisible, but Interactive
+            const hitMarker = L.circleMarker([station.latitude, station.longitude], {
+                pane: 'markerPane',
+                renderer: markerRenderer,
+                radius: 20,       // Large touch target
+                stroke: false,
+                fill: true,
+                fillColor: '#fff', // Color doesn't matter
+                fillOpacity: 0.0,  // Invisible
+                interactive: true  // Captures the clicks
             });
 
-            // ATTACH ID TO MARKER FOR RE-OPENING POPUP
-            marker.stationId = station.id;
+            // --- VISUAL MARKER ---
+            // Small radius (5px), Visible, Non-Interactive (clicks pass through to Ghost)
+            const visualMarker = L.circleMarker([station.latitude, station.longitude], {
+                pane: 'markerPane',
+                renderer: markerRenderer,
+                radius: 5,
+                fillColor: colorHex,
+                color: '#000',
+                weight: 1,
+                opacity: 0.8,
+                fillOpacity: 0.8,
+                interactive: false // Visual only
+            });
 
-            // REMOVED PERMANENT TOOLTIP BINDING HERE FOR PERFORMANCE
-            // Labels are now handled by updateMapLabels()
+            // Attach ID to the interactive Ghost Marker
+            hitMarker.stationId = station.id;
 
-            // LAZY POPUP: Use a function to return HTML string.
-            // This prevents generating 5000 HTML strings on load, fixing performance.
-            marker.bindPopup(function() {
-                // Prepare colored HTML for Popup using existing formatRawText logic
+            // Bind Popup to the Ghost Marker
+            hitMarker.bindPopup(function() {
                 let metarHtml = '<div class="text-xs italic text-gray-500">No METAR available</div>';
                 if (station.metar) {
                     metarHtml = `<div class="space-y-0.5">${formatRawText(station.metar.rawText)}</div>`;
-
-                    // --- UPDATE: Add Density Alt ---
                     let metaInfo = `${getDisplayTemp(station.metar)} • ${station.metar.rh}`;
                     if (station.metar.densityAlt) metaInfo += ` • ${station.metar.densityAlt}`;
                     metaInfo += ` • Age: ${formatAge(station.metar.age)}`;
-                    // -------------------------------
-
                     metarHtml += `<div class="mt-1 text-xs text-gray-400">${metaInfo}</div>`;
                 }
 
                 let tafHtml = '<div class="text-xs italic text-gray-500">No TAF available</div>';
                 if (station.taf) {
                     tafHtml = `<div class="space-y-0.5">${formatRawText(station.taf.rawText)}</div>`;
-
                      let notes = [];
                      if (station.taf.validTo) notes.push(formatRemainingTime(station.taf.validTo));
                      if (station.taf.age !== null) notes.push(`Issued: ${formatAge(station.taf.age)}`);
@@ -2940,7 +2933,6 @@ markerRenderer = L.svg({ pane: 'markerPane' });
                      }
                 }
 
-                // Popup Content
                 return `
                     <div class="font-sans">
                         <div class="flex items-baseline justify-between mb-2 pb-1 border-b border-gray-200 dark:border-gray-700">
@@ -2961,13 +2953,16 @@ markerRenderer = L.svg({ pane: 'markerPane' });
                 `;
             });
 
-            markers.push(marker);
-            markerLayerGroup.addLayer(marker);
+            // Add both to the map
+            // Note: Order matters slightly, but since visual is non-interactive,
+            // clicks will fall through to the hitMarker regardless of z-order.
+            markerLayerGroup.addLayer(hitMarker);
+            markerLayerGroup.addLayer(visualMarker);
 
             // Re-open popup if it was open before refresh
             if (openPopupId && station.id === openPopupId) {
                 setTimeout(() => {
-                    marker.openPopup();
+                    hitMarker.openPopup();
                 }, 10);
             }
         });
