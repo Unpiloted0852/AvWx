@@ -991,6 +991,9 @@
     let radarLayer = null; // Radar Layer Global
     let radarRefreshInterval = null; // Store interval ID for radar
 
+// Global Hazards Interval
+let hazardsRefreshInterval = null;
+
     // GPS Marker Global
     let userLocationMarker = null;
 
@@ -2280,26 +2283,41 @@ markerRenderer = L.svg({ pane: 'markerPane' });
             btn.innerHTML = '⚠️';
         }
     }
-    function toggleHazards() {
+  function toggleHazards() {
         const btn = document.getElementById('hazardsBtn');
         if (!mapInstance) return;
 
-        if (hazardsLayer) {
-            // OFF
-            mapInstance.removeLayer(hazardsLayer);
-            hazardsLayer = null;
+        if (hazardsRefreshInterval) {
+            // --- TURN OFF ---
+            // 1. Clear the timer
+            clearInterval(hazardsRefreshInterval);
+            hazardsRefreshInterval = null;
+
+            // 2. Remove the layer
+            if (hazardsLayer) {
+                mapInstance.removeLayer(hazardsLayer);
+                hazardsLayer = null;
+            }
+
+            // 3. Update UI
             btn.classList.remove('hazard-active');
         } else {
-            // ON
+            // --- TURN ON ---
             btn.classList.add('hazard-active');
-            // Loading Spinner
+
+            // 1. Show Spinner
             btn.innerHTML = `<svg class="animate-spin h-5 w-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>`;
 
+            // 2. Initial Load
             setTimeout(() => {
                 updateHazardsLayer();
             }, 50);
+
+            // 3. Set Auto-Refresh (Every 5 minutes)
+            hazardsRefreshInterval = setInterval(updateHazardsLayer, 300000);
         }
-        updateLayerActiveState(); // Updates the main button dot
+
+        updateLayerActiveState();
     }
 
     // --- PIREP LOGIC (NEW - UPDATED WITH NWS SYMBOLS & ROTATION) ---
