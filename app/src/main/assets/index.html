@@ -343,6 +343,12 @@
             color: white !important;
         }
 
+        /* Day/Night Active State */
+        .daynight-active {
+            background-color: #4b5563 !important; /* Dark Gray */
+            color: #fbbf24 !important; /* Amber for sun/moon */
+        }
+
         /* GPS Status Text Style */
         .gps-active-input {
             color: #059669 !important; /* Emerald 600 */
@@ -898,6 +904,11 @@
                             ⚠️
                         </button>
 
+                        <!-- Day/Night -->
+                        <button id="dayNightBtn" onclick="toggleDayNight()" class="layer-btn bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 text-xl flex items-center justify-center" aria-label="Toggle Day/Night" title="Day/Night Map">
+                            🌗
+                        </button>
+
                         <!-- Guess Weather -->
                         <button id="guessWxBtn" onclick="triggerGuessWx()" class="layer-btn bg-purple-600 hover:bg-purple-700 text-white text-lg flex items-center justify-center" aria-label="Estimated Weather" title="Guess Weather">
                             🔮
@@ -948,7 +959,7 @@
 
 <script>
     // --- APP CONFIG ---
-    const CURRENT_VERSION = 'v2.5.1'; // Incremented Version
+    const CURRENT_VERSION = 'v2.5.2'; // Incremented Version
     const GITHUB_REPO = 'Unpiloted0852/AvWx';
 
     // Global Data Storage for Modal Access
@@ -977,6 +988,8 @@
     let freezingLayer = null; // New Freezing Level Layer
     let pirepLayer = null; // NEW PIREP Layer
     let hazardsLayer = null; // NEW Hazards/Sigmet Layer
+    let dayNightLayer = null; // NEW Day/Night Layer
+    let dayNightInterval = null;
     let mapRenderer = null;
     // We create separate renderers for the route pane and marker pane to solve click issues
     let routeRenderer = null;
@@ -1032,9 +1045,10 @@ let hazardsRefreshInterval = null;
         const hasHeatmap = (heatmapMode !== 0);
         const hasPirep = !!pirepLayer;
         const hasHazards = !!hazardsLayer;
+        const hasDayNight = !!dayNightLayer;
 
         const mainBtn = document.getElementById('mainLayerToggle');
-        if (hasRadar || hasFreezing || hasHeatmap || hasPirep || hasHazards) {
+        if (hasRadar || hasFreezing || hasHeatmap || hasPirep || hasHazards || hasDayNight) {
             mainBtn.classList.add('has-active-layers');
         } else {
             mainBtn.classList.remove('has-active-layers');
@@ -1896,6 +1910,12 @@ let hazardsRefreshInterval = null;
 
        // --- CUSTOM PANES FOR Z-INDEX CONTROL ---
 
+        // NEW: Day/Night Pane - Above tiles (200), below Heatmap (200, effectively drawn later)
+        // Set to 225 to sit above tiles but below weather data
+        mapInstance.createPane('dayNightPane');
+        mapInstance.getPane('dayNightPane').style.zIndex = 225;
+        mapInstance.getPane('dayNightPane').style.pointerEvents = 'none';
+
         // 1. Heatmap Pane (New) - Below Radar
         mapInstance.createPane('heatmapPane');
         mapInstance.getPane('heatmapPane').style.zIndex = 200;
@@ -2096,11 +2116,143 @@ markerRenderer = L.svg({ pane: 'markerPane' });
             });
         }
 
-        // --- DEFAULT RADAR ON ---
+       // --- DEFAULT RADAR ON ---
         if (!radarLayer && !radarRefreshInterval) {
             toggleRadar();
         }
+
+        // --- NEW: DEFAULT DAY/NIGHT ON ---
+        if (!dayNightLayer && !dayNightInterval) {
+            toggleDayNight();
+        }
+    } // <--- End of initMap function
+
+    // --- DAY/NIGHT LOGIC ---
+    function getTerminatorCoords(time) {
+        // Solar position calculation helper
+        // Constants
+        const PI = Math.PI;
+        const RAD = PI / 180;
+        const DEG = 180 / PI;
+
+        // Julian date (Strict UTC)
+        const julianDay = (time.getTime() / 86400000) + 2440587.5;
+        const D = julianDay - 2451545.0;
+
+        // Mean Anomaly / Ecliptic Longitude
+        const g = (357.529 + 0.98560028 * D) % 360;
+        const q = (280.459 + 0.98564736 * D) % 360;
+        const L = (q + 1.915 * Math.sin(g * RAD) + 0.020 * Math.sin(2 * g * RAD)) % 360;
+
+        // Sun Declination
+        const epsilon = 23.439 - 0.00000036 * D;
+        const ra = Math.atan2(Math.cos(epsilon * RAD) * Math.sin(L * RAD), Math.cos(L * RAD)) * DEG;
+        const dec = Math.asin(Math.sin(epsilon * RAD) * Math.sin(L * RAD)) * DEG;
+
+        // Greenwich Hour Angle
+        const gha = (15 * (time.getUTCHours() + time.getUTCMinutes() / 60 + time.getUTCSeconds() / 3600) - 180) + ra; // Adjusted offset
+
+        // Equation of time
+        const eot = (q / 15 - ra / 15); // Not strictly needed for shadow but good for solar position
+
+        // Sun Position (Sub-solar point)
+        // Lat = dec
+        // Lon = -15 * (UTC_time - 12 + eot) ... simplified:
+        const sunLon = -(15 * (time.getUTCHours() + time.getUTCMinutes() / 60 + time.getUTCSeconds() / 3600) - 180); // Rough GHA
+
+        // Antipode (Center of Night)
+        const antiLat = -dec;
+        const antiLon = (sunLon + 180) % 360; // Keep within range
+
+        // Compute circle of illumination (The terminator)
+        // Spherical law of cosines: cos(c) = cos(a)cos(b) + sin(a)sin(b)cos(C)
+        // For terminator (90 deg from sun): cos(90) = 0
+        // 0 = sin(lat)*sin(dec) + cos(lat)*cos(dec)*cos(lon_diff)
+        // tan(lat) = -cos(lon_diff) / tan(dec)
+
+        const latLngs = [];
+        // Generate terminator points
+        // We'll calculate the latitude of the terminator for every longitude degree relative to the sun
+        const sunLatRad = dec * RAD;
+        // Shift longitude relative to GHA (Sun's longitude is roughly -(15 * (UTC time)) )
+        // Actually, precise: Sun's Lon = - (Greenwich Sidereal Time - Right Ascension)
+        // Simplified approach: Calculate GST
+        const GMST = (18.697374558 + 24.06570982441908 * D) % 24;
+        const sunLonActual = (ra - GMST * 15);
+
+        for (let i = 0; i <= 360; i+=2) {
+            const lon = i - 180;
+            const lonRad = (lon - sunLonActual) * RAD;
+            const latRad = Math.atan(-Math.cos(lonRad) / Math.tan(sunLatRad));
+            latLngs.push([latRad * DEG, lon]);
+        }
+
+        // Close the polygon to cover the night side
+        // We need to extend the polygon to cover either the North or South pole depending on season
+        // If Sun is North (positive dec), North pole is lit, South pole is dark.
+        // We draw the shadow, so cover South.
+        // If Sun is South (negative dec), North pole is dark.
+
+        const isNorthSummer = (dec > 0);
+        if (isNorthSummer) {
+            // Sun North -> Shadow covers South Pole
+            latLngs.push([-90, 180]);
+            latLngs.push([-90, -180]);
+        } else {
+            // Sun South -> Shadow covers North Pole
+            latLngs.push([90, 180]);
+            latLngs.push([90, -180]);
+        }
+
+        // Ensure closure
+        latLngs.push(latLngs[0]);
+
+        return latLngs;
     }
+
+    function toggleDayNight() {
+        const btn = document.getElementById('dayNightBtn');
+
+        if (dayNightInterval) {
+            // Turn OFF
+            clearInterval(dayNightInterval);
+            dayNightInterval = null;
+            if (dayNightLayer && mapInstance) {
+                mapInstance.removeLayer(dayNightLayer);
+            }
+            dayNightLayer = null;
+            btn.classList.remove('daynight-active');
+        } else {
+            // Turn ON
+            btn.classList.add('daynight-active');
+
+            const updateShadow = () => {
+                if (!mapInstance) return;
+
+                const coords = getTerminatorCoords(new Date());
+
+                if (dayNightLayer) {
+                    mapInstance.removeLayer(dayNightLayer);
+                }
+
+                dayNightLayer = L.polygon(coords, {
+                    color: 'transparent',
+                    fillColor: '#000',
+                    fillOpacity: 0.35, // Adjust opacity as needed
+                    pane: 'dayNightPane', // Z-index 225
+                    interactive: false,
+                    smoothFactor: 1.0
+                }).addTo(mapInstance);
+            };
+
+            updateShadow();
+            // Update every minute
+            dayNightInterval = setInterval(updateShadow, 60000);
+        }
+
+        updateLayerActiveState();
+    }
+
 
     // --- RADAR LOGIC ---
     async function updateRadarLayer() {
@@ -4958,7 +5110,7 @@ function renderMap(stations) {
             const altimMatch = raw.match(/\b(A|Q)([0-9]{4})\b/);
             if (altimMatch) {
                 let hPa = 0;
-let label = altimMatch[0];
+                let label = altimMatch[0];
                 const val = parseInt(altimMatch[2]);
                 let inHgVal = 0;
 
