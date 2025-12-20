@@ -1043,7 +1043,7 @@
 
         <script>
             // --- APP CONFIG ---
-            const CURRENT_VERSION = 'v2.6.0'; // Incremented Version
+            const CURRENT_VERSION = 'v2.6.1'; // Incremented Version
             const GITHUB_REPO = 'Unpiloted0852/AvWx';
 
             // Global Data Storage for Modal Access
@@ -3646,11 +3646,7 @@
 
                 closeDashSearchModal();
 
-                if (addedCount > 0) {
-                    alert(`Added ${addedCount} stations sorted by distance.`);
-                } else {
-                    alert(`No new stations found within ${radius}NM.`);
-                }
+
 
             } catch (e) {
                 console.error(e);
