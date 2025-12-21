@@ -5,6 +5,10 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <meta name="color-scheme" content="light dark">
 
+    <link rel="icon" href="./favicon.ico">
+    <link rel="apple-touch-icon" href='./apple-touch-icon.png'>
+
+
     <title>Aviation Weather Report (TAF & METAR)</title>
 
     <script>
@@ -14,6 +18,7 @@
 
         // Global reference to tile layer for updating
         let tileLayer = null;
+        let showRunwaysOnMap = false;
 
         // Check local storage or system preference
         function getInitialTheme() {
@@ -346,11 +351,17 @@
                 border-color: rgba(255,255,255,0.1); color: white;
             }
 
-            /* Radar Active State */
-            .radar-active {
-                background-color: #3b82f6 !important;
-                color: white !important;
-            }
+          /* Runway Active State (Matches Radar/Pirep style) */
+    .runway-active {
+        background-color: #8b5cf6 !important; /* Violet-500 */
+        color: white !important;
+    }
+
+    /* Radar Active State */
+    .radar-active {
+        background-color: #3b82f6 !important;
+        color: white !important;
+    }
 
             /* Freezing Active State */
             .freezing-active {
@@ -860,6 +871,11 @@
                 <!-- Expanded Items -->
                 <div id="layerMenuItems" class="layer-items">
 
+
+                    <button id="runwayMapBtn" onclick="toggleRunwayOnMap()" class="layer-btn bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center justify-center" aria-label="Toggle Runway Icons" title="Runway Diagrams">
+                        <span class="font-black text-[10px] tracking-tighter leading-none">RWY</span>
+                    </button>
+
                     <!-- Radar -->
                     <button id="radarToggleBtn" onclick="toggleRadar()" class="layer-btn bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700" aria-label="Toggle Radar" title="Radar">
                         <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -1027,7 +1043,7 @@
                         </div>
                         <div>
                             <label class="block text-xs font-bold text-gray-500 uppercase mb-1">Min Rwy (ft)</label>
-                            <input type="number" id="advSearchRwy" value="3000" step="500" class="w-full p-3 bg-gray-100 dark:bg-black border border-gray-300 dark:border-gray-700 rounded-lg font-mono outline-none">
+                            <input type="number" id="advSearchRwy" value="0" step="500" class="w-full p-3 bg-gray-100 dark:bg-black border border-gray-300 dark:border-gray-700 rounded-lg font-mono outline-none">
                         </div>
                     </div>
 
@@ -1043,7 +1059,7 @@
 
         <script>
             // --- APP CONFIG ---
-            const CURRENT_VERSION = 'v2.6.1'; // Incremented Version
+            const CURRENT_VERSION = 'v2.6.2'; // Incremented Version
             const GITHUB_REPO = 'Unpiloted0852/AvWx';
 
             // Global Data Storage for Modal Access
@@ -1066,6 +1082,9 @@
             let refreshIntervalId = null;
 
             // Map Globals
+            // Add with other globals
+
+        let hazardRenderer = null;
             let mapInstance = null;
             let markerLayerGroup = null;
             let labelLayerGroup = null; // Optimized layer for text
@@ -1122,25 +1141,26 @@
                 }
             }
 
-            // Function to update the green dot on the main button
-            function updateLayerActiveState() {
-                const hasRadar = !!radarLayer;
-                const hasFreezing = !!freezingLayer;
-                const hasHeatmap = (heatmapMode !== 0);
-                const hasPirep = !!pirepLayer;
-                const hasHazards = !!hazardsLayer;
-                const hasDayNight = !!dayNightLayer;
 
-                const mainBtn = document.getElementById('mainLayerToggle');
-                if (hasRadar || hasFreezing || hasHeatmap || hasPirep || hasHazards || hasDayNight) {
-                    mainBtn.classList.add('has-active-layers');
-                } else {
-                    mainBtn.classList.remove('has-active-layers');
-                }
+        // --- UPDATE THE EXISTING updateLayerActiveState FUNCTION ---
+        function updateLayerActiveState() {
+            const hasRadar = !!radarLayer;
+            const hasFreezing = !!freezingLayer;
+            const hasHeatmap = (heatmapMode !== 0);
+            const hasPirep = !!pirepLayer;
+            const hasHazards = !!hazardsLayer;
+            const hasDayNight = !!dayNightLayer;
+            const hasRunways = showRunwaysOnMap; // <--- Add this
 
-                // Also update map warning
-                updateMapWarnings();
+            const mainBtn = document.getElementById('mainLayerToggle');
+            // Add hasRunways to the condition
+            if (hasRadar || hasFreezing || hasHeatmap || hasPirep || hasHazards || hasDayNight || hasRunways) {
+                mainBtn.classList.add('has-active-layers');
+            } else {
+                mainBtn.classList.remove('has-active-layers');
             }
+            updateMapWarnings();
+        }
 
             // --- LIBRARIES SAFE LOADING ---
             let jsPDF = null;
@@ -1196,7 +1216,12 @@
                 });
             }
 
-
+        document.getElementById('dashInput').addEventListener("keydown", function(event) {
+            if (event.key === "Enter") {
+                event.preventDefault();
+                addDashboardStation();
+            }
+        });
 
             // --- ENTER KEY LISTENER ---
             icaoInput.addEventListener("keydown", function(event) {
@@ -1274,24 +1299,27 @@
             }
 
 
-            // Set Version in UI
-            document.getElementById('appVersionDisplay').textContent = CURRENT_VERSION;
 
-          // Live URLs (via Proxy)
+            // URLs - Pointing to GitHub Pages (The correct way to serve app data)
+            // -----------------------------------------------------------------------
+            // REPLACE 'Unpiloted0852' and 'AvWx-Web' if you change your username/repo
+            const GH_USER = 'Unpiloted0852';
+            const GH_REPO = 'AvWx-Web';
+
+            const BASE_URL = `https://${GH_USER}.github.io/${GH_REPO}`;
+
+            const TAF_DATA_URL = `${BASE_URL}/data/tafs.cache.xml.gz`;
+            const METAR_DATA_URL = `${BASE_URL}/data/metars.cache.xml.gz`;
+            const STATIONS_DATA_URL = `${BASE_URL}/data/stations.cache.xml.gz`;
+            const PIREP_DATA_URL = `${BASE_URL}/data/aircraftreports.cache.xml.gz`;
+            const RUNWAY_DATA_URL = `${BASE_URL}/data/runways.csv`;
+
+            // UPDATED: Point to local JSON files
+            const SIGMET_DOMESTIC_URL = `${BASE_URL}/data/sigmet_domestic.json`;
+            const SIGMET_INTL_URL = `${BASE_URL}/data/sigmet_intl.json`;
+
+            // We strictly use local fetches now, so Proxy is mostly unused but keep defined
             const PROXY_URL = 'https://corsproxy.io/?';
-
-            const TAF_DATA_URL = 'https://aviationweather.gov/data/cache/tafs.cache.xml.gz';
-            const METAR_DATA_URL = 'https://aviationweather.gov/data/cache/metars.cache.xml.gz';
-            const STATIONS_DATA_URL = 'https://aviationweather.gov/data/cache/stations.cache.xml.gz';
-            const PIREP_DATA_URL = 'https://aviationweather.gov/data/cache/aircraftreports.cache.xml.gz';
-
-            // Live Runway Data (GitHub)
-            const RUNWAY_DATA_URL = 'https://raw.githubusercontent.com/davidmegginson/ourairports-data/main/runways.csv';
-
-            // Live SIGMET Data
-            const SIGMET_DOMESTIC_URL = 'https://aviationweather.gov/api/data/sigmet?format=geojson';
-            const SIGMET_INTL_URL = 'https://aviationweather.gov/api/data/isigmet?format=geojson';
-
 
             const MAX_RETRIES = 3;
             const PAGE_MARGIN = 15;
@@ -1906,6 +1934,30 @@
                 }
             }
 
+        function toggleRunwayOnMap() {
+            showRunwaysOnMap = !showRunwaysOnMap;
+            const btn = document.getElementById('runwayMapBtn');
+
+            if (showRunwaysOnMap) {
+                btn.classList.add('runway-active'); // Uses the new standard class
+
+                // Ensure data is loaded if this is the first click
+                if (!cachedRunwayMap) {
+                    getRunwayData().then(() => {
+                        if (currentStationsData.length > 0) renderMap(currentStationsData);
+                    });
+                }
+            } else {
+                btn.classList.remove('runway-active');
+            }
+
+            // Trigger re-render
+            if (currentStationsData.length > 0) {
+                renderMap(currentStationsData);
+            }
+            updateLayerActiveState();
+        }
+
             function toggleHeatmap() {
                 const btn = document.getElementById('heatmapBtn');
                 const legend = document.getElementById('heatmapLegend');
@@ -1976,19 +2028,21 @@
 
 
             // --- MAP FUNCTIONS ---
+         // --- MAP FUNCTIONS ---
             function initMap() {
                 if (mapInstance) return;
 
                 const isDark = document.documentElement.classList.contains('dark');
 
-                // Initialize Map with preferCanvas: true for performance
+                // Initialize Map with preferCanvas: true for general performance,
+                // but we will override this for specific interactive layers below.
                 mapInstance = L.map('weatherMap', {
                     preferCanvas: true,
                     worldCopyJump: true,
                     zoomControl: false
                 }).setView([39.8283, -98.5795], 4);
 
-                // Increase touch tolerance (hit detection) without changing visual radius
+                // Standard Canvas renderer for simple dots (high performance)
                 mapRenderer = L.canvas({ tolerance: 20 });
 
                 // CartoDB Tiles (Dynamic)
@@ -1999,71 +2053,80 @@
                 }).addTo(mapInstance);
 
                // --- CUSTOM PANES FOR Z-INDEX CONTROL ---
+               // Order is crucial: Lower Z-Index = Lower on stack
 
-                // NEW: Day/Night Pane - Above tiles (200), below Heatmap (200, effectively drawn later)
-                // Set to 225 to sit above tiles but below weather data
+                // 1. Heatmap Pane (Above tiles)
+                mapInstance.createPane('heatmapPane');
+                mapInstance.getPane('heatmapPane').style.zIndex = 200;
+
+                // 2. Day/Night Pane
                 mapInstance.createPane('dayNightPane');
                 mapInstance.getPane('dayNightPane').style.zIndex = 225;
                 mapInstance.getPane('dayNightPane').style.pointerEvents = 'none';
 
-                // 1. Heatmap Pane (New) - Below Radar
-                mapInstance.createPane('heatmapPane');
-                mapInstance.getPane('heatmapPane').style.zIndex = 200;
-
-                // 2. Radar Pane (Lowest Custom Pane)
+                // 3. Radar Pane
                 mapInstance.createPane('radarPane');
                 mapInstance.getPane('radarPane').style.zIndex = 250;
-                mapInstance.getPane('radarPane').style.pointerEvents = 'none'; // Don't block clicks
+                mapInstance.getPane('radarPane').style.pointerEvents = 'none';
 
-                // NEW: Hazard/Sigmet Pane
-                // FIXED: Increased to 405 to sit ABOVE the Route Pane (400) but BELOW Markers (600).
-                // This prevents the Route Pane's canvas from blocking clicks on SIGMETs.
-                mapInstance.createPane('hazardPane');
-                mapInstance.getPane('hazardPane').style.zIndex = 405;
+                // 4. Freezing Level (via OverlayPane usually, but we define zIndex in class)
 
-                // 3. PIREP Pane (Moved ABOVE markers for clickability)
-                mapInstance.createPane('pirepPane');
-                mapInstance.getPane('pirepPane').style.zIndex = 625;
-
-                // 4. Freezing Pane
-                // (Freezing layer logic already adds canvas to overlayPane...)
-
-                // 5. User Location Pane (Above Radar, Below Routes)
+                // 5. User Location Pane
                 mapInstance.createPane('userLocationPane');
                 mapInstance.getPane('userLocationPane').style.zIndex = 350;
                 mapInstance.getPane('userLocationPane').style.pointerEvents = 'none';
 
-                // 6. Route Pane (Above User, Below Markers)
+                // 6. Route Pane
                 mapInstance.createPane('routePane');
                 mapInstance.getPane('routePane').style.zIndex = 400;
-                // CRITICAL FIX: Ensure the route pane allows clicks to pass through to layers below it (like Hazards)
-                // Since your route lines are set to 'interactive: false', this is safe to do.
                 mapInstance.getPane('routePane').style.pointerEvents = 'none';
 
-                // 7. Marker Pane (Topmost)
+                // 7. Hazard Pane (SIGMETs) - Must be interactive
+                mapInstance.createPane('hazardPane');
+                mapInstance.getPane('hazardPane').style.zIndex = 405;
+
+                // 8. Marker Pane (Runways/Dots) - Topmost interactive layer
                 mapInstance.createPane('markerPane');
                 mapInstance.getPane('markerPane').style.zIndex = 600;
 
-         // SEPARATE RENDERERS FOR PANES TO FIX CLICK ISSUES
-        routeRenderer = L.canvas({ pane: 'routePane' });
-        // Use SVG for markers so clicks pass through the empty space
-        markerRenderer = L.svg({ pane: 'markerPane' });
+                // 9. PIREP Pane
+                mapInstance.createPane('pirepPane');
+                mapInstance.getPane('pirepPane').style.zIndex = 625;
 
+                // --- RENDERERS ---
+                // CRITICAL: Use SVG for the markerPane.
+                // Canvas blocks clicks on transparent areas; SVG allows clicks to pass through to layers below (like Hazards).
+                markerRenderer = L.svg({ pane: 'markerPane' });
+
+                // Routes are static, Canvas is fine/faster
+                routeRenderer = L.canvas({ pane: 'routePane' });
+
+                // Initialize Layer Groups
                 markerLayerGroup = L.layerGroup().addTo(mapInstance);
                 labelLayerGroup = L.layerGroup().addTo(mapInstance);
 
-                // Events for Optimized Label Rendering
-                mapInstance.on('zoomend', updateMapLabels);
-                mapInstance.on('moveend', updateMapLabels);
+                // --- EVENT LISTENERS ---
+                // Re-render markers on move/zoom to handle Culling and LOD switching
+                mapInstance.on('moveend', () => {
+                    updateMapLabels();
+                    // Only re-render heavy markers if the list exists
+                    if (currentStationsData && currentStationsData.length > 0) {
+                        renderMap(currentStationsData);
+                    }
+                });
 
-                // --- FREEZING LAYER CLASS DEFINTION (Inside initMap scope to ensure L is ready) ---
+                mapInstance.on('zoomend', () => {
+                   updateMapLabels();
+                });
+
+                // --- FREEZING LAYER CLASS DEFINTION ---
                 if (typeof L.FreezingLayer === 'undefined') {
                     L.FreezingLayer = L.Layer.extend({
                         onAdd: function(map) {
                             this._map = map;
                             this._canvas = L.DomUtil.create('canvas', 'leaflet-freezing-layer');
                             this._canvas.style.pointerEvents = 'none';
-                            this._canvas.style.zIndex = 300; // Above Radar(250), Below Routes(400)
+                            this._canvas.style.zIndex = 300; // Between Radar and User
                             map.getPanes().overlayPane.appendChild(this._canvas);
 
                             // Trigger draw on move/zoom
@@ -2109,8 +2172,7 @@
                             // Use allStationsData to allow gap bridging (runway filter ignored)
                             if (!allStationsData || allStationsData.length === 0) return;
 
-                            // 1. Filter stations to visible area + LARGE buffer (matching Point Tool range)
-                            // 15 degrees is roughly 900NM, effectively covering the same "Gap Bridging" logic.
+                            // 1. Filter stations to visible area + LARGE buffer
                             const bounds = map.getBounds();
                             const pad = 15.0;
                             const south = bounds.getSouth() - pad;
@@ -2139,55 +2201,37 @@
                                 temp: s.metar.rawTempC
                             }));
 
-                            // Prepare Style
                             ctx.fillStyle = 'rgba(6, 182, 212, 0.25)'; // Cyan-500, transparent
-
-                            // Optimization Variables
-                            const P = 2; // Power for IDW
-                            const NEIGHBOR_COUNT = 5; // Must match "Estimated Weather" tool logic
+                            const NEIGHBOR_COUNT = 5;
 
                             for (let y = 0; y < rows; y++) {
                                 for (let x = 0; x < cols; x++) {
                                     const px = x * RES;
                                     const py = y * RES;
-
-                                    // Get Lat/Lon of this grid center
                                     const ll = map.containerPointToLatLng(L.point(px + RES/2, py + RES/2));
-
-                                    // Optimization: Cosine correction factor for this latitude (approximate for local area)
                                     const cosLat = Math.cos(ll.lat * Math.PI / 180);
 
-                                    // 1. Find Nearest 5 Neighbors
-                                    // We can't sort the whole array every pixel (too slow).
-                                    // We do a single pass to maintain a sorted "Top 5" list.
                                     let closest = [];
 
                                     for (let i = 0; i < stationData.length; i++) {
                                         const s = stationData[i];
                                         const dLat = s.lat - ll.lat;
-                                        const dLon = (s.lon - ll.lng) * cosLat; // Simple Flat Earth approx is fine for sorting nearby
+                                        const dLon = (s.lon - ll.lng) * cosLat;
                                         const distSq = dLat*dLat + dLon*dLon;
 
-                                        // Insert into sorted closest array (capped at 5)
                                         if (closest.length < NEIGHBOR_COUNT) {
                                             closest.push({ distSq: distSq, temp: s.temp });
-                                            // Keep sorted (descending) so we can pop largest easily?
-                                            // Actually better to sort ascending, check last.
                                             closest.sort((a,b) => a.distSq - b.distSq);
                                         } else if (distSq < closest[NEIGHBOR_COUNT-1].distSq) {
-                                            // Replace last
                                             closest[NEIGHBOR_COUNT-1] = { distSq: distSq, temp: s.temp };
                                             closest.sort((a,b) => a.distSq - b.distSq);
                                         }
                                     }
 
-                                    // 2. Perform IDW on the chosen 5
                                     let sumWeights = 0;
                                     let weightedTemp = 0;
 
                                     for(let i=0; i<closest.length; i++) {
-                                        // Weight = 1 / dist^2 (which is 1/distSq)
-                                        // Add tiny epsilon to avoid div/0
                                         const w = 1 / (closest[i].distSq + 0.000001);
                                         weightedTemp += closest[i].temp * w;
                                         sumWeights += w;
@@ -2195,7 +2239,6 @@
 
                                     if (sumWeights > 0) {
                                         const estimatedTemp = weightedTemp / sumWeights;
-                                        // Threshold for "Freezing"
                                         if (estimatedTemp < 0) {
                                             ctx.fillRect(px, py, RES, RES);
                                         }
@@ -2215,7 +2258,8 @@
                 if (!dayNightLayer && !dayNightInterval) {
                     toggleDayNight();
                 }
-            } // <--- End of initMap function
+            }
+
 
             // --- DAY/NIGHT LOGIC ---
             function getTerminatorCoords(time) {
@@ -2417,114 +2461,82 @@
             }
 
         // --- HAZARDS / SIGMETS LOGIC (UPDATED FIX) ---
-           async function updateHazardsLayer() {
-                if (!mapInstance) return;
+        async function updateHazardsLayer() {
+            if (!mapInstance) return;
 
-                if (hazardsLayer) {
-                    mapInstance.removeLayer(hazardsLayer);
-                    hazardsLayer = null;
-                }
-
-                try {
-                   // Use Proxy for SIGMETs
-                    const [usRes, intlRes] = await Promise.all([
-                        fetch(PROXY_URL + encodeURIComponent(SIGMET_DOMESTIC_URL)),
-                        fetch(PROXY_URL + encodeURIComponent(SIGMET_INTL_URL))
-                    ]);
-
-                    const usData = usRes.ok ? await usRes.json() : { features: [] };
-                    const intlData = intlRes.ok ? await intlRes.json() : { features: [] };
-
-                    const mergedFeatures = [...(usData.features || []), ...(intlData.features || [])];
-                    const mergedGeoJSON = { type: "FeatureCollection", features: mergedFeatures };
-
-                    if (mergedFeatures.length === 0) {
-                        console.warn("No SIGMETs found.");
-                    }
-
-                    const hazardRenderer = L.svg({ pane: 'hazardPane' });
-
-                    hazardsLayer = L.geoJSON(mergedGeoJSON, {
-                        // ... (Existing style and onEachFeature logic remains exactly the same) ...
-                        pane: 'hazardPane',
-                        renderer: hazardRenderer,
-                        interactive: true,
-                        style: function (feature) {
-                            const hazard = feature.properties.hazard || '';
-                            const qual = feature.properties.qualifier || '';
-                            let color = '#888888';
-                            let dashArray = null;
-                            let weight = 2;
-                            if (hazard === 'TS' || qual === 'CONVECTIVE') { color = '#ef4444'; weight = 3; }
-                            else if (hazard === 'TURB') { color = '#f97316'; dashArray = '5, 10'; }
-                            else if (hazard === 'ICE') { color = '#3b82f6'; }
-                            else if (hazard === 'ASH' || hazard === 'VA') { color = '#4b5563'; }
-                            return { color, weight, opacity: 0.9, fillOpacity: 0.2, dashArray };
-                        },
-                        onEachFeature: function (feature, layer) {
-                            const props = feature.properties;
-                            const hazardType = props.hazard || 'Unknown';
-                            const raw = props.rawSigmet || props.rawAirSigmet || props.raw || 'No details';
-                            const validTo = props.validTimeTo || '';
-
-                            layer.on('mouseover', function() { this.setStyle({ weight: 4, fillOpacity: 0.4 }); });
-                            layer.on('mouseout', function() { hazardsLayer.resetStyle(this); });
-
-                            layer.bindPopup(`
-                                <div class="font-sans min-w-[200px]">
-                                    <div class="font-bold text-sm mb-1 border-b pb-1">SIGMET: ${hazardType}</div>
-                                    <div class="text-xs font-mono bg-gray-100 dark:bg-gray-800 p-1 mb-2 whitespace-pre-wrap">${raw}</div>
-                                    <div class="text-xs text-gray-500">Valid until: ${validTo}</div>
-                                </div>
-                            `);
-                        }
-                    }).addTo(mapInstance);
-
-                } catch (e) {
-                    console.warn("Failed to fetch Hazards", e);
-                    document.getElementById('hazardsBtn').classList.remove('hazard-active');
-                } finally {
-                    const btn = document.getElementById('hazardsBtn');
-                    btn.innerHTML = '⚠️';
-                }
+            // 1. Clear existing layer if present
+            if (hazardsLayer) {
+                mapInstance.removeLayer(hazardsLayer);
+                hazardsLayer = null;
             }
-          function toggleHazards() {
+
+            try {
+                // 2. Fetch Data
+                const [usRes, intlRes] = await Promise.all([
+                    fetch(SIGMET_DOMESTIC_URL),
+                    fetch(SIGMET_INTL_URL)
+                ]);
+
+                const usData = usRes.ok ? await usRes.json() : { features: [] };
+                const intlData = intlRes.ok ? await intlRes.json() : { features: [] };
+
+                const mergedFeatures = [...(usData.features || []), ...(intlData.features || [])];
+                const mergedGeoJSON = { type: "FeatureCollection", features: mergedFeatures };
+
+                if (mergedFeatures.length === 0) {
+                    console.warn("No SIGMETs found.");
+                }
+
+                // 3. Create Layer (Using SVG Renderer for clickability)
+                // Note: Using the specific 'hazardPane' ensures z-index correctness
+                const hazardRenderer = L.svg({ pane: 'hazardPane' });
+
+                hazardsLayer = L.geoJSON(mergedGeoJSON, {
+                    pane: 'hazardPane',
+                    renderer: hazardRenderer,
+                    interactive: true,
+                    style: function (feature) {
+                        const hazard = feature.properties.hazard || '';
+                        const qual = feature.properties.qualifier || '';
+                        let color = '#888888';
+                        let dashArray = null;
+                        let weight = 2;
+                        if (hazard === 'TS' || qual === 'CONVECTIVE') { color = '#ef4444'; weight = 3; }
+                        else if (hazard === 'TURB') { color = '#f97316'; dashArray = '5, 10'; }
+                        else if (hazard === 'ICE') { color = '#3b82f6'; }
+                        else if (hazard === 'ASH' || hazard === 'VA') { color = '#4b5563'; }
+                        return { color, weight, opacity: 0.9, fillOpacity: 0.2, dashArray };
+                    },
+                    onEachFeature: function (feature, layer) {
+                        const props = feature.properties;
+                        const hazardType = props.hazard || 'Unknown';
+                        const raw = props.rawSigmet || props.rawAirSigmet || props.raw || 'No details';
+                        const validTo = props.validTimeTo || '';
+
+                        layer.on('mouseover', function() { this.setStyle({ weight: 4, fillOpacity: 0.4 }); });
+                        layer.on('mouseout', function() { hazardsLayer.resetStyle(this); });
+
+                        layer.bindPopup(`
+                            <div class="font-sans min-w-[200px]">
+                                <div class="font-bold text-sm mb-1 border-b pb-1">SIGMET: ${hazardType}</div>
+                                <div class="text-xs font-mono bg-gray-100 dark:bg-gray-800 p-1 mb-2 whitespace-pre-wrap">${raw}</div>
+                                <div class="text-xs text-gray-500">Valid until: ${validTo}</div>
+                            </div>
+                        `);
+                    }
+                }).addTo(mapInstance);
+
+            } catch (e) {
+                console.warn("Failed to fetch Hazards", e);
+                // If it fails, turn off the active state so the user knows
                 const btn = document.getElementById('hazardsBtn');
-                if (!mapInstance) return;
-
-                if (hazardsRefreshInterval) {
-                    // --- TURN OFF ---
-                    // 1. Clear the timer
-                    clearInterval(hazardsRefreshInterval);
-                    hazardsRefreshInterval = null;
-
-                    // 2. Remove the layer
-                    if (hazardsLayer) {
-                        mapInstance.removeLayer(hazardsLayer);
-                        hazardsLayer = null;
-                    }
-
-                    // 3. Update UI
-                    btn.classList.remove('hazard-active');
-                } else {
-                    // --- TURN ON ---
-                    btn.classList.add('hazard-active');
-
-                    // 1. Show Spinner
-                    btn.innerHTML = `<svg class="animate-spin h-5 w-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>`;
-
-                    // 2. Initial Load
-                    setTimeout(() => {
-                        updateHazardsLayer();
-                    }, 50);
-
-                    // 3. Set Auto-Refresh (Every 5 minutes)
-                    hazardsRefreshInterval = setInterval(updateHazardsLayer, 300000);
-                }
-
-                updateLayerActiveState();
+                if(btn) btn.classList.remove('hazard-active');
+            } finally {
+                // CRITICAL FIX: Reset the button icon to remove the spinner
+                const btn = document.getElementById('hazardsBtn');
+                if(btn) btn.innerHTML = '⚠️';
             }
-
+        }
             // --- PIREP LOGIC (NEW - UPDATED WITH NWS SYMBOLS & ROTATION) ---
             async function updatePireps() {
                 if (!mapInstance) return;
@@ -2670,7 +2682,39 @@
                     if (btn.textContent === '...') btn.innerHTML = '✈️'; // Restore icon if it was loading
                 }
             }
+        // --- GLOBAL VARIABLES (Add these at the top of your script if missing) ---
 
+        // let hazardsLayer = null; // (This should already be defined with your other layers)
+
+        // --- HAZARDS TOGGLE FUNCTION ---
+        function toggleHazards() {
+            const btn = document.getElementById('hazardsBtn');
+            if (!mapInstance) return;
+
+            if (hazardsRefreshInterval) {
+                // --- TURN OFF ---
+                clearInterval(hazardsRefreshInterval);
+                hazardsRefreshInterval = null;
+
+                if (hazardsLayer) {
+                    mapInstance.removeLayer(hazardsLayer);
+                    hazardsLayer = null;
+                }
+
+                btn.classList.remove('hazard-active');
+                btn.innerHTML = '⚠️'; // Restore icon
+            } else {
+                // --- TURN ON ---
+                btn.classList.add('hazard-active');
+                // Show spinner
+                btn.innerHTML = `<svg class="animate-spin h-5 w-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>`;
+
+                updateHazardsLayer(); // Initial call
+                // Auto-refresh every 5 minutes
+                hazardsRefreshInterval = setInterval(updateHazardsLayer, 300000);
+            }
+            updateLayerActiveState();
+        }
             function togglePireps() {
                 const btn = document.getElementById('pirepBtn');
                 const attrib = document.getElementById('pirepAttribution');
@@ -2903,55 +2947,60 @@
             // --- OPTIMIZED LABEL RENDERING ---
             // Instead of creating 5000 DOM elements (tooltip) which kills performance,
             // we only draw labels for stations currently inside the viewport, and only when zoomed in.
-            function updateMapLabels() {
-                if (!mapInstance || !labelLayerGroup) return;
+         // --- OPTIMIZED LABEL RENDERING ---
+        function updateMapLabels() {
+            if (!mapInstance || !labelLayerGroup) return;
 
-                // 1. Clear existing labels immediately to free memory
-                labelLayerGroup.clearLayers();
+            // 1. Clear existing labels immediately to free memory
+            labelLayerGroup.clearLayers();
 
-                // 2. Check zoom level (Only show if >= 7)
-                const zoom = mapInstance.getZoom();
-                if (zoom < 7) return;
+            // 2. Check zoom level (Only show if >= 7)
+            const zoom = mapInstance.getZoom();
+            if (zoom < 7) return;
 
-                // 3. Get current map bounds
-                const bounds = mapInstance.getBounds();
+            // 3. Get current map bounds
+            const bounds = mapInstance.getBounds();
 
-                // 4. Filter visible stations (Limit to max 150 to prevent freezing)
-                let count = 0;
-                const maxLabels = 150;
+            // 4. Filter visible stations (Limit to max 150 to prevent freezing)
+            let count = 0;
+            const maxLabels = 150;
 
-                for (const station of currentStationsData) {
-                    if (count >= maxLabels) break;
+            for (const station of currentStationsData) {
+                if (count >= maxLabels) break;
 
-                    // Basic coordinate check
-                    if (station.latitude === null || station.longitude === null) continue;
+                // Basic coordinate check
+                if (station.latitude === null || station.longitude === null) continue;
 
-                    // Check if inside viewport
-                    const latLng = L.latLng(station.latitude, station.longitude);
-                    if (bounds.contains(latLng)) {
+                // Check if inside viewport
+                const latLng = L.latLng(station.latitude, station.longitude);
+                if (bounds.contains(latLng)) {
 
-                        // Determine label color based on category
-                        let cat = station.metar ? station.metar.category : 'NODATA';
-                        const labelClass = `map-icao-label label-${cat.toLowerCase()}`;
+                    // Determine label color based on category
+                    let cat = station.metar ? station.metar.category : 'NODATA';
+                    const labelClass = `map-icao-label label-${cat.toLowerCase()}`;
 
-                        // Create lightweight DivIcon
-                        const labelIcon = L.divIcon({
-                            className: labelClass,
-                            html: station.id,
-                            iconSize: [40, 14],
-                            iconAnchor: [20, -5] // Offset to appear below the dot
-                        });
+                    // Create lightweight DivIcon
+                    const labelIcon = L.divIcon({
+                        className: labelClass,
+                        html: station.id,
+                        iconSize: [40, 14],
+                        // Offset calculation:
+                        // Anchor [20, -5] places the top of the text 5px BELOW the lat/lon point.
+                        // This ensures it usually sits just under the center dot.
+                        iconAnchor: [20, -5]
+                    });
 
-                        L.marker(latLng, {
-                            icon: labelIcon,
-                            interactive: false, // Labels don't need clicks, dots handle that
-                            zIndexOffset: -100  // Keep labels below dots/popups
-                        }).addTo(labelLayerGroup);
+                    L.marker(latLng, {
+                        icon: labelIcon,
+                        interactive: false, // Labels don't need clicks, dots/runways handle that
+                        // CRITICAL FIX: High Z-Index ensures it floats ABOVE the Arrow (5000) and Runways
+                        zIndexOffset: 10000
+                    }).addTo(labelLayerGroup);
 
-                        count++;
-                    }
+                    count++;
                 }
             }
+        }
 
             // --- GREAT CIRCLE MATH ---
             function toRad(deg) { return deg * Math.PI / 180; }
@@ -3000,199 +3049,221 @@
                 });
             }
 
+        // Helper to restore the exact original popup design
+        function generatePopupContent(station) {
+            let metarHtml = '<div class="text-xs italic text-gray-500">No METAR available</div>';
+            if (station.metar) {
+                metarHtml = `<div class="space-y-0.5">${formatRawText(station.metar.rawText)}</div>`;
+                let metaInfo = `${getDisplayTemp(station.metar)} • ${station.metar.rh}`;
+                if (station.metar.densityAlt) metaInfo += ` • ${station.metar.densityAlt}`;
+                metaInfo += ` • Age: ${formatAge(station.metar.age)}`;
+                metarHtml += `<div class="mt-1 text-xs text-gray-400">${metaInfo}</div>`;
+            }
+
+            let tafHtml = '<div class="text-xs italic text-gray-500">No TAF available</div>';
+            if (station.taf) {
+                tafHtml = `<div class="space-y-0.5">${formatRawText(station.taf.rawText)}</div>`;
+                let notes = [];
+                if (station.taf.validTo) notes.push(formatRemainingTime(station.taf.validTo));
+                if (station.taf.age !== null) notes.push(`Issued: ${formatAge(station.taf.age)}`);
+
+                if (notes.length > 0) {
+                    tafHtml += `<div class="mt-2 border-t border-gray-200 dark:border-gray-700 pt-1 flex flex-col gap-0.5">`;
+                    notes.forEach(n => tafHtml += `<span class="text-xs text-gray-500 dark:text-gray-400 block">${n}</span>`);
+                    tafHtml += `</div>`;
+                }
+            }
+
+            return `
+                <div class="font-sans">
+                    <div class="flex items-baseline justify-between mb-2 pb-1 border-b border-gray-200 dark:border-gray-700">
+                        <span class="font-bold text-lg text-blue-600 dark:text-blue-400">${station.id}</span>
+                        <span class="text-xs text-gray-500 dark:text-gray-300 ml-2 truncate" style="max-width: 150px;">${station.name || ''}</span>
+                    </div>
+
+                    <div class="mb-2">
+                        <span class="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider block mb-1">METAR</span>
+                        ${metarHtml}
+                    </div>
+
+                    <div class="mb-1">
+                        <span class="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider block mb-1">TAF</span>
+                        ${tafHtml}
+                    </div>
+                </div>
+            `;
+        }
+
         function renderMap(stations) {
-                if (!mapInstance) initMap();
+            if (!mapInstance) initMap();
 
-                // --- NON-DISRUPTIVE POPUP HANDLING ---
-                // Check if any popup is currently open to preserve it after redraw
-                let openPopupId = null;
-                if (markerLayerGroup.getLayers().length > 0) {
-                    markerLayerGroup.eachLayer(layer => {
-                        // Check if it's a marker (has stationId) and has a popup open
-                        if (layer.stationId && layer.getPopup() && layer.isPopupOpen()) {
-                            openPopupId = layer.stationId;
-                        }
+            // 1. Preserve open popups
+            let openPopupId = null;
+            if (markerLayerGroup.getLayers().length > 0) {
+                markerLayerGroup.eachLayer(layer => {
+                    if (layer.stationId && layer.getPopup() && layer.isPopupOpen()) {
+                        openPopupId = layer.stationId;
+                    }
+                });
+            }
+
+            markerLayerGroup.clearLayers();
+            labelLayerGroup.clearLayers();
+
+            // 2. Home Highlight
+            const homeInput = document.getElementById('icaoInput').value.trim().toUpperCase();
+            if (homeInput.length >= 3 && cachedStationMap && !gpsReferenceCoords) {
+                const homeCoords = getCoordsForICAO(homeInput, cachedStationMap);
+                if (homeCoords && homeCoords.lat !== null) {
+                    L.circleMarker([homeCoords.lat, homeCoords.lon], {
+                        pane: 'routePane', renderer: routeRenderer,
+                        radius: 12, fill: false, color: '#06b6d4', weight: 3, interactive: false
+                    }).addTo(markerLayerGroup);
+                }
+            }
+
+            // 3. Route Drawing
+            if (routeAnalysisEnabled) {
+               const depInput = document.getElementById('depIcao').value.trim().toUpperCase();
+               const destInput = document.getElementById('destIcao').value.trim().toUpperCase();
+               let depCoords = null; let destCoords = null;
+               if (depInput.length >= 3 && cachedStationMap) depCoords = getCoordsForICAO(depInput, cachedStationMap);
+               if (destInput.length >= 3 && cachedStationMap) destCoords = getCoordsForICAO(destInput, cachedStationMap);
+               if (depCoords && depCoords.lat !== null && destCoords && destCoords.lat !== null) {
+                   const isSameStation = (Math.abs(depCoords.lat - destCoords.lat) < 0.0001 && Math.abs(depCoords.lon - destCoords.lon) < 0.0001);
+                   if (!isSameStation) {
+                       const pathPoints = getGreatCircleRoute(depCoords.lat, depCoords.lon, destCoords.lat, destCoords.lon);
+                       L.polyline(pathPoints, { pane: 'routePane', renderer: routeRenderer, color: '#fbbf24', weight: 2, opacity: 0.8, dashArray: '5, 10', lineCap: 'round', interactive: false }).addTo(markerLayerGroup);
+                   }
+                   L.circleMarker([depCoords.lat, depCoords.lon], { pane: 'routePane', renderer: routeRenderer, radius: 12, fill: false, color: '#ffffff', weight: 2, interactive: false }).addTo(markerLayerGroup);
+                   if (!isSameStation) {
+                       L.circleMarker([destCoords.lat, destCoords.lon], { pane: 'routePane', renderer: routeRenderer, radius: 12, fill: false, color: '#ffffff', weight: 2, interactive: false }).addTo(markerLayerGroup);
+                   }
+               }
+            }
+
+            // 4. Zoom Logic
+            const bounds = mapInstance.getBounds().pad(0.1);
+            const currentZoom = mapInstance.getZoom();
+            const isHighZoom = currentZoom >= 10;
+
+            stations.forEach(station => {
+                if (station.latitude === null || station.longitude === null) return;
+                if (!station.metar || !station.metar.category || station.metar.category === 'NODATA') return;
+                if (!bounds.contains([station.latitude, station.longitude])) return;
+
+                // Popup Content
+                const popupContent = generatePopupContent(station);
+
+                // --- MODE A: REALISTIC RUNWAYS ---
+                if (showRunwaysOnMap && isHighZoom && cachedRunwayMap && cachedRunwayMap.has(station.id)) {
+                    const rwyData = cachedRunwayMap.get(station.id);
+
+                    // Wind
+                    let windDir = 0, windSpeed = 0;
+                    if (station.metar.windDir !== null) { windDir = station.metar.windDir; windSpeed = station.metar.windSpeed || 0; }
+                    else {
+                        const match = station.metar.rawText.match(/(\d{3}|VRB)(\d{2,3})(?:G(\d{2,3}))?KT/);
+                        if (match) { windDir = (match[1] === 'VRB') ? 0 : parseInt(match[1]); windSpeed = parseInt(match[2]); }
+                    }
+
+                    // Draw Runways (Vectors)
+                    let sumLat = 0, sumLon = 0, count = 0;
+                    const drawnKeys = new Set();
+
+                    rwyData.runways.forEach((r, idx) => {
+                        if (!r.leLat || !r.heLat) return;
+                        const key = [r.leLat, r.leLon, r.heLat, r.heLon].sort().join('-');
+                        if (drawnKeys.has(key)) return;
+                        drawnKeys.add(key);
+
+                        sumLat += r.leLat + r.heLat; sumLon += r.leLon + r.heLon; count += 2;
+
+                        const isActive = (idx === getBestHeadwindRunwayIndex(station.id, windDir, windSpeed));
+
+                        // IMPORTANT: Added renderer: markerRenderer to all polylines to enforce SVG
+
+                        // 1. Casing
+                        L.polyline([[r.leLat, r.leLon], [r.heLat, r.heLon]], {
+                            color: 'white', weight: isActive ? 12 : 8, opacity: 1,
+                            pane: 'markerPane', renderer: markerRenderer, interactive: false, lineCap: 'square'
+                        }).addTo(markerLayerGroup);
+
+                        // 2. Asphalt (Clickable)
+                        const asphaltLine = L.polyline([[r.leLat, r.leLon], [r.heLat, r.heLon]], {
+                            color: '#1e293b', weight: isActive ? 10 : 6, opacity: 1,
+                            pane: 'markerPane', renderer: markerRenderer, interactive: true, lineCap: 'square'
+                        }).addTo(markerLayerGroup);
+
+                        asphaltLine.stationId = station.id;
+                        asphaltLine.bindPopup(popupContent, { autoPan: false });
+
+                        // 3. Centerline
+                        L.polyline([[r.leLat, r.leLon], [r.heLat, r.heLon]], {
+                            color: 'white', weight: 1, dashArray: '5, 5',
+                            pane: 'markerPane', renderer: markerRenderer, interactive: false
+                        }).addTo(markerLayerGroup);
                     });
-                }
 
-                markerLayerGroup.clearLayers();
-                labelLayerGroup.clearLayers(); // Clear labels on new render
+                    // Wind Arrow
+                    const centerLat = count > 0 ? sumLat / count : station.latitude;
+                    const centerLon = count > 0 ? sumLon / count : station.longitude;
 
-                // 1. HIGHLIGHT HOME AIRPORT
-                const homeInput = document.getElementById('icaoInput').value.trim().toUpperCase();
+                    const arrowIcon = L.divIcon({
+                        className: 'bg-transparent',
+                        html: `
+                        <div style="transform: rotate(${windDir}deg); width: 60px; height: 60px; display: flex; justify-content: center; align-items: center; pointer-events: auto; cursor: pointer;">
+                            <svg viewBox="0 0 100 100" style="overflow: visible; filter: drop-shadow(0 2px 4px rgba(0,0,0,0.5));">
+                                <line x1="50" y1="0" x2="50" y2="100" stroke="${windSpeed > 15 ? '#ef4444' : '#fbbf24'}" stroke-width="8" stroke-linecap="round"/>
+                                <path d="M50 100 L70 70 L30 70 Z" fill="${windSpeed > 15 ? '#ef4444' : '#fbbf24'}" stroke="white" stroke-width="2"/>
+                            </svg>
+                        </div>`,
+                        iconSize: [60, 60],
+                        iconAnchor: [30, 30]
+                    });
 
-                if (homeInput.length >= 3 && cachedStationMap && !gpsReferenceCoords) {
-                    const homeCoords = getCoordsForICAO(homeInput, cachedStationMap);
-                    if (homeCoords && homeCoords.lat !== null) {
-                         L.circleMarker([homeCoords.lat, homeCoords.lon], {
-                            pane: 'routePane',
-                            renderer: routeRenderer,
-                            radius: 12,
-                            fill: false,
-                            color: '#06b6d4',
-                            weight: 3,
-                            interactive: false
-                        }).addTo(markerLayerGroup);
-                    }
-                }
+                    const arrowMarker = L.marker([centerLat, centerLon], {
+                        icon: arrowIcon, pane: 'markerPane', interactive: true, zIndexOffset: 5000
+                    }).addTo(markerLayerGroup);
 
-                // 2. Draw Route if Dep/Dest exist
-                if (routeAnalysisEnabled) {
-                    const depInput = document.getElementById('depIcao').value.trim().toUpperCase();
-                    const destInput = document.getElementById('destIcao').value.trim().toUpperCase();
+                    arrowMarker.stationId = station.id;
+                    arrowMarker.bindPopup(popupContent, { autoPan: false });
 
-                    let depCoords = null;
-                    let destCoords = null;
-
-                    if (depInput.length >= 3 && cachedStationMap) {
-                        depCoords = getCoordsForICAO(depInput, cachedStationMap);
-                    }
-                    if (destInput.length >= 3 && cachedStationMap) {
-                        destCoords = getCoordsForICAO(destInput, cachedStationMap);
-                    }
-
-                    if (depCoords && depCoords.lat !== null && destCoords && destCoords.lat !== null) {
-                        const isSameStation = (Math.abs(depCoords.lat - destCoords.lat) < 0.0001 && Math.abs(depCoords.lon - destCoords.lon) < 0.0001);
-
-                        if (!isSameStation) {
-                            const pathPoints = getGreatCircleRoute(depCoords.lat, depCoords.lon, destCoords.lat, destCoords.lon);
-                            L.polyline(pathPoints, {
-                                pane: 'routePane',
-                                renderer: routeRenderer,
-                                color: '#fbbf24',
-                                weight: 2,
-                                opacity: 0.8,
-                                dashArray: '5, 10',
-                                lineCap: 'round',
-                                interactive: false
-                            }).addTo(markerLayerGroup);
-                        }
-
-                        L.circleMarker([depCoords.lat, depCoords.lon], {
-                            pane: 'routePane',
-                            renderer: routeRenderer,
-                            radius: 12,
-                            fill: false,
-                            color: '#ffffff',
-                            weight: 2,
-                            interactive: false
-                        }).addTo(markerLayerGroup);
-
-                        if (!isSameStation) {
-                            L.circleMarker([destCoords.lat, destCoords.lon], {
-                                pane: 'routePane',
-                                renderer: routeRenderer,
-                                radius: 12,
-                                fill: false,
-                                color: '#ffffff',
-                                weight: 2,
-                                interactive: false
-                            }).addTo(markerLayerGroup);
-                        }
-                    }
-                }
-
-                stations.forEach(station => {
-                    if (station.latitude === null || station.longitude === null) return;
-                    if (!station.metar || !station.metar.category || station.metar.category === 'NODATA') return;
-
-                    // Determine Color based on METAR category
+                } else {
+                    // --- MODE B: STANDARD DOTS ---
                     let cat = station.metar.category;
                     const colorRgb = COLORS[cat] || COLORS.NODATA;
                     const colorHex = rgbToHex(colorRgb);
 
-                    // --- HIT TARGET (THE GHOST) ---
-                    // Large radius (20px), invisible, but Interactive
+                    // Ghost
                     const hitMarker = L.circleMarker([station.latitude, station.longitude], {
-                        pane: 'markerPane',
-                        renderer: markerRenderer,
-                        radius: 20,       // Large touch target
-                        stroke: false,
-                        fill: true,
-                        fillColor: '#fff', // Color doesn't matter
-                        fillOpacity: 0.0,  // Invisible
-                        interactive: true  // Captures the clicks
+                        pane: 'markerPane', renderer: markerRenderer,
+                        radius: 20, stroke: false, fill: true, fillColor: '#fff', fillOpacity: 0.0, interactive: true
                     });
-
-                    // --- VISUAL MARKER ---
-                    // Small radius (5px), Visible, Non-Interactive (clicks pass through to Ghost)
+                    // Visual
                     const visualMarker = L.circleMarker([station.latitude, station.longitude], {
-                        pane: 'markerPane',
-                        renderer: markerRenderer,
-                        radius: 5,
-                        fillColor: colorHex,
-                        color: '#000',
-                        weight: 1,
-                        opacity: 0.8,
-                        fillOpacity: 0.8,
-                        interactive: false // Visual only
+                        pane: 'markerPane', renderer: markerRenderer,
+                        radius: 6, fillColor: colorHex, color: '#000', weight: 1, opacity: 0.8, fillOpacity: 0.9, interactive: false
                     });
 
-                    // Attach ID to the interactive Ghost Marker
                     hitMarker.stationId = station.id;
+                    hitMarker.bindPopup(popupContent, { autoPan: true });
 
-                    // Bind Popup to the Ghost Marker
-                    hitMarker.bindPopup(function() {
-                        let metarHtml = '<div class="text-xs italic text-gray-500">No METAR available</div>';
-                        if (station.metar) {
-                            metarHtml = `<div class="space-y-0.5">${formatRawText(station.metar.rawText)}</div>`;
-                            let metaInfo = `${getDisplayTemp(station.metar)} • ${station.metar.rh}`;
-                            if (station.metar.densityAlt) metaInfo += ` • ${station.metar.densityAlt}`;
-                            metaInfo += ` • Age: ${formatAge(station.metar.age)}`;
-                            metarHtml += `<div class="mt-1 text-xs text-gray-400">${metaInfo}</div>`;
-                        }
-
-                        let tafHtml = '<div class="text-xs italic text-gray-500">No TAF available</div>';
-                        if (station.taf) {
-                            tafHtml = `<div class="space-y-0.5">${formatRawText(station.taf.rawText)}</div>`;
-                             let notes = [];
-                             if (station.taf.validTo) notes.push(formatRemainingTime(station.taf.validTo));
-                             if (station.taf.age !== null) notes.push(`Issued: ${formatAge(station.taf.age)}`);
-
-                             if (notes.length > 0) {
-                                 tafHtml += `<div class="mt-2 border-t border-gray-200 dark:border-gray-700 pt-1 flex flex-col gap-0.5">`;
-                                 notes.forEach(n => tafHtml += `<span class="text-xs text-gray-500 dark:text-gray-400 block">${n}</span>`);
-                                 tafHtml += `</div>`;
-                             }
-                        }
-
-                        return `
-                            <div class="font-sans">
-                                <div class="flex items-baseline justify-between mb-2 pb-1 border-b border-gray-200 dark:border-gray-700">
-                                    <span class="font-bold text-lg text-blue-600 dark:text-blue-400">${station.id}</span>
-                                    <span class="text-xs text-gray-500 dark:text-gray-300 ml-2 truncate" style="max-width: 150px;">${station.name || ''}</span>
-                                </div>
-
-                                <div class="mb-2">
-                                    <span class="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider block mb-1">METAR</span>
-                                    ${metarHtml}
-                                </div>
-
-                                <div class="mb-1">
-                                    <span class="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider block mb-1">TAF</span>
-                                    ${tafHtml}
-                                </div>
-                            </div>
-                        `;
-                    });
-
-                    // Add both to the map
-                    // Note: Order matters slightly, but since visual is non-interactive,
-                    // clicks will fall through to the hitMarker regardless of z-order.
                     markerLayerGroup.addLayer(hitMarker);
                     markerLayerGroup.addLayer(visualMarker);
+                }
 
-                    // Re-open popup if it was open before refresh
-                    if (openPopupId && station.id === openPopupId) {
-                        setTimeout(() => {
-                            hitMarker.openPopup();
-                        }, 10);
-                    }
-                });
+                if (openPopupId && station.id === openPopupId) {
+                    markerLayerGroup.eachLayer(l => {
+                        if (l.stationId === station.id && typeof l.openPopup === 'function') {
+                            setTimeout(() => l.openPopup(), 50);
+                        }
+                    });
+                }
+            });
 
-                // Initial label update if zoomed in
-                updateMapLabels();
-            }
+            updateMapLabels();
+        }
 
             // --- EVENT LISTENERS ---
             generateButton.addEventListener('click', (e) => handleGenerateClick(e, false));
@@ -3443,6 +3514,7 @@
             }, 100);
         }
 
+
         function exitDashboard() {
             document.body.classList.remove('dashboard-active-mode');
 
@@ -3645,7 +3717,6 @@
                 renderDashboard();
 
                 closeDashSearchModal();
-
 
 
             } catch (e) {
@@ -3865,36 +3936,23 @@
                 return 'VFR';
             }
 
-            function fetchWithRetry(fn, retries = MAX_RETRIES) {
-                return new Promise((resolve, reject) => {
-                    const attempt = (n) => {
-                        fn().then(resolve).catch(err => {
-                            if (n === 0) return reject(err);
-                            setTimeout(() => attempt(n - 1), Math.pow(2, MAX_RETRIES - n) * 1000);
-                        });
-                    };
-                    attempt(retries);
-                });
-            }
 
             async function fetchAndParse(url) {
-                // 1. Create a Cache Buster to ensure fresh data
+                // DIRECT LOCAL FETCH - NO PROXY
                 const cacheBuster = (url.includes('?') ? '&' : '?') + 'cb=' + Date.now();
-
-                // 2. Wrap it in the Proxy URL
-                const fetchUrl = PROXY_URL + encodeURIComponent(url + cacheBuster);
+                const fetchUrl = url + cacheBuster;
 
                 return fetchWithRetry(async () => {
                     const response = await fetch(fetchUrl, {
-                        cache: "reload"
+                        cache: "no-store"
                     });
                     if (!response.ok) throw new Error(`HTTP ${response.status}`);
                     const buffer = await response.arrayBuffer();
                     if (buffer.byteLength === 0) throw new Error("Empty file");
 
-                    // 3. Decompress
                     const view = new Uint8Array(buffer);
                     let xmlText = "";
+                    // Check for GZip signature (1f 8b)
                     if (view[0] === 0x1f && view[1] === 0x8b) {
                         const decompressed = pako.inflate(view);
                         xmlText = new TextDecoder("utf-8").decode(decompressed);
@@ -3946,65 +4004,81 @@
             }
 
            async function getRunwayData() {
-                if (cachedRunwayMap) return cachedRunwayMap;
+            if (cachedRunwayMap) return cachedRunwayMap;
 
-                // DIRECT LOCAL FETCH - NO PROXY
-               // Use Proxy for Runways
-                const response = await fetch(PROXY_URL + encodeURIComponent(RUNWAY_DATA_URL));
-                if (!response.ok) throw new Error("Failed to download runway database");
+            const response = await fetch(RUNWAY_DATA_URL);
+            if (!response.ok) throw new Error("Failed to download runway database");
 
-                const text = await response.text();
-                const map = new Map();
-                const lines = text.split('\n');
+            const text = await response.text();
+            const map = new Map();
+            const lines = text.split('\n');
 
-                const parseMagneticHeading = (ident) => {
-                    if (!ident) return null;
-                    const numMatch = ident.match(/^\d{2}/);
-                    if (!numMatch) return null;
-                    return parseInt(numMatch[0]) * 10;
-                };
+            for (let i = 1; i < lines.length; i++) {
+                const line = lines[i].trim();
+                if (!line) continue;
+                const parts = line.match(/(?:^|,)("(?:[^"]|"")*"|[^,]*)/g);
+                if (!parts || parts.length < 17) continue;
 
-                for (let i = 1; i < lines.length; i++) {
-                    const line = lines[i].trim();
-                    if (!line) continue;
-                    // Robust CSV split
-                    const parts = line.match(/(?:^|,)("(?:[^"]|"")*"|[^,]*)/g);
-                    if (!parts || parts.length < 9) continue;
+                const clean = (val) => val ? val.replace(/^,/, '').replace(/^"|"$/g, '').trim() : '';
 
-                    const clean = (val) => val ? val.replace(/^,/, '').replace(/^"|"$/g, '').trim() : '';
+                const ident = clean(parts[2]).toUpperCase();
+                const lenStr = clean(parts[3]);
+                const len = parseInt(lenStr);
 
-                    const ident = clean(parts[2]).toUpperCase();
-                    const lenStr = clean(parts[3]);
-                    const len = parseInt(lenStr);
-                    const leIdent = clean(parts[8]);
-                    const leTrueRaw = parts.length > 12 ? clean(parts[12]) : '';
-                    const heIdent = parts.length > 14 ? clean(parts[14]) : null;
-                    const heTrueRaw = parts.length > 18 ? clean(parts[18]) : '';
+                const leIdent = clean(parts[8]);
+                const leLat = parseFloat(clean(parts[9]));
+                const leLon = parseFloat(clean(parts[10]));
+                const leHeadingRaw = parts.length > 12 ? clean(parts[12]) : '';
 
-                    if (ident && !isNaN(len) && len > 0) {
-                        if (!map.has(ident)) {
-                            map.set(ident, { maxLen: 0, runways: [] });
-                        }
-                        const entry = map.get(ident);
-                        if (len > entry.maxLen) entry.maxLen = len;
+                const heIdent = parts.length > 14 ? clean(parts[14]) : null;
+                const heLat = parseFloat(clean(parts[15]));
+                const heLon = parseFloat(clean(parts[16]));
+                const heHeadingRaw = parts.length > 18 ? clean(parts[18]) : '';
 
-                        if (leIdent) {
-                            let h1 = (leTrueRaw !== '') ? parseFloat(leTrueRaw) : parseMagneticHeading(leIdent);
-                            if (h1 !== null) {
-                                entry.runways.push({ id: leIdent, heading: h1, length: len, oppId: heIdent });
-                            }
-                        }
-                        if (heIdent) {
-                            let h2 = (heTrueRaw !== '') ? parseFloat(heTrueRaw) : parseMagneticHeading(heIdent);
-                            if (h2 !== null) {
-                                entry.runways.push({ id: heIdent, heading: h2, length: len, oppId: leIdent });
-                            }
-                        }
+                if (ident && !isNaN(len) && len > 0 && !isNaN(leLat) && !isNaN(leLon) && !isNaN(heLat) && !isNaN(heLon)) {
+                    if (!map.has(ident)) map.set(ident, { maxLen: 0, runways: [] });
+
+                    const entry = map.get(ident);
+                    if (len > entry.maxLen) entry.maxLen = len;
+
+                    let h1 = parseFloat(leHeadingRaw);
+                    let h2 = parseFloat(heHeadingRaw);
+
+                    if (isNaN(h1)) h1 = calculateBearing(leLat, leLon, heLat, heLon);
+                    if (isNaN(h2)) h2 = (h1 + 180) % 360;
+
+                    // Push Low End (e.g. 09)
+                    entry.runways.push({
+                        id: leIdent, oppId: heIdent, length: len, heading: h1,
+                        leLat: leLat, leLon: leLon, heLat: heLat, heLon: heLon
+                    });
+
+                    // Push High End (e.g. 27)
+                    if (heIdent) {
+                        entry.runways.push({
+                            id: heIdent, oppId: leIdent, length: len, heading: h2,
+                            leLat: heLat, leLon: heLon, heLat: leLat, heLon: leLon
+                        });
                     }
                 }
-                cachedRunwayMap = map;
-                return map;
             }
+            cachedRunwayMap = map;
+            return map;
+        }
+
+
+        // Helper to calculate bearing between two points
+        function calculateBearing(lat1, lon1, lat2, lon2) {
+            const toRad = deg => deg * Math.PI / 180;
+            const toDeg = rad => rad * 180 / Math.PI;
+            const dLon = toRad(lon2 - lon1);
+            const y = Math.sin(dLon) * Math.cos(toRad(lat2));
+            const x = Math.cos(toRad(lat1)) * Math.sin(toRad(lat2)) -
+                      Math.sin(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.cos(dLon);
+            let brng = toDeg(Math.atan2(y, x));
+            return (brng + 360) % 360;
+        }
+
             function getCoordsForICAO(icao, stationMap) {
                 const data = stationMap.get(icao.toUpperCase());
                 return data ? { lat: data.latitude, lon: data.longitude } : null;
@@ -4023,39 +4097,6 @@
 
             // --- REVISED TAF PARSING LOGIC & STATE MANAGEMENT ---
 
-            function mergeCondition(baseStr, changeStr) {
-                let newStr = baseStr;
-                const cleanChange = cleanRawText(changeStr);
-
-                // 1. CAVOK: Reset everything
-                if (/\bCAVOK\b/.test(cleanChange)) {
-                    newStr = ""; // Clear state implies VFR/No Sig Weather
-                }
-
-                // 2. Wind: If new block has wind (e.g. 36010KT), remove old wind from base
-                if (/\b([0-9]{3}|VRB)[0-9]{2,3}(G[0-9]{2,3})?KT\b/.test(cleanChange)) {
-                     newStr = newStr.replace(/\b([0-9]{3}|VRB)[0-9]{2,3}(G[0-9]{2,3})?KT\b/g, "");
-                }
-
-                // 3. Clouds: If new clouds exist, remove old clouds
-                if (/\b(BKN|OVC|VV|SCT|FEW|SKC|CLR|NSC)\d{0,3}(?:CB|TCU)?\b/.test(cleanChange)) {
-                    newStr = newStr.replace(/\b(BKN|OVC|VV|SCT|FEW|SKC|CLR|NSC)\d{0,3}(?:CB|TCU)?\b/g, "");
-                }
-
-                // 4. Visibility: If new vis exists, remove old vis
-                if (/\b(?:M|P)?\d+(?:\s?\d\/\d)?SM\b|\b\d{4}\b/.test(cleanChange)) {
-                     newStr = newStr.replace(/\b(?:M|P)?\d+(?:\s?\d\/\d)?SM\b|\b\d{4}\b/g, "");
-                }
-
-                // 5. Weather / NSW: If NSW or new weather exists, remove old weather
-                const weatherRegex = /\b([-+]|VC)?(RA|SN|DZ|SG|IC|PL|GR|GS|UP|TS|SH|FZ|BR|FG|HZ|FU|VA|DU|SA|HZ|PY|PO|SQ|FC|SS|DS)+\b/g;
-                if (/\bNSW\b/.test(cleanChange) || weatherRegex.test(cleanChange)) {
-                     newStr = newStr.replace(weatherRegex, "");
-                }
-
-                newStr = newStr.replace(/\s+/g, " ").trim();
-                return (newStr + " " + cleanChange).trim();
-            }
 
             function parseTafToBlocks(tafRawText, issueTime) {
                 const rawTokens = tafRawText.split(/\s(?=(?:FM\d{6}|BECMG|TEMPO|PROB\d{2}))/);
@@ -5058,46 +5099,137 @@
                 resultsContainerEl.classList.remove('hidden');
             }
 
-            function formatRawText(rawText) {
-                const formatted = rawText.replace(/(FM\d{6}|BECMG|PROB\d{2} TEMPO|PROB\d{2}|TEMPO)/g, "\n<span class='font-bold text-white'>$1</span>");
-                const lines = formatted.split('\n').map(l => l.trim()).filter(l => l);
-                let html = '';
-                for (const line of lines) {
-                    const category = analyzeCondition(line.replace(/<[^>]*>?/gm, ''));
-                    const className = getCategoryClassName(category);
-                    const highlightedLine = line.split(' ').map(word => {
-                        return isPrecipOrTS(word) ? `<span class="font-bold">${word}</span>` : word;
-                    }).join(' ');
-                    const bgClass = {
-                        'vfr-dot': 'bg-green-600',
-                        'mvfr-dot': 'bg-blue-600',
-                        'ifr-dot': 'bg-red-600',
-                        'lifr-dot': 'bg-pink-600'
-                    }[className] || 'bg-gray-500';
-                    // Added break-words and whitespace-pre-wrap to force wrapping on mobile
-                    html += `<div class="font-mono text-xs md:text-sm leading-relaxed p-1 rounded-md text-white ${bgClass} break-words whitespace-pre-wrap">${highlightedLine}</div>`;
+        function mergeCondition(baseStr, changeStr) {
+                let newStr = baseStr;
+                const cleanChange = cleanRawText(changeStr);
+
+                // Regex Definitions
+                const windRegex = /\b([0-9]{3}|VRB)[0-9]{2,3}(G[0-9]{2,3})?KT\b/g;
+                // Clouds: BKN005, OVC010, VV002, SKC, CLR, NSC
+                const cloudRegex = /\b(BKN|OVC|VV|SCT|FEW|SKC|CLR|NSC)\d{0,3}(?:CB|TCU)?\b/g;
+                // Vis: 10SM, 1 1/2SM, 4000, 9999.
+                // FIX: Use Lookbehind/Lookahead to ensure we don't match time groups like 2120/2123
+                const visRegex = /\b(?<!\/)\d{4}(?!\/)\b|\b(?:M|P)?\d+(?:\s?\d\/\d)?SM\b/g;
+                const wxRegex = /\b([-+]|VC)?(RA|SN|DZ|SG|IC|PL|GR|GS|UP|TS|SH|FZ|BR|FG|HZ|FU|VA|DU|SA|HZ|PY|PO|SQ|FC|SS|DS)+\b/g;
+                const nswRegex = /\bNSW\b/;
+
+                // 1. Wind Update
+                if (windRegex.test(cleanChange)) {
+                    newStr = newStr.replace(windRegex, "");
                 }
-                return html;
+
+                // 2. CAVOK Handling
+                if (/\bCAVOK\b/.test(cleanChange)) {
+                    // Remove Clouds, Vis, Wx (Keep Wind)
+                    // Note: We use a simpler regex for removal to ensure we catch everything
+                    const simpleVisRegex = /\b(?:M|P)?\d+(?:\s?\d\/\d)?SM\b|\b\d{4}\b/g;
+                    newStr = newStr.replace(cloudRegex, "").replace(simpleVisRegex, "").replace(wxRegex, "");
+                }
+                else {
+                    // 3. Normal Updates
+
+                    // Visibility
+                    if (visRegex.test(cleanChange)) {
+                        // Remove old visibility using the broad regex to be safe
+                        const removeVisRegex = /\b(?:M|P)?\d+(?:\s?\d\/\d)?SM\b|\b\d{4}\b/g;
+                        newStr = newStr.replace(removeVisRegex, "");
+                    }
+
+                    // Weather (NSW clears old weather)
+                    if (nswRegex.test(cleanChange)) {
+                        newStr = newStr.replace(wxRegex, "");
+                    } else if (wxRegex.test(cleanChange)) {
+                        newStr = newStr.replace(wxRegex, "");
+                    }
+
+                    // Clouds
+                    if (cloudRegex.test(cleanChange)) {
+                        newStr = newStr.replace(cloudRegex, "");
+                    }
+                }
+
+                // Clean up
+                newStr = newStr.replace(/\s+/g, " ").trim();
+                return (newStr + " " + cleanChange).trim();
             }
 
+           function formatRawText(rawText) {
+            if (!rawText) return "";
+
+            // FIXED REGEX: Prioritize "PROB.. TEMPO" combo before single "TEMPO" or "PROB"
+            // This prevents splitting them into two lines.
+            let formatted = rawText.replace(/\s(FM\d{6}|BECMG|PROB\d{2}\s+TEMPO|TEMPO|PROB\d{2})/g, "\n$1");
+
+            const lines = formatted.split('\n').map(l => l.trim()).filter(l => l);
+
+            let html = '';
+            let currentPrevailing = "";
+
+            for (const line of lines) {
+                const cleanLine = line.replace(/<[^>]*>?/gm, '');
+
+                // Detect Type
+                const isFm = /^FM/.test(cleanLine);
+                const isBecmg = /^BECMG/.test(cleanLine);
+                // "PROB40 TEMPO" will match here correctly as a tempo block
+                const isTempo = /^(TEMPO|PROB)/.test(cleanLine);
+
+                let effectiveCondition = "";
+
+                if (isFm) {
+                    currentPrevailing = cleanLine;
+                    effectiveCondition = currentPrevailing;
+                }
+                else if (isBecmg) {
+                    currentPrevailing = mergeCondition(currentPrevailing, cleanLine);
+                    effectiveCondition = currentPrevailing;
+                }
+                else if (isTempo) {
+                    effectiveCondition = mergeCondition(currentPrevailing, cleanLine);
+                }
+                else {
+                    if (currentPrevailing === "") currentPrevailing = cleanLine;
+                    else currentPrevailing = mergeCondition(currentPrevailing, cleanLine);
+                    effectiveCondition = currentPrevailing;
+                }
+
+                const category = analyzeCondition(effectiveCondition);
+                const className = getCategoryClassName(category);
+
+                // Visual Styling: Highlight the keywords (now handling the combined keyword too)
+                const displayLine = line.replace(/^(FM\d{6}|BECMG|PROB\d{2}\s+TEMPO|PROB\d{2}|TEMPO)/, "<span class='font-bold text-white'>$1</span>");
+
+                const highlightedLine = displayLine.split(' ').map(word => {
+                    if (word.includes('<span')) return word;
+                    return isPrecipOrTS(word) ? `<span class="font-bold underline decoration-1 underline-offset-2">${word}</span>` : word;
+                }).join(' ');
+
+                const bgClass = {
+                    'vfr-dot': 'bg-green-600',
+                    'mvfr-dot': 'bg-blue-600',
+                    'ifr-dot': 'bg-red-600',
+                    'lifr-dot': 'bg-pink-600'
+                }[className] || 'bg-gray-500';
+
+                html += `<div class="font-mono text-xs md:text-sm leading-relaxed p-1.5 mb-1 rounded-md text-white ${bgClass} break-words whitespace-pre-wrap shadow-sm border-l-4 border-black/20">${highlightedLine}</div>`;
+            }
+            return html;
+        }
             function isPrecipOrTS(word) {
                 const clean = word.replace(/[,.;]+$/, '').toUpperCase();
                 const regex = /^([-+]|VC)?(RA|SN|DZ|SG|IC|PL|GR|GS|UP|TS|SH|FZ|BR|FG|HZ|FU|VA|DU|SA|HZ|PY|PO|SQ|FC|SS|DS){1,4}$/i;
                 return regex.test(clean);
             }
 
-            function generatePDF(stationsData, refName, routeAnalysisResult) {
-            // 1. Robust Library Check
+          function generatePDF(stationsData, refName, routeAnalysisResult) {
             if (!window.jspdf || !window.jspdf.jsPDF) {
                 alert("PDF Library failed to load. Please reload the page.");
                 return;
             }
 
-            // 2. Get Constructor Explicitly
             const { jsPDF } = window.jspdf;
             const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
 
-            // --- HELPER: Draw styled text (Bold for weather conditions) ---
             const drawStyledText = (doc, lineText, x, y, baseColor) => {
                 const words = lineText.split(' ');
                 let currentX = x;
@@ -5106,7 +5238,6 @@
                 doc.setFontSize(9);
                 const spaceWidth = doc.getTextWidth(" ");
                 for (let word of words) {
-                    // Check global helper isPrecipOrTS, otherwise default to false
                     const shouldBold = (typeof isPrecipOrTS === 'function') ? isPrecipOrTS(word) : false;
                     doc.setFont("courier", shouldBold ? "bold" : "normal");
                     doc.text(word, currentX, y);
@@ -5114,7 +5245,6 @@
                 }
             };
 
-            // --- HELPER: Draw Legend ---
             const drawPdfLegend = (doc, cursorY) => {
                 doc.setFont("helvetica", "bold");
                 doc.setFontSize(10);
@@ -5122,7 +5252,7 @@
                 doc.text("METAR Flight Categories", PAGE_WIDTH / 2, cursorY, { align: "center" });
                 cursorY += 6;
                 const legendItems = [
-                    { label: "VFR", color: [0, 170, 0] },     // Hardcoded colors to prevent scope issues
+                    { label: "VFR", color: [0, 170, 0] },
                     { label: "MVFR", color: [37, 99, 235] },
                     { label: "IFR", color: [200, 0, 0] },
                     { label: "LIFR", color: [255, 20, 147] },
@@ -5148,14 +5278,12 @@
 
             let cursorY = PAGE_MARGIN;
 
-            // 3. Route Analysis Page (if exists)
             if (routeAnalysisResult && typeof drawRouteAnalysisPDFPage === 'function') {
                 drawRouteAnalysisPDFPage(doc, routeAnalysisResult);
                 doc.addPage();
                 cursorY = PAGE_MARGIN;
             }
 
-            // 4. Main Header
             const now = new Date();
             const utc = now.toISOString().replace('T', ' ').substring(0, 19);
 
@@ -5185,44 +5313,34 @@
             doc.line(PAGE_MARGIN, cursorY, PAGE_WIDTH - PAGE_MARGIN, cursorY);
             cursorY += 6;
 
-            // 5. Loop Stations
             for (const data of stationsData) {
                 const stationId = data.id;
                 const headerTitle = data.name ? `${stationId} - ${data.name}` : stationId;
 
-                // Prepare METAR Lines
                 let metarLines = [];
-                let metarColor = [0, 170, 0]; // Default VFR Green
+                let metarColor = [0, 170, 0];
                 let infoText = "";
                 let infoTextParts = [];
 
                 if (data.metar) {
                     doc.setFont("courier", "normal");
                     doc.setFontSize(9);
-                    // Safe split
                     try {
                         metarLines = doc.splitTextToSize(data.metar.rawText || "", USABLE_WIDTH - 35);
                     } catch(e) { metarLines = ["Error parsing METAR text"]; }
 
-                    // Safe color fetch
                     if (typeof getCategoryColor === 'function') {
                         metarColor = getCategoryColor(data.metar.category);
                     }
 
-                    // Info String
-                    // Temp
                     if(data.metar.tempF || data.metar.tempC) {
-                         // Check if `getDisplayTemp` helper exists, else fallback
                          const tempStr = (typeof getDisplayTemp === 'function') ? getDisplayTemp(data.metar) : (data.metar.tempC + "°C");
                          infoTextParts.push(`${tempStr} • ${data.metar.rh || ''}`);
                     }
-                    // DA
                     if (data.metar.densityAlt) infoTextParts.push(data.metar.densityAlt);
-                    // Age
                     if (typeof formatAge === 'function' && data.metar.age != null) {
                         infoTextParts.push(`Observed ${formatAge(data.metar.age)}`);
                     }
-                    // Distance
                     if (data.distanceNM !== null) infoTextParts.push(`${data.distanceNM.toFixed(0)} NM`);
 
                     infoText = infoTextParts.join(' • ');
@@ -5231,27 +5349,61 @@
                     infoText = `Distance: ${data.distanceNM.toFixed(0)} NM (No METAR)`;
                 }
 
-                // Prepare TAF Lines
+                // TAF Section
                 let tafBlocks = [];
                 let tafNotes = [];
+
                 if (data.taf) {
                     const raw = data.taf.rawText || "";
-                    const formatted = raw.replace(/(FM\d{6}|BECMG|PROB\d{2} TEMPO|PROB\d{2}|TEMPO)/g, "\n$1");
-                    const rawBlocks = formatted.split('\n').map(l => l.trim()).filter(l => l);
+                    // FIX: Apply same regex to keep PROB+TEMPO on same line
+                    const formatted = raw.replace(/\s(FM\d{6}|BECMG|PROB\d{2}\s+TEMPO|TEMPO|PROB\d{2})/g, "\n$1");
+                    const rawLines = formatted.split('\n').map(l => l.trim()).filter(l => l);
 
-                    doc.setFont("courier", "normal");
-                    doc.setFontSize(9);
+                    let currentPrevailing = "";
 
-                    tafBlocks = rawBlocks.map(block => ({
-                        lines: doc.splitTextToSize(block, USABLE_WIDTH - 35),
-                        raw: block
-                    }));
+                    for (const line of rawLines) {
+                        const cleanLine = line.replace(/<[^>]*>?/gm, '');
+
+                        const isTempo = /^(TEMPO|PROB)/.test(cleanLine);
+                        const isBecmg = /^BECMG/.test(cleanLine);
+                        const isFm = /^FM/.test(cleanLine);
+
+                        let effectiveCondition = "";
+
+                        if (isFm) {
+                            currentPrevailing = cleanLine;
+                            effectiveCondition = currentPrevailing;
+                        }
+                        else if (isBecmg) {
+                            currentPrevailing = mergeCondition(currentPrevailing, cleanLine);
+                            effectiveCondition = currentPrevailing;
+                        }
+                        else if (isTempo) {
+                            effectiveCondition = mergeCondition(currentPrevailing, cleanLine);
+                        }
+                        else {
+                            if (currentPrevailing === "") currentPrevailing = cleanLine;
+                            else currentPrevailing = mergeCondition(currentPrevailing, cleanLine);
+                            effectiveCondition = currentPrevailing;
+                        }
+
+                        let blockColor = [0, 170, 0];
+                        if (typeof analyzeCondition === 'function' && typeof getCategoryColor === 'function') {
+                            blockColor = getCategoryColor(analyzeCondition(effectiveCondition));
+                        }
+
+                        tafBlocks.push({
+                            lines: doc.splitTextToSize(line, USABLE_WIDTH - 35),
+                            raw: line,
+                            color: blockColor
+                        });
+                    }
 
                     if (data.taf.periodHours !== null) tafNotes.push(`Forecast period ends in ${data.taf.periodHours} hours`);
                     if (typeof formatAge === 'function' && data.taf.age !== null) tafNotes.push(`Issued ${formatAge(data.taf.age)}`);
                 }
 
-                // Calculate Height
+                // Layout Calculation
                 doc.setFont("helvetica", "bold");
                 doc.setFontSize(12);
                 const headerLines = doc.splitTextToSize(headerTitle, USABLE_WIDTH);
@@ -5265,13 +5417,11 @@
                 }
                 if (tafNotes.length > 0) heightNeeded += LINE_SPACING;
 
-                // Page Break Check
                 if (cursorY + heightNeeded > PAGE_HEIGHT - PAGE_MARGIN - 10) {
                     doc.addPage();
                     cursorY = PAGE_MARGIN;
                 }
 
-                // DRAW: Header
                 doc.setFont("helvetica", "bold");
                 doc.setFontSize(12);
                 doc.setTextColor(0, 0, 0);
@@ -5280,7 +5430,6 @@
                     cursorY += 5;
                 });
 
-                // DRAW: Info
                 if (infoText) {
                     doc.setFont("helvetica", "normal");
                     doc.setFontSize(10);
@@ -5289,7 +5438,6 @@
                     cursorY += 6;
                 } else { cursorY += 2; }
 
-                // DRAW: METAR
                 if (data.metar) {
                     doc.setFont("helvetica", "bold");
                     doc.setFontSize(9);
@@ -5302,7 +5450,6 @@
                     cursorY += 2;
                 }
 
-                // DRAW: TAF
                 if (data.taf) {
                     doc.setFont("helvetica", "bold");
                     doc.setFontSize(9);
@@ -5310,14 +5457,8 @@
                     doc.text("TAF:", PAGE_MARGIN + 2, cursorY);
 
                     for (const block of tafBlocks) {
-                        // Determine color for block
-                        let blockColor = [0, 170, 0]; // VFR default
-                        if (typeof analyzeCondition === 'function' && typeof getCategoryColor === 'function') {
-                            blockColor = getCategoryColor(analyzeCondition(block.raw));
-                        }
-
                         for (const line of block.lines) {
-                            drawStyledText(doc, line, PAGE_MARGIN + 18, cursorY, blockColor);
+                            drawStyledText(doc, line, PAGE_MARGIN + 18, cursorY, block.color);
                             cursorY += LINE_SPACING;
                         }
                     }
@@ -5332,23 +5473,19 @@
                     }
                 }
 
-                // Divider
                 doc.setDrawColor(220, 220, 220);
                 doc.setLineWidth(0.1);
                 doc.line(PAGE_MARGIN, cursorY, PAGE_WIDTH - PAGE_MARGIN, cursorY);
                 cursorY += 6;
             }
 
-            // 6. Save File
             try {
                 const pdfDataUri = doc.output('datauristring');
                 const base64Data = pdfDataUri.substring(pdfDataUri.indexOf(',') + 1);
 
-                // Android Bridge Support
                 if (window.Android && typeof window.Android.savePdf === 'function') {
                     window.Android.savePdf(base64Data, "weather-report-combined.pdf");
                 } else {
-                    // Web Download
                     const blob = doc.output('blob');
                     const blobUrl = URL.createObjectURL(blob);
                     window.open(blobUrl, '_blank');
@@ -5358,6 +5495,7 @@
                 doc.save("weather-report-combined.pdf");
             }
         }
+
         // --- CUSTOM DASHBOARD FEATURE ---
 
         let dashboardState = {
@@ -5468,10 +5606,56 @@
             return bestIdx;
         }
 
+        // NEW: Calculates the specific weather state at a target time
+        // Prioritizes TEMPO/PROB conditions if they are active at that moment.
+        function getConditionsAtTime(tafRawText, targetTime) {
+            if (!tafRawText) return { category: 'NODATA', rawText: '' };
+
+            // Parse Issue Time
+            const tafValidMatch = tafRawText.match(/(\d{6})Z/);
+            const now = new Date();
+            let issueTime = new Date(now);
+            if (tafValidMatch) {
+                const day = parseInt(tafValidMatch[1].substring(0, 2));
+                const hour = parseInt(tafValidMatch[1].substring(2, 4));
+                issueTime = resolveTafDate(now, day, hour);
+            }
+
+            // Parse Blocks
+            const blocks = parseTafToBlocks(tafRawText, issueTime);
+            const t = targetTime.getTime();
+
+            // 1. Build Prevailing State (All FM/BECMG lines leading up to time 't')
+            const prevailingBlocks = blocks.filter(b =>
+                (b.type === 'BASE' || b.type === 'CHANGE') && b.start <= t
+            ).sort((a,b) => a.start - b.start);
+
+            let activeState = "";
+            prevailingBlocks.forEach(b => {
+                if (b.type === 'BASE') activeState = b.text;
+                else activeState = mergeCondition(activeState, b.text);
+            });
+
+            // 2. Apply TEMPO (If time 't' falls inside a TEMPO window)
+            // We check for any active TEMPO and merge it on top.
+            // This forces TEMPO winds to override Prevailing winds.
+            const activeTempo = blocks.find(b =>
+                (b.type === 'TEMP') && b.start <= t && b.end >= t
+            );
+
+            if (activeTempo) {
+                activeState = mergeCondition(activeState, activeTempo.text);
+            }
+
+            return {
+                rawText: activeState,
+                category: analyzeCondition(activeState)
+            };
+        }
+
         function renderDashboard() {
             const grid = document.getElementById('dashboardGrid');
 
-            // 1. Check for Empty State
             if (dashboardState.stations.length === 0) {
                 grid.innerHTML = `
                     <div class="col-span-full flex flex-col items-center justify-center p-12 text-center border-2 border-dashed border-gray-300 dark:border-gray-700 rounded-3xl">
@@ -5501,6 +5685,7 @@
                 };
 
                 if (dashboardTimeOffset === 0) {
+                    // LIVE METAR
                     if (station.metar) {
                         displayCat = station.metar.category;
                         displayText = station.metar.rawText;
@@ -5508,19 +5693,21 @@
                         parseWind(displayText);
                     }
                 } else {
+                    // FORECAST TAF
                     if (station.taf) {
                         const target = new Date(new Date().getTime() + (dashboardTimeOffset * 3600000));
                         timeLabel = `${String(target.getUTCHours()).padStart(2,'0')}00Z`;
 
-                        // Set isExpired if target time is beyond TAF validity
                         if (station.taf.validTo && target > station.taf.validTo) isExpired = true;
 
-                        const analysis = getWorstFlightCategoryFromTAF(station.taf.rawText, target, new Date(target.getTime() + 1800000));
-                        displayCat = isExpired ? 'NODATA' : analysis.category;
-                        displayText = analysis.rawText;
+                        // USE NEW HELPER: Gets exact conditions at 'target' time (including TEMPO)
+                        const condition = getConditionsAtTime(station.taf.rawText, target);
+
+                        displayCat = isExpired ? 'NODATA' : condition.category;
+                        displayText = condition.rawText;
                         parseWind(displayText);
                     } else {
-                        isExpired = true; // No TAF for forecast time
+                        isExpired = true;
                     }
                 }
 
@@ -5561,7 +5748,6 @@
                 grid.appendChild(card);
             });
         }
-
         function openDashDetail(icao) {
             const stationLookup = new Map(allStationsData.map(s => [s.id, s]));
             const station = stationLookup.get(icao);
@@ -5585,9 +5771,10 @@
                 targetTime = new Date(new Date().getTime() + (dashboardTimeOffset * 3600000));
                 timeLabel = `${String(targetTime.getUTCHours()).padStart(2,'0')}00Z (Forecast)`;
                 if (station.taf) {
-                    const analysis = getWorstFlightCategoryFromTAF(station.taf.rawText, targetTime, new Date(targetTime.getTime() + 1800000));
-                    displayCat = analysis.category;
-                    parseWind(analysis.rawText);
+                    // USE NEW HELPER
+                    const condition = getConditionsAtTime(station.taf.rawText, targetTime);
+                    displayCat = condition.category;
+                    parseWind(condition.rawText);
                     if (station.taf.validTo && targetTime > station.taf.validTo) isExpired = true;
                 }
             } else {
@@ -5598,6 +5785,33 @@
                 }
             }
 
+            // --- Runway Selector Generation ---
+            let runwaySelectorHtml = '';
+
+            if (cachedRunwayMap && cachedRunwayMap.has(icao)) {
+                const rwyData = cachedRunwayMap.get(icao);
+                const selectedIdx = dashboardState.selectedRunways[icao] || 0;
+
+                runwaySelectorHtml = `<div class="flex flex-wrap gap-2 justify-center mt-6">`;
+                rwyData.runways.forEach((r, idx) => {
+                    const isActive = (idx === selectedIdx);
+                    const btnClass = isActive
+                        ? "bg-indigo-600 text-white border-indigo-400"
+                        : "bg-white/10 text-gray-400 border-transparent hover:bg-white/20";
+
+                    runwaySelectorHtml += `
+                        <button onclick="event.stopPropagation(); selectDashRunway('${icao}', ${idx})"
+                                class="px-4 py-1.5 rounded-full text-xs font-bold font-mono border transition-all ${btnClass}">
+                            ${r.id}
+                        </button>
+                    `;
+                });
+                runwaySelectorHtml += `</div>`;
+            } else {
+                runwaySelectorHtml = `<div class="mt-6 text-xs text-gray-500 italic text-center">No runway data available</div>`;
+            }
+
+            // --- Render Modal ---
             const modal = document.getElementById('tileModal');
             const container = modal.querySelector('div');
             const tileClass = isExpired ? 'nodata-tile' : getCategoryTileClassName(displayCat);
@@ -5617,11 +5831,11 @@
 
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
                         <div class="bg-black/30 rounded-3xl p-8 flex flex-col items-center border border-white/20 shadow-inner">
+                            <!-- SVG Display -->
                             ${generateRunwaySVG(icao, windDir, windSpeed, gustSpeed, isExpired, 180)}
-                            <button onclick="event.stopPropagation(); toggleStationRunway('${icao}'); openDashDetail('${icao}')"
-                                    class="mt-8 bg-white/20 hover:bg-white/40 px-6 py-2 rounded-2xl font-black text-xs uppercase tracking-tighter transition-all border border-white/30">
-                                Cycle Runway
-                            </button>
+
+                            <!-- New Selector Pills -->
+                            ${runwaySelectorHtml}
                         </div>
 
                         <div class="flex flex-col justify-center gap-4">
@@ -5652,62 +5866,166 @@
             `;
             modal.classList.remove('hidden');
         }
+        function selectDashRunway(icao, index) {
+            if (!dashboardState.selectedRunways) dashboardState.selectedRunways = {};
+            dashboardState.selectedRunways[icao] = index;
+            saveDashboardState();
 
-        function generateRunwaySVG(icao, windDir, windSpeed, gustSpeed, isExpired, size = 100) {
+            // Refresh the modal view immediately
+            openDashDetail(icao);
+
+            // Also refresh the background dashboard/map if visible
+            renderDashboard();
+            if (showRunwaysOnMap) renderMap(currentStationsData);
+        }
+
+        function generateRunwaySVG(icao, windDir, windSpeed, gustSpeed, isExpired, size = 100, overrideRwyIndex = -1) {
+            // 1. Validation
             if (!cachedRunwayMap || !cachedRunwayMap.has(icao)) {
-                return `<div class="opacity-30 font-bold text-xs font-mono">NO RWY DATA</div>`;
+                if(size < 60) return `<div style="width:${size}px;height:${size}px;background:#888;border-radius:50%;"></div>`;
+                return `<div class="opacity-30 font-bold text-xs font-mono">NO DATA</div>`;
             }
+
             const rwyData = cachedRunwayMap.get(icao);
-            const rwyIdx = dashboardState.selectedRunways[icao] || 0;
-            const rwy = rwyData.runways[rwyIdx];
-            if (!rwy) return "";
+            if (!rwyData.runways || rwyData.runways.length === 0) return "";
 
-            const rwyAngle = rwy.heading;
+            // 2. Selection Logic
+            let bestRwyIdx = 0;
+            if (overrideRwyIndex !== -1) {
+                bestRwyIdx = overrideRwyIndex;
+            } else {
+                bestRwyIdx = dashboardState.selectedRunways[icao] || 0;
+            }
+            const bestRwy = rwyData.runways[bestRwyIdx];
+
+            // 3. Crosswind Calc
             const effectiveSpeed = Math.max(windSpeed, gustSpeed);
-            const arrowRot = windDir + 180;
-
-            const diff = Math.abs(windDir - rwyAngle) % 360;
+            const diff = Math.abs(windDir - bestRwy.heading) % 360;
             const rads = (diff * Math.PI) / 180;
             const hw = Math.round(Math.cos(rads) * effectiveSpeed);
             const xw = Math.round(Math.sin(rads) * effectiveSpeed);
 
+            // 4. Projection Logic (Fit GPS Coords to 100x100 Box)
+            let minLat = 90, maxLat = -90, minLon = 180, maxLon = -180;
+            let hasCoords = false;
+
+            rwyData.runways.forEach(r => {
+                if (r.leLat && r.leLon && r.heLat && r.heLon) {
+                    minLat = Math.min(minLat, r.leLat, r.heLat);
+                    maxLat = Math.max(maxLat, r.leLat, r.heLat);
+                    minLon = Math.min(minLon, r.leLon, r.heLon);
+                    maxLon = Math.max(maxLon, r.leLon, r.heLon);
+                    hasCoords = true;
+                }
+            });
+
+            if (!hasCoords) return `<div class="opacity-30 font-bold text-[9px] font-mono text-center">NO GEO</div>`;
+
+            // Reduced Padding to 5% to make runways FILL the tile
+            const paddingLat = (maxLat - minLat) * 0.05;
+            const paddingLon = (maxLon - minLon) * 0.05;
+
+            if (paddingLat === 0) { minLat -= 0.005; maxLat += 0.005; } else { minLat -= paddingLat; maxLat += paddingLat; }
+            if (paddingLon === 0) { minLon -= 0.005; maxLon += 0.005; } else { minLon -= paddingLon; maxLon += paddingLon; }
+
+            const latRange = maxLat - minLat;
+            const lonRange = maxLon - minLon;
+            const centerLat = (minLat + maxLat) / 2;
+            const lonCorrection = Math.cos(centerLat * Math.PI / 180);
+            const correctedLonRange = lonRange * lonCorrection;
+            const maxDimension = Math.max(latRange, correctedLonRange);
+            const scale = 100 / maxDimension;
+
+            const project = (lat, lon) => {
+                const x = ((lon - minLon) * lonCorrection) * scale + (50 - (correctedLonRange * scale / 2));
+                const y = 100 - (((lat - minLat) * scale) + (50 - (latRange * scale / 2)));
+                return { x, y };
+            };
+
+            // 5. Draw Runways
+            let runwaysHtml = '';
+            const drawnKeys = new Set();
+            const renderQueue = [];
+
+            rwyData.runways.forEach(r => {
+                const key = [r.leLat, r.leLon, r.heLat, r.heLon].sort().join(',');
+                if (drawnKeys.has(key)) return;
+
+                const isActiveStrip = (r.leLat === bestRwy.leLat && r.leLon === bestRwy.leLon) ||
+                                      (r.leLat === bestRwy.heLat && r.leLon === bestRwy.heLon);
+
+                if (isActiveStrip) renderQueue.push({ r, active: true });
+                else renderQueue.unshift({ r, active: false });
+                drawnKeys.add(key);
+            });
+
+            renderQueue.forEach(item => {
+                const r = item.r;
+                const isActive = item.active;
+                const start = project(r.leLat, r.leLon);
+                const end = project(r.heLat, r.heLon);
+                const dx = end.x - start.x;
+                const dy = end.y - start.y;
+                const len = Math.sqrt(dx*dx + dy*dy);
+                const angle = Math.atan2(dy, dx) * 180 / Math.PI;
+                const midX = (start.x + end.x) / 2;
+                const midY = (start.y + end.y) / 2;
+
+                const opacity = isActive ? "1.0" : "0.5";
+                const baseWidth = 14;
+                const asphaltWidth = 12;
+
+                runwaysHtml += `
+                <g transform="translate(${midX}, ${midY}) rotate(${angle})" opacity="${opacity}">
+                    <!-- Casing -->
+                    <rect x="${-len/2 - 1}" y="${-baseWidth/2}" width="${len + 2}" height="${baseWidth}" fill="white" />
+                    <!-- Asphalt -->
+                    <rect x="${-len/2}" y="${-asphaltWidth/2}" width="${len}" height="${asphaltWidth}" fill="#020617" />
+                    <!-- Centerline -->
+                    <line x1="${-len/2 + 2}" y1="0" x2="${len/2 - 2}" y2="0" stroke="white" stroke-width="1" stroke-dasharray="4,3" />
+
+                    <!-- Thresholds -->
+                    <g stroke="white" stroke-width="1">
+                        <line x1="${-len/2 + 2}" y1="${-asphaltWidth/2 + 2}" x2="${-len/2 + 6}" y2="${-asphaltWidth/2 + 2}" />
+                        <line x1="${-len/2 + 2}" y1="${asphaltWidth/2 - 2}" x2="${-len/2 + 6}" y2="${asphaltWidth/2 - 2}" />
+                        <line x1="${len/2 - 6}" y1="${-asphaltWidth/2 + 2}" x2="${len/2 - 2}" y2="${-asphaltWidth/2 + 2}" />
+                        <line x1="${len/2 - 6}" y1="${asphaltWidth/2 - 2}" x2="${len/2 - 2}" y2="${asphaltWidth/2 - 2}" />
+                    </g>
+                </g>`;
+
+                // Labels (Only Dashboard/Modal)
+                if (size > 150 && isActive) {
+                     const textColor = "#fbbf24";
+                     runwaysHtml += `<text x="${start.x}" y="${start.y}" fill="${textColor}" font-size="7" font-weight="900" text-anchor="middle" dominant-baseline="middle" style="text-shadow: 2px 2px 0 #000;">${r.id}</text>`;
+                     runwaysHtml += `<text x="${end.x}" y="${end.y}" fill="${textColor}" font-size="7" font-weight="900" text-anchor="middle" dominant-baseline="middle" style="text-shadow: 2px 2px 0 #000;">${r.oppId || ''}</text>`;
+                }
+            });
+
+            // 6. Wind Arrow
+            const arrowRot = windDir;
+            const windHtml = (!isExpired && effectiveSpeed > 1) ? `
+                <g transform="rotate(${arrowRot}, 50, 50)">
+                    <line x1="50" y1="10" x2="50" y2="90" stroke="black" stroke-width="5" stroke-linecap="round" opacity="0.3" />
+                    <line x1="50" y1="10" x2="50" y2="90" stroke="${effectiveSpeed > 15 ? '#ef4444' : '#fbbf24'}" stroke-width="2.5" stroke-linecap="round" />
+                    <path d="M50 90 L55 80 L45 80 Z" fill="black" opacity="0.3" transform="translate(0, 2)" />
+                    <path d="M50 90 L55 80 L45 80 Z" fill="${effectiveSpeed > 15 ? '#ef4444' : '#fbbf24'}" stroke="white" stroke-width="0.5" />
+                </g>
+            ` : '';
+
+            // 7. Pill Logic (Dashboard Only)
+            const showPill = size > 150;
+
             return `
-                <div class="relative flex flex-col items-center justify-center" style="width: ${size}px; height: ${size}px;">
-                    <svg viewBox="0 0 100 100" class="w-full h-full overflow-visible drop-shadow-2xl">
-                        <circle cx="50" cy="50" r="49.5" fill="none" stroke="white" stroke-opacity="0.1" stroke-width="0.5" />
-                        <g transform="rotate(${rwyAngle}, 50, 50)">
-                            <rect x="41" y="2" width="18" height="96" fill="#020617" stroke="white" stroke-width="0.75" />
-                            <line x1="42.5" y1="2" x2="42.5" y2="98" stroke="white" stroke-width="0.5" />
-                            <line x1="57.5" y1="2" x2="57.5" y2="98" stroke="white" stroke-width="0.5" />
-                            <line x1="50" y1="5" x2="50" y2="95" stroke="white" stroke-width="0.5" stroke-dasharray="6,4" />
-                            <rect x="43" y="90" width="1.5" height="6" fill="white" /> <rect x="45.5" y="90" width="1.5" height="6" fill="white" />
-                            <rect x="48" y="90" width="1.5" height="6" fill="white" /> <rect x="50.5" y="90" width="1.5" height="6" fill="white" />
-                            <rect x="53" y="90" width="1.5" height="6" fill="white" /> <rect x="55.5" y="90" width="1.5" height="6" fill="white" />
-                            <rect x="44" y="80" width="12" height="7" fill="#1e293b" rx="1" />
-                            <text text-anchor="middle" font-family="JetBrains Mono, monospace" font-weight="900" font-size="7" fill="#fbbf24"
-                                  transform="translate(50, 85.5)">${rwy.id}</text>
-                            <rect x="44" y="65" width="3" height="10" fill="white" opacity="0.8" />
-                            <rect x="53" y="65" width="3" height="10" fill="white" opacity="0.8" />
-                            <rect x="43" y="4" width="1.5" height="6" fill="white" /> <rect x="45.5" y="4" width="1.5" height="6" fill="white" />
-                            <rect x="48" y="4" width="1.5" height="6" fill="white" /> <rect x="50.5" y="4" width="1.5" height="6" fill="white" />
-                            <rect x="53" y="4" width="1.5" height="6" fill="white" /> <rect x="55.5" y="4" width="1.5" height="6" fill="white" />
-                            <rect x="44" y="13" width="12" height="7" fill="#1e293b" rx="1" />
-                            <text text-anchor="middle" font-family="JetBrains Mono, monospace" font-weight="900" font-size="7" fill="white"
-                                  transform="translate(50, 18.5) rotate(180)">${rwy.oppId || ''}</text>
-                            <rect x="44" y="25" width="3" height="10" fill="white" opacity="0.8" />
-                            <rect x="53" y="25" width="3" height="10" fill="white" opacity="0.8" />
-                        </g>
-                        ${!isExpired && effectiveSpeed > 1 ? `
-                        <g transform="rotate(${arrowRot}, 50, 50)">
-                            <line x1="50" y1="10" x2="50" y2="90" stroke="black" stroke-width="6" stroke-linecap="round" opacity="0.5" />
-                            <path d="M50 2 L62 25 L50 20 L38 25 Z" fill="black" opacity="0.5" transform="scale(1.1) translate(-4.5, -2)" />
-                            <line x1="50" y1="10" x2="50" y2="90" stroke="${effectiveSpeed > 15 ? '#ef4444' : '#fbbf24'}" stroke-width="3.5" stroke-linecap="round" />
-                            <path d="M50 2 L62 25 L50 20 L38 25 Z" fill="${effectiveSpeed > 15 ? '#ef4444' : '#fbbf24'}" stroke="white" stroke-width="0.5" />
-                        </g>` : ''}
+                <div class="relative flex flex-col items-center justify-center bg-transparent" style="width: ${size}px; height: ${size}px;">
+                    <svg viewBox="0 0 100 100" class="w-full h-full overflow-visible drop-shadow-xl" style="background: transparent;">
+                        <text x="50" y="4" font-size="5" fill="#64748b" text-anchor="middle" font-family="monospace" opacity="0.7">N</text>
+                        ${runwaysHtml}
+                        ${windHtml}
                     </svg>
+                    ${showPill ? `
                     <div class="absolute -bottom-2 bg-slate-900 border-2 border-indigo-500/50 px-3 py-0.5 rounded-full text-[10px] font-black font-mono text-white shadow-2xl z-20">
                         ${isExpired ? '---' : `H:${hw} X:${Math.abs(xw)}`}
-                    </div>
+                    </div>` : ''}
                 </div>
             `;
         }
