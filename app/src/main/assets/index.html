@@ -597,7 +597,7 @@ document.addEventListener('DOMContentLoaded', () => {
 <div id="zuluClock">00:00:00Z</div>
 
 <!-- Update Banner -->
-<div id="updateBanner" class="hidden fixed top-0 left-0 right-0 z-[110] p-4 bg-blue-600 text-white shadow-xl">
+<div id="updateBanner" class="hidden fixed top-0 left-0 right-0 z-[200000] p-4 bg-blue-600 text-white shadow-xl">
     <div class="container mx-auto max-w-5xl flex flex-col sm:flex-row items-center justify-between gap-4">
         <div class="flex items-center gap-3">
             <div class="bg-white/20 p-2 rounded-full">
@@ -619,6 +619,32 @@ document.addEventListener('DOMContentLoaded', () => {
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
                 </svg>
             </button>
+        </div>
+    </div>
+</div>
+
+<!-- Records Modal -->
+<div id="recordsModal" class="hidden fixed inset-0 z-[10000] flex items-center justify-center bg-black/60 backdrop-blur-md p-4 transition-opacity duration-300" onclick="closeRecordsModal()">
+    <div class="bg-white dark:bg-gray-900 rounded-2xl shadow-2xl w-full max-w-4xl max-h-[90vh] flex flex-col border border-gray-200 dark:border-gray-800" onclick="event.stopPropagation()">
+
+        <!-- Header -->
+        <div class="p-6 border-b border-gray-200 dark:border-gray-800 flex justify-between items-center">
+            <div>
+                <h2 class="text-2xl font-black text-gray-900 dark:text-white flex items-center gap-2">
+                    <span class="text-amber-500">🏆</span> Current Extremes
+                </h2>
+                <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">Scanned from <span id="recordsCount">0</span> stations</p>
+            </div>
+            <button onclick="closeRecordsModal()" class="p-2 bg-gray-100 dark:bg-gray-800 rounded-full hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors">
+                <svg class="w-6 h-6 text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+            </button>
+        </div>
+
+        <!-- Content Grid -->
+        <div class="p-6 overflow-y-auto bg-gray-50 dark:bg-black/20">
+            <div id="recordsGrid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                <!-- Cards injected via JS -->
+            </div>
         </div>
     </div>
 </div>
@@ -663,6 +689,15 @@ document.addEventListener('DOMContentLoaded', () => {
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z" />
             </svg>
         </button>
+
+        <!-- 5. Records / Extremes -->
+        <button onclick="showRecords()" title="Weather Records"
+                class="p-2 rounded-full bg-amber-500 hover:bg-amber-600 text-white shadow-md transition-transform hover:scale-110 active:scale-95 flex items-center justify-center">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z" />
+            </svg>
+        </button>
+
     </div>
     <header class="mb-6 text-center pt-12 md:pt-16">
         <h1 class="text-2xl md:text-3xl font-bold text-blue-600 dark:text-blue-400 flex justify-center items-center">
@@ -1064,7 +1099,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         <script>
             // --- APP CONFIG ---
-            const CURRENT_VERSION = 'v2.6.3'; // Incremented Version
+            const CURRENT_VERSION = 'v2S.6.4'; // Incremented Version
             const GITHUB_REPO = 'Unpiloted0852/AvWx';
 
             // Global Data Storage for Modal Access
@@ -6115,6 +6150,190 @@ document.addEventListener('DOMContentLoaded', () => {
                     </div>` : ''}
                 </div>
             `;
+        }
+
+        // --- RECORDS / EXTREMES LOGIC ---
+
+        function closeRecordsModal() {
+            document.getElementById('recordsModal').classList.add('hidden');
+            document.body.style.overflow = '';
+        }
+
+        function showRecords() {
+            if (!allStationsData || allStationsData.length === 0) {
+                alert("No station data loaded yet.");
+                return;
+            }
+
+            const records = calculateExtremes();
+            const grid = document.getElementById('recordsGrid');
+            document.getElementById('recordsCount').textContent = allStationsData.length.toLocaleString();
+
+            grid.innerHTML = ''; // Clear existing
+
+            // Helper to build a card
+            const createCard = (title, icon, data, colorClass, subText = "") => {
+                if (!data.station) return;
+                const station = data.station;
+                // Use existing color logic or default to gray
+                const catColor = COLORS[station.metar?.category] ? rgbToHex(COLORS[station.metar.category]) : '#6b7280';
+
+                return `
+                    <div class="bg-white dark:bg-gray-800 rounded-xl p-4 shadow-sm border border-gray-200 dark:border-gray-700 hover:shadow-lg hover:scale-[1.02] transition-all cursor-pointer group relative overflow-hidden"
+                         onclick="closeRecordsModal(); openDashDetail('${station.id}', true)">
+
+                        <!-- Color Bar -->
+                        <div class="absolute top-0 left-0 w-1.5 h-full" style="background-color: ${catColor}"></div>
+
+                        <div class="flex justify-between items-start mb-2 pl-3">
+                            <div class="flex items-center gap-2">
+                                <span class="text-2xl">${icon}</span>
+                                <span class="text-sm font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider">${title}</span>
+                            </div>
+                            <span class="font-mono font-black text-xl text-gray-900 dark:text-white">${station.id}</span>
+                        </div>
+
+                        <div class="pl-3 mt-2">
+                            <div class="text-3xl font-black text-gray-800 dark:text-gray-100 ${colorClass}">
+                                ${data.displayVal}
+                            </div>
+                            ${subText ? `<div class="text-xs font-bold text-gray-400 mt-1 font-mono">${subText}</div>` : ''}
+                            <div class="text-xs text-gray-500 mt-2 truncate">${station.name}</div>
+                        </div>
+                    </div>
+                `;
+            };
+
+            let html = '';
+
+            // 1. Highest Wind
+            html += createCard("Highest Wind", "💨", records.wind, "text-blue-600 dark:text-blue-400", records.wind.sub);
+
+            // 2. Highest Crosswind
+            html += createCard("Max Crosswind", "✈️", records.xwind, "text-indigo-600 dark:text-indigo-400", records.xwind.sub);
+
+            // 3. Hottest
+            html += createCard("Hottest Temp", "🔥", records.hot, "text-red-500", "");
+
+            // 4. Coldest
+            html += createCard("Coldest Temp", "❄️", records.cold, "text-cyan-500", "");
+
+            // 5. Highest Dewpoint
+            html += createCard("Highest Dewpoint", "💧", records.dew, "text-green-500", `Feels muggy`);
+
+            grid.innerHTML = html;
+
+            document.getElementById('recordsModal').classList.remove('hidden');
+            document.body.style.overflow = 'hidden';
+        }
+
+        function calculateExtremes() {
+            let rec = {
+                wind: { val: -1, station: null, displayVal: "0 KT", sub: "" },
+                xwind: { val: -1, station: null, displayVal: "0 KT", sub: "" },
+                hot: { val: -999, station: null, displayVal: "" },
+                cold: { val: 999, station: null, displayVal: "" },
+                dew: { val: -999, station: null, displayVal: "" }
+            };
+
+            allStationsData.forEach(s => {
+                if (!s.metar) return;
+
+                // --- TEMPERATURE ---
+                // Using rawTempC from data processing
+                const t = s.metar.rawTempC;
+                if (t !== null && !isNaN(t)) {
+                    if (t > rec.hot.val) {
+                        rec.hot = {
+                            val: t,
+                            station: s,
+                            displayVal: `${t}°C`
+                        };
+                    }
+                    if (t < rec.cold.val) {
+                        rec.cold = {
+                            val: t,
+                            station: s,
+                            displayVal: `${t}°C`
+                        };
+                    }
+                }
+
+                // --- DEWPOINT ---
+                const d = s.metar.rawDewC;
+                if (d !== null && !isNaN(d)) {
+                    if (d > rec.dew.val) {
+                        rec.dew = {
+                            val: d,
+                            station: s,
+                            displayVal: `${d}°C`
+                        };
+                    }
+                }
+
+                // --- WIND & CROSSWIND ---
+                // We must re-parse raw text to get Gusts accurately,
+                // as s.metar.windSpeed usually only stores sustained.
+                const match = s.metar.rawText.match(/(\d{3}|VRB)(\d{2,3})(?:G(\d{2,3}))?KT/);
+                if (match) {
+                    const dirStr = match[1];
+                    const spd = parseInt(match[2]);
+                    const gust = match[3] ? parseInt(match[3]) : 0;
+                    const maxWind = Math.max(spd, gust);
+
+                    // Check Highest Overall Wind
+                    if (maxWind > rec.wind.val) {
+                        rec.wind = {
+                            val: maxWind,
+                            station: s,
+                            displayVal: `${maxWind} KT`,
+                            sub: gust > 0 ? `Gusts ${gust} KT` : 'Sustained'
+                        };
+                    }
+
+                    // Check Highest Crosswind
+                    // Only calculate if we have runway data and wind direction is numeric
+                    if (cachedRunwayMap && cachedRunwayMap.has(s.id) && dirStr !== 'VRB') {
+                        const windDir = parseInt(dirStr);
+                        const rwyData = cachedRunwayMap.get(s.id);
+
+                        let maxXwForStation = 0;
+                        let worstRwy = "";
+
+                        if (rwyData.runways) {
+                            rwyData.runways.forEach(r => {
+                                const diff = Math.abs(windDir - r.heading) % 360;
+                                const rads = (diff * Math.PI) / 180;
+                                const xw = Math.abs(Math.sin(rads) * maxWind); // Use Max Wind (Gusts included) for XW
+
+                                if (xw > maxXwForStation) {
+                                    maxXwForStation = xw;
+                                    worstRwy = r.id;
+                                }
+                            });
+                        }
+
+                        if (maxXwForStation > rec.xwind.val) {
+                            rec.xwind = {
+                                val: maxXwForStation,
+                                station: s,
+                                displayVal: `${Math.round(maxXwForStation)} KT`,
+                                sub: `RWY ${worstRwy}`
+                            };
+                        }
+                    }
+                }
+            });
+
+            // Formatting for F/C toggle support could be added here,
+            // currently sticking to C as per raw data for simplicity.
+            if (useCelsius === false) {
+                if(rec.hot.val !== -999) rec.hot.displayVal = `${Math.round(rec.hot.val * 1.8 + 32)}°F`;
+                if(rec.cold.val !== 999) rec.cold.displayVal = `${Math.round(rec.cold.val * 1.8 + 32)}°F`;
+                if(rec.dew.val !== -999) rec.dew.displayVal = `${Math.round(rec.dew.val * 1.8 + 32)}°F`;
+            }
+
+            return rec;
         }
 
         // Start the 1-minute timer immediately on load
