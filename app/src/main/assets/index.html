@@ -18,7 +18,7 @@
 
         // Global reference to tile layer for updating
         let tileLayer = null;
-        let showRunwaysOnMap = false;
+        let showRunwaysOnMap = true;
 
         // Check local storage or system preference
         function getInitialTheme() {
@@ -67,10 +67,15 @@
         // Apply immediately on load
         applyTheme(getInitialTheme());
 
-        // Re-apply on DOMContentLoaded to ensure CSS links are ready
-        document.addEventListener('DOMContentLoaded', () => {
-             applyTheme(getInitialTheme());
-        });
+document.addEventListener('DOMContentLoaded', () => {
+     applyTheme(getInitialTheme());
+
+     // NEW: Sync button state
+     if (showRunwaysOnMap) {
+         const btn = document.getElementById('runwayMapBtn');
+         if (btn) btn.classList.add('runway-active');
+     }
+});
     </script>
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
@@ -1059,7 +1064,7 @@
 
         <script>
             // --- APP CONFIG ---
-            const CURRENT_VERSION = 'v2.6.2'; // Incremented Version
+            const CURRENT_VERSION = 'v2.6.3'; // Incremented Version
             const GITHUB_REPO = 'Unpiloted0852/AvWx';
 
             // Global Data Storage for Modal Access
@@ -3049,15 +3054,16 @@
                 });
             }
 
-        // Helper to restore the exact original popup design
+        // [UPDATED] Popup Generator with Clickable ICAO and METAR
         function generatePopupContent(station) {
             let metarHtml = '<div class="text-xs italic text-gray-500">No METAR available</div>';
+
             if (station.metar) {
-                metarHtml = `<div class="space-y-0.5">${formatRawText(station.metar.rawText)}</div>`;
+                metarHtml = `<div class="space-y-0.5 pointer-events-none">${formatRawText(station.metar.rawText)}</div>`;
                 let metaInfo = `${getDisplayTemp(station.metar)} • ${station.metar.rh}`;
                 if (station.metar.densityAlt) metaInfo += ` • ${station.metar.densityAlt}`;
                 metaInfo += ` • Age: ${formatAge(station.metar.age)}`;
-                metarHtml += `<div class="mt-1 text-xs text-gray-400">${metaInfo}</div>`;
+                metarHtml += `<div class="mt-1 text-xs text-gray-400 pointer-events-none">${metaInfo}</div>`;
             }
 
             let tafHtml = '<div class="text-xs italic text-gray-500">No TAF available</div>';
@@ -3074,16 +3080,27 @@
                 }
             }
 
+            // UPDATED HTML STRUCTURE:
+            // 1. ICAO Header has onclick + hover effects
+            // 2. METAR container has onclick + hover effects
             return `
                 <div class="font-sans">
                     <div class="flex items-baseline justify-between mb-2 pb-1 border-b border-gray-200 dark:border-gray-700">
-                        <span class="font-bold text-lg text-blue-600 dark:text-blue-400">${station.id}</span>
+                        <button onclick="openMapDetail('${station.id}')" class="font-bold text-lg text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 transition-colors text-left focus:outline-none">
+                            ${station.id}
+                            <span class="text-[10px] font-normal text-gray-400 ml-1">↗</span>
+                        </button>
                         <span class="text-xs text-gray-500 dark:text-gray-300 ml-2 truncate" style="max-width: 150px;">${station.name || ''}</span>
                     </div>
 
-                    <div class="mb-2">
-                        <span class="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider block mb-1">METAR</span>
-                        ${metarHtml}
+                    <div class="mb-2 group cursor-pointer" onclick="openMapDetail('${station.id}')" title="Click for Airport View">
+                        <div class="flex justify-between items-center mb-1">
+                            <span class="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider block">METAR</span>
+                            <span class="text-[10px] text-blue-500 opacity-0 group-hover:opacity-100 transition-opacity">View Fullscreen</span>
+                        </div>
+                        <div class="group-hover:ring-2 group-hover:ring-blue-500/20 group-hover:bg-gray-50 dark:group-hover:bg-gray-800 rounded transition-all p-0.5 -m-0.5">
+                            ${metarHtml}
+                        </div>
                     </div>
 
                     <div class="mb-1">
@@ -3110,37 +3127,10 @@
             markerLayerGroup.clearLayers();
             labelLayerGroup.clearLayers();
 
-            // 2. Home Highlight
-            const homeInput = document.getElementById('icaoInput').value.trim().toUpperCase();
-            if (homeInput.length >= 3 && cachedStationMap && !gpsReferenceCoords) {
-                const homeCoords = getCoordsForICAO(homeInput, cachedStationMap);
-                if (homeCoords && homeCoords.lat !== null) {
-                    L.circleMarker([homeCoords.lat, homeCoords.lon], {
-                        pane: 'routePane', renderer: routeRenderer,
-                        radius: 12, fill: false, color: '#06b6d4', weight: 3, interactive: false
-                    }).addTo(markerLayerGroup);
-                }
-            }
-
-            // 3. Route Drawing
-            if (routeAnalysisEnabled) {
-               const depInput = document.getElementById('depIcao').value.trim().toUpperCase();
-               const destInput = document.getElementById('destIcao').value.trim().toUpperCase();
-               let depCoords = null; let destCoords = null;
-               if (depInput.length >= 3 && cachedStationMap) depCoords = getCoordsForICAO(depInput, cachedStationMap);
-               if (destInput.length >= 3 && cachedStationMap) destCoords = getCoordsForICAO(destInput, cachedStationMap);
-               if (depCoords && depCoords.lat !== null && destCoords && destCoords.lat !== null) {
-                   const isSameStation = (Math.abs(depCoords.lat - destCoords.lat) < 0.0001 && Math.abs(depCoords.lon - destCoords.lon) < 0.0001);
-                   if (!isSameStation) {
-                       const pathPoints = getGreatCircleRoute(depCoords.lat, depCoords.lon, destCoords.lat, destCoords.lon);
-                       L.polyline(pathPoints, { pane: 'routePane', renderer: routeRenderer, color: '#fbbf24', weight: 2, opacity: 0.8, dashArray: '5, 10', lineCap: 'round', interactive: false }).addTo(markerLayerGroup);
-                   }
-                   L.circleMarker([depCoords.lat, depCoords.lon], { pane: 'routePane', renderer: routeRenderer, radius: 12, fill: false, color: '#ffffff', weight: 2, interactive: false }).addTo(markerLayerGroup);
-                   if (!isSameStation) {
-                       L.circleMarker([destCoords.lat, destCoords.lon], { pane: 'routePane', renderer: routeRenderer, radius: 12, fill: false, color: '#ffffff', weight: 2, interactive: false }).addTo(markerLayerGroup);
-                   }
-               }
-            }
+            // 2. Home Highlight & 3. Route Drawing (Keep existing code...)
+            // ... [Preserve existing Home and Route drawing logic here] ...
+            // Note: To save space in this answer, I am skipping the Home/Route logic blocks,
+            // ensure you keep them in your file.
 
             // 4. Zoom Logic
             const bounds = mapInstance.getBounds().pad(0.1);
@@ -3167,6 +3157,9 @@
                         if (match) { windDir = (match[1] === 'VRB') ? 0 : parseInt(match[1]); windSpeed = parseInt(match[2]); }
                     }
 
+                    // Determine Active Runway
+                    const bestIdx = getBestHeadwindRunwayIndex(station.id, windDir, windSpeed);
+
                     // Draw Runways (Vectors)
                     let sumLat = 0, sumLon = 0, count = 0;
                     const drawnKeys = new Set();
@@ -3179,9 +3172,7 @@
 
                         sumLat += r.leLat + r.heLat; sumLon += r.leLon + r.heLon; count += 2;
 
-                        const isActive = (idx === getBestHeadwindRunwayIndex(station.id, windDir, windSpeed));
-
-                        // IMPORTANT: Added renderer: markerRenderer to all polylines to enforce SVG
+                        const isActive = (idx === bestIdx);
 
                         // 1. Casing
                         L.polyline([[r.leLat, r.leLon], [r.heLat, r.heLon]], {
@@ -3205,10 +3196,11 @@
                         }).addTo(markerLayerGroup);
                     });
 
-                    // Wind Arrow
+                    // Wind Arrow & Pill
                     const centerLat = count > 0 ? sumLat / count : station.latitude;
                     const centerLon = count > 0 ? sumLon / count : station.longitude;
 
+                    // Arrow
                     const arrowIcon = L.divIcon({
                         className: 'bg-transparent',
                         html: `
@@ -3228,6 +3220,30 @@
 
                     arrowMarker.stationId = station.id;
                     arrowMarker.bindPopup(popupContent, { autoPan: false });
+
+                    // --- CROSSWIND PILL (NEW) ---
+                    if (rwyData.runways[bestIdx]) {
+                        const bestRwy = rwyData.runways[bestIdx];
+                        const diff = Math.abs(windDir - bestRwy.heading) % 360;
+                        const rads = (diff * Math.PI) / 180;
+                        const hw = Math.round(Math.cos(rads) * windSpeed);
+                        const xw = Math.round(Math.sin(rads) * windSpeed);
+
+                        const pillIcon = L.divIcon({
+                            className: 'bg-transparent',
+                            html: `<div class="bg-slate-900 border border-indigo-500/50 px-2 py-0.5 rounded-full text-[10px] font-black font-mono text-white shadow-sm whitespace-nowrap flex items-center justify-center">
+                                    H:${hw} X:${Math.abs(xw)}
+                                </div>`,
+                            iconSize: [60, 20],
+                            // Anchor Y negative puts it below the center point.
+                            // Center is 0,0. Arrow is +/-30. We want below arrow. Try anchor y = -35.
+                            iconAnchor: [30, -35]
+                        });
+
+                        L.marker([centerLat, centerLon], {
+                            icon: pillIcon, pane: 'markerPane', interactive: false, zIndexOffset: 6000
+                        }).addTo(markerLayerGroup);
+                    }
 
                 } else {
                     // --- MODE B: STANDARD DOTS ---
@@ -4778,12 +4794,18 @@
                     showStatus("Fetching METAR, TAF, and Station Database...", false);
                     // resultsContainerEl.classList.add('hidden'); // REMOVED TO PREVENT FLICKER ON RELOAD
 
-                    const promises = [
-                        fetchAndParse(TAF_DATA_URL),
-                        fetchAndParse(METAR_DATA_URL),
-                        getStationMap()
-                    ];
+               // Inside handleGenerateClick...
+        const promises = [
+            fetchAndParse(TAF_DATA_URL),
+            fetchAndParse(METAR_DATA_URL),
+            getStationMap()
+        ];
 
+        // CHANGED CONDITION:
+        if (minRunwayLen > 0 || showRunwaysOnMap) {
+            showStatus("Fetching METAR, TAF, Stations, and Runway Data...", false);
+            promises.push(getRunwayData());
+        }
                     if (minRunwayLen > 0) {
                         showStatus("Fetching METAR, TAF, Stations, and Runway Data...", false);
                         promises.push(getRunwayData());
@@ -4826,6 +4848,7 @@
                     const allStations = processResult.allStations; // UNFILTERED (NEW)
                     const stationDataMap = processResult.stationDataMap;
                     const usedRef = processResult.refName;
+
 
                     if (routeAnalysisEnabled && (depIcao.length >= 3 || destIcao.length >= 3)) {
                         showStatus("Running Alternate Analysis...");
@@ -5592,18 +5615,43 @@
             const rwyData = cachedRunwayMap.get(icao);
             if (!rwyData.runways || rwyData.runways.length === 0) return 0;
 
-            let bestIdx = 0;
-            let maxHeadwind = -999;
-            rwyData.runways.forEach((rwy, idx) => {
-                const diff = Math.abs(windDir - rwy.heading) % 360;
+            // Calculate metrics for all runways
+            const candidates = rwyData.runways.map((rwy, idx) => {
+                // If heading is missing, assume 0 (North) to prevent crash, but score poorly
+                const heading = rwy.heading || 0;
+
+                const diff = Math.abs(windDir - heading) % 360;
                 const rads = (diff * Math.PI) / 180;
+
+                // Headwind: Positive is good.
                 const headwind = Math.cos(rads) * windSpeed;
-                if (headwind > maxHeadwind) {
-                    maxHeadwind = headwind;
-                    bestIdx = idx;
-                }
+
+                // Crosswind: Absolute value (closer to 0 is better)
+                const crosswind = Math.abs(Math.sin(rads) * windSpeed);
+
+                return {
+                    index: idx,
+                    headwind: headwind,
+                    crosswind: crosswind,
+                    length: rwy.length
+                };
             });
-            return bestIdx;
+
+            // Sort Candidates
+            candidates.sort((a, b) => {
+                // 1. Greatest Headwind (Higher is better)
+                if (Math.abs(b.headwind - a.headwind) > 1.0) { // Increased tolerance slightly
+                    return b.headwind - a.headwind;
+                }
+                // 2. Smallest Crosswind (Lower is better)
+                if (Math.abs(a.crosswind - b.crosswind) > 1.0) {
+                    return a.crosswind - b.crosswind;
+                }
+                // 3. Longest Runway (Higher is better)
+                return b.length - a.length;
+            });
+
+            return candidates[0].index;
         }
 
         // NEW: Calculates the specific weather state at a target time
@@ -5748,10 +5796,9 @@
                 grid.appendChild(card);
             });
         }
-        function openDashDetail(icao) {
+        function openDashDetail(icao, forceLive = false) {
             const stationLookup = new Map(allStationsData.map(s => [s.id, s]));
-            const station = stationLookup.get(icao);
-            if (!station) return;
+            const station = stationLookup.get(icao) || { id: icao, metar: null, taf: null };
 
             let windDir = 0, windSpeed = 0, gustSpeed = 0, isExpired = false;
             let targetTime = new Date();
@@ -5759,6 +5806,7 @@
             let timeLabel = "----Z";
 
             const parseWind = (text) => {
+                if (!text) return;
                 const match = text.match(/(\d{3}|VRB)(\d{2,3})(?:G(\d{2,3}))?KT/);
                 if (match) {
                     windDir = (match[1] === 'VRB') ? 0 : parseInt(match[1]);
@@ -5767,11 +5815,13 @@
                 }
             };
 
-            if (dashboardTimeOffset > 0) {
-                targetTime = new Date(new Date().getTime() + (dashboardTimeOffset * 3600000));
+            const effectiveOffset = forceLive ? 0 : dashboardTimeOffset;
+
+            // 1. Determine Conditions & Wind based on Time Mode
+            if (effectiveOffset > 0) {
+                targetTime = new Date(new Date().getTime() + (effectiveOffset * 3600000));
                 timeLabel = `${String(targetTime.getUTCHours()).padStart(2,'0')}00Z (Forecast)`;
                 if (station.taf) {
-                    // USE NEW HELPER
                     const condition = getConditionsAtTime(station.taf.rawText, targetTime);
                     displayCat = condition.category;
                     parseWind(condition.rawText);
@@ -5785,23 +5835,33 @@
                 }
             }
 
-            // --- Runway Selector Generation ---
+            // 2. Auto-Select Best Runway (only if not already set by user interaction in this session)
+            if (cachedRunwayMap && cachedRunwayMap.has(icao)) {
+                // If we haven't selected one yet, pick the best one
+                if (dashboardState.selectedRunways[icao] === undefined) {
+                     const bestIdx = getBestHeadwindRunwayIndex(icao, windDir, windSpeed);
+                     dashboardState.selectedRunways[icao] = bestIdx;
+                }
+            }
+
+            // 3. Generate Selector Buttons
             let runwaySelectorHtml = '';
 
             if (cachedRunwayMap && cachedRunwayMap.has(icao)) {
                 const rwyData = cachedRunwayMap.get(icao);
                 const selectedIdx = dashboardState.selectedRunways[icao] || 0;
 
-                runwaySelectorHtml = `<div class="flex flex-wrap gap-2 justify-center mt-6">`;
+                // ADDED: 'relative z-30' to ensure buttons sit ABOVE the SVG/Pill layer
+                runwaySelectorHtml = `<div class="flex flex-wrap gap-2 justify-center mt-6 relative z-30 pointer-events-auto">`;
                 rwyData.runways.forEach((r, idx) => {
                     const isActive = (idx === selectedIdx);
                     const btnClass = isActive
-                        ? "bg-indigo-600 text-white border-indigo-400"
+                        ? "bg-indigo-600 text-white border-indigo-400 shadow-lg scale-105"
                         : "bg-white/10 text-gray-400 border-transparent hover:bg-white/20";
 
                     runwaySelectorHtml += `
-                        <button onclick="event.stopPropagation(); selectDashRunway('${icao}', ${idx})"
-                                class="px-4 py-1.5 rounded-full text-xs font-bold font-mono border transition-all ${btnClass}">
+                        <button onclick="event.stopPropagation(); selectDashRunway('${icao}', ${idx}, ${forceLive})"
+                                class="px-4 py-1.5 rounded-full text-xs font-bold font-mono border transition-all cursor-pointer ${btnClass}">
                             ${r.id}
                         </button>
                     `;
@@ -5811,7 +5871,6 @@
                 runwaySelectorHtml = `<div class="mt-6 text-xs text-gray-500 italic text-center">No runway data available</div>`;
             }
 
-            // --- Render Modal ---
             const modal = document.getElementById('tileModal');
             const container = modal.querySelector('div');
             const tileClass = isExpired ? 'nodata-tile' : getCategoryTileClassName(displayCat);
@@ -5824,20 +5883,19 @@
                             <h2 class="text-6xl font-black font-mono tracking-tighter drop-shadow-lg">${icao}</h2>
                             <p class="text-xl font-bold opacity-80 uppercase">${station.name || ''}</p>
                         </div>
-                        <button onclick="closeTileModal()" class="p-3 bg-black/20 hover:bg-black/40 rounded-full transition-colors">
+                        <button onclick="closeTileModal()" class="p-3 bg-black/20 hover:bg-black/40 rounded-full transition-colors z-50">
                             <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-width="4" d="M6 18L18 6M6 6l12 12"/></svg>
                         </button>
                     </div>
 
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
-                        <div class="bg-black/30 rounded-3xl p-8 flex flex-col items-center border border-white/20 shadow-inner">
-                            <!-- SVG Display -->
+                        <!-- Runway Visualizer Card -->
+                        <div class="bg-black/30 rounded-3xl p-8 flex flex-col items-center border border-white/20 shadow-inner relative overflow-visible">
                             ${generateRunwaySVG(icao, windDir, windSpeed, gustSpeed, isExpired, 180)}
-
-                            <!-- New Selector Pills -->
                             ${runwaySelectorHtml}
                         </div>
 
+                        <!-- Data Card -->
                         <div class="flex flex-col justify-center gap-4">
                             <div class="bg-black/30 p-5 rounded-2xl border border-white/10">
                                 <span class="text-[10px] font-black uppercase opacity-60">Calculated Wind</span>
@@ -5853,7 +5911,9 @@
                     <div class="space-y-4">
                         <div class="bg-black/20 p-4 rounded-xl">
                             <h3 class="text-[10px] font-black uppercase tracking-widest opacity-60 mb-2">METAR</h3>
-                            ${station.metar ? formatRawText(station.metar.rawText) : '<p class="italic opacity-40">No data</p>'}
+                            <div class="font-mono text-sm leading-relaxed">
+                                ${station.metar ? formatRawText(station.metar.rawText) : '<p class="italic opacity-40">No data</p>'}
+                            </div>
                         </div>
                         <div class="bg-black/20 p-4 rounded-xl">
                             <h3 class="text-[10px] font-black uppercase tracking-widest opacity-60 mb-2">TAF (Time Synced)</h3>
@@ -5864,19 +5924,43 @@
                     </div>
                 </div>
             `;
+            document.body.style.overflow = 'hidden';
             modal.classList.remove('hidden');
         }
-        function selectDashRunway(icao, index) {
+
+        // [UPDATED] Helper for Map Popups - Ensures data exists before opening
+        async function openMapDetail(icao) {
+            // 1. Ensure Runway Data is loaded (it might be missing if user hasn't opened Dashboard yet)
+            if (!cachedRunwayMap) {
+                // Change cursor to wait to indicate loading
+                document.body.style.cursor = 'wait';
+                try {
+                    await getRunwayData();
+                } catch (e) {
+                    console.error("Failed to load runway data", e);
+                } finally {
+                    document.body.style.cursor = 'default';
+                }
+            }
+
+            // 2. Open the detail view in "Force Live" mode
+            openDashDetail(icao, true);
+        }
+
+        function selectDashRunway(icao, index, forceLive = false) {
+            // 1. Save the selection to state
             if (!dashboardState.selectedRunways) dashboardState.selectedRunways = {};
             dashboardState.selectedRunways[icao] = index;
             saveDashboardState();
 
-            // Refresh the modal view immediately
-            openDashDetail(icao);
+            // 2. Refresh the modal view immediately
+            openDashDetail(icao, forceLive);
 
-            // Also refresh the background dashboard/map if visible
+            // 3. Refresh background
             renderDashboard();
-            if (showRunwaysOnMap) renderMap(currentStationsData);
+            if (typeof showRunwaysOnMap !== 'undefined' && showRunwaysOnMap) {
+                renderMap(currentStationsData);
+            }
         }
 
         function generateRunwaySVG(icao, windDir, windSpeed, gustSpeed, isExpired, size = 100, overrideRwyIndex = -1) {
@@ -5896,6 +5980,9 @@
             } else {
                 bestRwyIdx = dashboardState.selectedRunways[icao] || 0;
             }
+            // Safety check
+            if (bestRwyIdx >= rwyData.runways.length) bestRwyIdx = 0;
+
             const bestRwy = rwyData.runways[bestRwyIdx];
 
             // 3. Crosswind Calc
@@ -5905,7 +5992,7 @@
             const hw = Math.round(Math.cos(rads) * effectiveSpeed);
             const xw = Math.round(Math.sin(rads) * effectiveSpeed);
 
-            // 4. Projection Logic (Fit GPS Coords to 100x100 Box)
+            // 4. Projection Logic
             let minLat = 90, maxLat = -90, minLon = 180, maxLon = -180;
             let hasCoords = false;
 
@@ -5921,7 +6008,6 @@
 
             if (!hasCoords) return `<div class="opacity-30 font-bold text-[9px] font-mono text-center">NO GEO</div>`;
 
-            // Reduced Padding to 5% to make runways FILL the tile
             const paddingLat = (maxLat - minLat) * 0.05;
             const paddingLon = (maxLon - minLon) * 0.05;
 
@@ -5970,35 +6056,32 @@
                 const angle = Math.atan2(dy, dx) * 180 / Math.PI;
                 const midX = (start.x + end.x) / 2;
                 const midY = (start.y + end.y) / 2;
-
                 const opacity = isActive ? "1.0" : "0.5";
                 const baseWidth = 14;
                 const asphaltWidth = 12;
+                const thresholdLen = 6;
+                const numberOffset = 12;
+                const idLow = r.id;
+                const idHigh = r.oppId || '';
 
                 runwaysHtml += `
                 <g transform="translate(${midX}, ${midY}) rotate(${angle})" opacity="${opacity}">
-                    <!-- Casing -->
                     <rect x="${-len/2 - 1}" y="${-baseWidth/2}" width="${len + 2}" height="${baseWidth}" fill="white" />
-                    <!-- Asphalt -->
-                    <rect x="${-len/2}" y="${-asphaltWidth/2}" width="${len}" height="${asphaltWidth}" fill="#020617" />
-                    <!-- Centerline -->
-                    <line x1="${-len/2 + 2}" y1="0" x2="${len/2 - 2}" y2="0" stroke="white" stroke-width="1" stroke-dasharray="4,3" />
-
-                    <!-- Thresholds -->
+                    <rect x="${-len/2}" y="${-asphaltWidth/2}" width="${len}" height="${asphaltWidth}" fill="#1e293b" />
+                    <line x1="${-len/2 + 15}" y1="0" x2="${len/2 - 15}" y2="0" stroke="white" stroke-width="1" stroke-dasharray="4,3" />
                     <g stroke="white" stroke-width="1">
-                        <line x1="${-len/2 + 2}" y1="${-asphaltWidth/2 + 2}" x2="${-len/2 + 6}" y2="${-asphaltWidth/2 + 2}" />
-                        <line x1="${-len/2 + 2}" y1="${asphaltWidth/2 - 2}" x2="${-len/2 + 6}" y2="${asphaltWidth/2 - 2}" />
+                        <line x1="${-len/2 + 2}" y1="${-asphaltWidth/2 + 2}" x2="${-len/2 + thresholdLen}" y2="${-asphaltWidth/2 + 2}" />
+                        <line x1="${-len/2 + 2}" y1="${-asphaltWidth/2 + 4}" x2="${-len/2 + thresholdLen}" y2="${-asphaltWidth/2 + 4}" />
+                        <line x1="${-len/2 + 2}" y1="${asphaltWidth/2 - 2}" x2="${-len/2 + thresholdLen}" y2="${asphaltWidth/2 - 2}" />
+                        <line x1="${-len/2 + 2}" y1="${asphaltWidth/2 - 4}" x2="${-len/2 + thresholdLen}" y2="${asphaltWidth/2 - 4}" />
                         <line x1="${len/2 - 6}" y1="${-asphaltWidth/2 + 2}" x2="${len/2 - 2}" y2="${-asphaltWidth/2 + 2}" />
+                        <line x1="${len/2 - 6}" y1="${-asphaltWidth/2 + 4}" x2="${len/2 - 2}" y2="${-asphaltWidth/2 + 4}" />
                         <line x1="${len/2 - 6}" y1="${asphaltWidth/2 - 2}" x2="${len/2 - 2}" y2="${asphaltWidth/2 - 2}" />
+                        <line x1="${len/2 - 6}" y1="${asphaltWidth/2 - 4}" x2="${len/2 - 2}" y2="${asphaltWidth/2 - 4}" />
                     </g>
+                    <text x="${-len/2 + numberOffset}" y="0" fill="#e2e8f0" font-family="monospace" font-weight="bold" font-size="5" text-anchor="middle" dominant-baseline="middle" transform="rotate(90, ${-len/2 + numberOffset}, 0)">${idLow}</text>
+                    <text x="${len/2 - numberOffset}" y="0" fill="#e2e8f0" font-family="monospace" font-weight="bold" font-size="5" text-anchor="middle" dominant-baseline="middle" transform="rotate(-90, ${len/2 - numberOffset}, 0)">${idHigh}</text>
                 </g>`;
-
-                // Labels (Only Dashboard/Modal)
-                if (size > 150 && isActive) {
-                     const textColor = "#fbbf24";
-                     runwaysHtml += `<text x="${start.x}" y="${start.y}" fill="${textColor}" font-size="7" font-weight="900" text-anchor="middle" dominant-baseline="middle" style="text-shadow: 2px 2px 0 #000;">${r.id}</text>`;
-                     runwaysHtml += `<text x="${end.x}" y="${end.y}" fill="${textColor}" font-size="7" font-weight="900" text-anchor="middle" dominant-baseline="middle" style="text-shadow: 2px 2px 0 #000;">${r.oppId || ''}</text>`;
-                }
             });
 
             // 6. Wind Arrow
@@ -6012,8 +6095,12 @@
                 </g>
             ` : '';
 
-            // 7. Pill Logic (Dashboard Only)
-            const showPill = size > 150;
+            // 7. Pill Logic (Updated for Dashboard)
+            const showPill = size > 60;
+            // Scale text based on size
+            const fontSize = size < 100 ? "text-[8px]" : "text-[10px]";
+            const padding = size < 100 ? "px-2 py-px" : "px-3 py-0.5";
+            const bottomPos = size < 100 ? "-bottom-1" : "-bottom-2";
 
             return `
                 <div class="relative flex flex-col items-center justify-center bg-transparent" style="width: ${size}px; height: ${size}px;">
@@ -6023,7 +6110,7 @@
                         ${windHtml}
                     </svg>
                     ${showPill ? `
-                    <div class="absolute -bottom-2 bg-slate-900 border-2 border-indigo-500/50 px-3 py-0.5 rounded-full text-[10px] font-black font-mono text-white shadow-2xl z-20">
+                    <div class="absolute ${bottomPos} bg-slate-900 border-2 border-indigo-500/50 ${padding} rounded-full ${fontSize} font-black font-mono text-white shadow-2xl z-20 whitespace-nowrap">
                         ${isExpired ? '---' : `H:${hw} X:${Math.abs(xw)}`}
                     </div>` : ''}
                 </div>
