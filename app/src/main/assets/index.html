@@ -95,6 +95,95 @@ document.addEventListener('DOMContentLoaded', () => {
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
     <style>
 
+        /* ADS-B Active State */
+    /* ADS-B Active State */
+    .traffic-active {
+        background-color: #10b981 !important;
+        color: white !important;
+    }
+
+    /* Compact Traffic Popup Override */
+    .traffic-popup-compact .leaflet-popup-content-wrapper {
+        padding: 0;
+        overflow: hidden;
+        border-radius: 4px;
+        background: rgba(255, 255, 255, 0.95);
+        /* CRITICAL: Override global min-width */
+        min-width: 0px !important;
+        width: auto !important;
+    }
+
+    .dark .traffic-popup-compact .leaflet-popup-content-wrapper {
+        background: rgba(30, 41, 59, 0.95);
+        border: 1px solid #374151;
+    }
+
+    .traffic-popup-compact .leaflet-popup-content {
+        margin: 0 !important;
+        width: auto !important;
+        min-width: 120px !important; /* Small but readable */
+    }
+
+    .traffic-popup-compact .leaflet-popup-tip {
+        background: rgba(255, 255, 255, 0.95);
+    }
+    .dark .traffic-popup-compact .leaflet-popup-tip {
+        background: #374151;
+    }
+
+    /* ATC VISUAL STYLE - UPDATED */
+    .atc-container {
+        position: relative;
+        width: 100%;
+        height: 100%;
+        pointer-events: auto;
+        filter: drop-shadow(0 1px 2px rgba(0,0,0,0.8));
+    }
+
+    /* The Target Blip (Triangle) */
+    .atc-blip {
+        position: absolute;
+        top: 0; left: 0;
+        width: 12px;
+        height: 12px;
+        background-color: #10b981; /* Emerald-500 */
+        /* Sharp triangle */
+        clip-path: polygon(50% 0%, 0% 100%, 100% 100%);
+        transition: transform 1s linear;
+    }
+
+    /* The Data Block (Label) */
+    .atc-label {
+        position: absolute;
+        left: 10px; /* Hugs the right side of the blip */
+        top: -3px;  /* Aligned with top of blip */
+
+        font-family: 'JetBrains Mono', 'Courier New', monospace;
+        font-size: 9px;
+        font-weight: 700;
+        line-height: 1.0;
+        color: #10b981;
+
+        text-shadow:
+            -1px -1px 0 #000,
+             1px -1px 0 #000,
+            -1px  1px 0 #000,
+             1px  1px 0 #000,
+             0px 0px 2px #000;
+
+        white-space: nowrap; /* CRITICAL FIX: Prevents code indentation from becoming visual space */
+        pointer-events: none;
+        z-index: 20;
+    }
+
+    /* Secondary Info Row (Alt/Speed) */
+    .atc-label span {
+        display: block;
+        opacity: 0.9;
+        font-size: 8px;
+        margin-top: 0px;
+    }
+
         /* Premium Dashboard Styling */
     .dash-card {
         backdrop-filter: blur(10px);
@@ -597,6 +686,8 @@ document.addEventListener('DOMContentLoaded', () => {
 <div id="zuluClock">00:00:00Z</div>
 
 <!-- Update Banner -->
+
+
 <div id="updateBanner" class="hidden fixed top-0 left-0 right-0 z-[200000] p-4 bg-blue-600 text-white shadow-xl">
     <div class="container mx-auto max-w-5xl flex flex-col sm:flex-row items-center justify-between gap-4">
         <div class="flex items-center gap-3">
@@ -856,6 +947,11 @@ document.addEventListener('DOMContentLoaded', () => {
             <!-- Radar Timestamp Display -->
             <div id="radarTimeDisplay">Radar Valid: --:--z</div>
 
+            <!-- ADS-B Credit (Obscure, Bottom Center) -->
+            <div id="adsbCredit" class="hidden absolute bottom-0 left-1/2 transform -translate-x-1/2 z-[1000] text-[8px] font-mono text-gray-400/60 dark:text-gray-600/60 pointer-events-none select-none pb-0.5">
+                Traffic data <a href="https://airplanes.live" target="_blank" class="pointer-events-auto hover:text-gray-500 dark:hover:text-gray-400 underline decoration-dotted">airplanes.live</a>
+            </div>
+
             <!-- Unified Map Warning (Tiny Bottom Right) -->
             <div id="combinedWarning" class="hidden absolute bottom-0 right-0 z-[1100] px-1 py-0.5 bg-black/50 text-[8px] text-white/70 pointer-events-none select-none">
                 Experimental Data
@@ -936,6 +1032,11 @@ document.addEventListener('DOMContentLoaded', () => {
                     <!-- PIREP -->
                     <button id="pirepBtn" onclick="togglePireps()" class="layer-btn bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 text-xl flex items-center justify-center" aria-label="Toggle PIREPs" title="PIREPs">
                         ✈️
+                    </button>
+
+                    <!-- ADS-B Traffic -->
+                    <button id="trafficBtn" onclick="toggleTraffic()" class="layer-btn bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 text-[9px] font-black flex items-center justify-center leading-tight" aria-label="Toggle Traffic" title="Live ADS-B Traffic">
+                        ADS-B
                     </button>
 
                     <!-- Hazards / SIGMETs (NEW) -->
@@ -1099,7 +1200,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         <script>
             // --- APP CONFIG ---
-            const CURRENT_VERSION = 'v2.6.4'; // Incremented Version
+            const CURRENT_VERSION = 'v2.6.5'; // Incremented Version
             const GITHUB_REPO = 'Unpiloted0852/AvWx';
 
             // Global Data Storage for Modal Access
@@ -1125,6 +1226,10 @@ document.addEventListener('DOMContentLoaded', () => {
             // Add with other globals
 
         let hazardRenderer = null;
+        let trafficLayer = null;
+        let selectedPlaneTrace = null; // Stores the active flight path polyline
+        let trafficRefreshInterval = null;
+        let trafficMarkers = new Map(); // Stores markers to allow smooth movement updates
             let mapInstance = null;
             let markerLayerGroup = null;
             let labelLayerGroup = null; // Optimized layer for text
@@ -1182,7 +1287,6 @@ document.addEventListener('DOMContentLoaded', () => {
             }
 
 
-        // --- UPDATE THE EXISTING updateLayerActiveState FUNCTION ---
         function updateLayerActiveState() {
             const hasRadar = !!radarLayer;
             const hasFreezing = !!freezingLayer;
@@ -1190,11 +1294,15 @@ document.addEventListener('DOMContentLoaded', () => {
             const hasPirep = !!pirepLayer;
             const hasHazards = !!hazardsLayer;
             const hasDayNight = !!dayNightLayer;
-            const hasRunways = showRunwaysOnMap; // <--- Add this
+            const hasRunways = showRunwaysOnMap;
+
+            // ADDED: Check for traffic
+            const hasTraffic = !!trafficLayer;
 
             const mainBtn = document.getElementById('mainLayerToggle');
-            // Add hasRunways to the condition
-            if (hasRadar || hasFreezing || hasHeatmap || hasPirep || hasHazards || hasDayNight || hasRunways) {
+
+            // ADDED: || hasTraffic
+            if (hasRadar || hasFreezing || hasHeatmap || hasPirep || hasHazards || hasDayNight || hasRunways || hasTraffic) {
                 mainBtn.classList.add('has-active-layers');
             } else {
                 mainBtn.classList.remove('has-active-layers');
@@ -1682,18 +1790,18 @@ document.addEventListener('DOMContentLoaded', () => {
             let heatmapLayer = null;
             let heatmapMode = 0; // 0: Off, 1: Temp, 2: Pressure
 
-            // --- ISO-LINE HEATMAP CONFIGURATION (SMOOTHED) ---
+           // --- ISO-LINE HEATMAP CONFIGURATION (SMOOTHED) ---
             if (typeof L.WeatherIsoLayer === 'undefined') {
                 L.WeatherIsoLayer = L.Layer.extend({
                     initialize: function(options) {
-                        this.mode = options.mode || 'temp'; // 'temp' or 'pressure'
+                        this.mode = options.mode || 'temp';
                     },
 
                     onAdd: function(map) {
                         this._map = map;
                         this._canvas = L.DomUtil.create('canvas', 'leaflet-weather-iso-layer');
                         this._canvas.style.pointerEvents = 'none';
-                        this._canvas.style.zIndex = 200; // Below Radar(250)
+                        this._canvas.style.zIndex = 200;
                         map.getPanes().overlayPane.appendChild(this._canvas);
 
                         map.on('moveend', this._update, this);
@@ -1713,7 +1821,6 @@ document.addEventListener('DOMContentLoaded', () => {
                         const size = map.getSize();
                         const canvas = this._canvas;
 
-                        // Handle High DPI Displays for Crisp Lines
                         const dpr = window.devicePixelRatio || 1;
                         canvas.width = size.x * dpr;
                         canvas.height = size.y * dpr;
@@ -1725,33 +1832,9 @@ document.addEventListener('DOMContentLoaded', () => {
                         L.DomUtil.setPosition(canvas, topLeft);
 
                         const ctx = canvas.getContext('2d');
-                        ctx.scale(dpr, dpr); // Scale context to match DPI
+                        ctx.scale(dpr, dpr);
 
                         this._draw(ctx);
-                    },
-
-                    _smoothPoints: function(points) {
-                        // Chaikin's Algorithm for corner cutting (smoothing)
-                        if (points.length < 3) return points;
-                        const newPoints = [];
-                        newPoints.push(points[0]); // Keep start
-
-                        for (let i = 0; i < points.length - 1; i++) {
-                            const p0 = points[i];
-                            const p1 = points[i+1];
-
-                            // Create 2 points at 25% and 75% along the segment
-                            newPoints.push({
-                                x: 0.75 * p0.x + 0.25 * p1.x,
-                                y: 0.75 * p0.y + 0.25 * p1.y
-                            });
-                            newPoints.push({
-                                x: 0.25 * p0.x + 0.75 * p1.x,
-                                y: 0.25 * p0.y + 0.75 * p1.y
-                            });
-                        }
-                        newPoints.push(points[points.length - 1]); // Keep end
-                        return newPoints;
                     },
 
                     _draw: function(ctx) {
@@ -1765,11 +1848,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
                         // 1. Filter stations
                         const bounds = map.getBounds();
-                        const pad = 5.0; // Reduced pad for performance
+                        const pad = 5.0;
                         const south = bounds.getSouth() - pad;
                         const north = bounds.getNorth() + pad;
-                        const west = bounds.getWest() - pad;
-                        const east = bounds.getEast() + pad;
+                        // Note: Longitude filtering is removed/simplified because we want to include stations
+                        // that might wrap around the world if we are looking at the edge.
 
                         const relevantStations = allStationsData.filter(s => {
                             if(s.latitude === null || s.longitude === null || !s.metar) return false;
@@ -1777,8 +1860,9 @@ document.addEventListener('DOMContentLoaded', () => {
                             if(this.mode === 'temp') val = s.metar.rawTempC;
                             else val = s.metar.altimInHg;
                             if (val === null || isNaN(val)) return false;
-                            return s.latitude >= south && s.latitude <= north &&
-                                   s.longitude >= west && s.longitude <= east;
+
+                            // Simple latitude check is enough, longitude check is skipped to handle wrapping better
+                            return s.latitude >= south && s.latitude <= north;
                         });
 
                         if (relevantStations.length < 5) return;
@@ -1789,14 +1873,13 @@ document.addEventListener('DOMContentLoaded', () => {
                             val: this.mode === 'temp' ? s.metar.rawTempC : s.metar.altimInHg
                         }));
 
-                        // 2. High Resolution Grid (Lower number = smoother but slower)
+                        // 2. High Resolution Grid
                         const RES = 8;
                         const cols = Math.ceil(width / RES);
                         const rows = Math.ceil(height / RES);
                         const NEIGHBOR_COUNT = 5;
                         const grid = [];
 
-                        // ... (Grid Generation Logic - mostly same as before) ...
                         for (let y = 0; y <= rows; y++) {
                             grid[y] = [];
                             for (let x = 0; x <= cols; x++) {
@@ -1804,14 +1887,15 @@ document.addEventListener('DOMContentLoaded', () => {
                                 const py = y * RES;
                                 const ll = map.containerPointToLatLng(L.point(px, py));
 
-                                // Simple sort for neighbors
-                                // Optimization: Skip expensive cosLat correction for neighbors check
-                                // Just use Euclidean on lat/lon for speed here, acceptable for iso-lines
                                 let closest = [];
                                 for (let i = 0; i < stations.length; i++) {
                                     const s = stations[i];
                                     const dLat = s.lat - ll.lat;
-                                    const dLon = s.lon - ll.lng;
+
+                                    // UPDATED: Longitude distance with wrapping
+                                    let dLon = Math.abs(s.lon - ll.lng);
+                                    if (dLon > 180) dLon = 360 - dLon;
+
                                     const distSq = dLat*dLat + dLon*dLon;
 
                                     if (closest.length < NEIGHBOR_COUNT) {
@@ -1823,8 +1907,7 @@ document.addEventListener('DOMContentLoaded', () => {
                                     }
                                 }
 
-                                // IDW
-                                if (closest[0].distSq > 5.0) { // Limit interpolation range
+                                if (closest[0].distSq > 5.0) {
                                     grid[y][x] = null;
                                     continue;
                                 }
@@ -1840,7 +1923,7 @@ document.addEventListener('DOMContentLoaded', () => {
                             }
                         }
 
-                        // 3. Define Thresholds
+                        // 3. Define Thresholds & 4. Marching Squares (Same as before)
                         let steps = [];
                         if (this.mode === 'temp') {
                             for(let t = -40; t <= 50; t += 5) steps.push(t);
@@ -1848,8 +1931,7 @@ document.addEventListener('DOMContentLoaded', () => {
                             for(let p = 28.00; p <= 31.00; p += 0.10) steps.push(parseFloat(p.toFixed(2)));
                         }
 
-                        // 4. Marching Squares & Smoothing
-                        ctx.lineWidth = 2; // Slightly thicker
+                        ctx.lineWidth = 2;
                         ctx.lineCap = 'round';
                         ctx.lineJoin = 'round';
 
@@ -1905,19 +1987,12 @@ document.addEventListener('DOMContentLoaded', () => {
                                         }
 
                                         if (points.length === 2) {
-                                            // Apply Smoothing to these short segments?
-                                            // Actually, iterating squares creates disjoint segments.
-                                            // Smoothing single segments doesn't work well.
-                                            // Instead, we just draw the straight line with 'round' join,
-                                            // BUT we use the higher resolution (RES=8) to do the work.
-
                                             ctx.strokeStyle = getIsoColor(level, this.mode);
                                             ctx.beginPath();
                                             ctx.moveTo(points[0].x, points[0].y);
                                             ctx.lineTo(points[1].x, points[1].y);
                                             ctx.stroke();
 
-                                            // Collect labels
                                             if (x % 10 === 0 && y % 10 === 0) {
                                                 let displayText = "";
                                                 if (this.mode === 'temp') {
@@ -1938,7 +2013,6 @@ document.addEventListener('DOMContentLoaded', () => {
                             }
                         }
 
-                        // Draw Labels
                         ctx.font = 'bold 11px sans-serif';
                         ctx.textAlign = 'center';
                         ctx.textBaseline = 'middle';
@@ -1953,7 +2027,7 @@ document.addEventListener('DOMContentLoaded', () => {
                             ctx.shadowColor = "rgba(0,0,0,0.5)";
                             ctx.shadowBlur = 4;
                             ctx.fillRect(l.x - w/2, l.y - h/2, w, h);
-                            ctx.shadowBlur = 0; // Reset
+                            ctx.shadowBlur = 0;
 
                             ctx.fillStyle = 'black';
                             ctx.fillText(l.text, l.x, l.y);
@@ -2067,78 +2141,59 @@ document.addEventListener('DOMContentLoaded', () => {
             }
 
 
-            // --- MAP FUNCTIONS ---
-         // --- MAP FUNCTIONS ---
-            function initMap() {
+         function initMap() {
                 if (mapInstance) return;
 
                 const isDark = document.documentElement.classList.contains('dark');
 
-                // Initialize Map with preferCanvas: true for general performance,
-                // but we will override this for specific interactive layers below.
                 mapInstance = L.map('weatherMap', {
                     preferCanvas: true,
                     worldCopyJump: true,
                     zoomControl: false
                 }).setView([39.8283, -98.5795], 4);
 
-                // Standard Canvas renderer for simple dots (high performance)
                 mapRenderer = L.canvas({ tolerance: 20 });
 
-                // CartoDB Tiles (Dynamic)
                 tileLayer = L.tileLayer(isDark ? MAP_DARK_URL : MAP_LIGHT_URL, {
                     attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>',
                     subdomains: 'abcd',
                     maxZoom: 19
                 }).addTo(mapInstance);
 
-               // --- CUSTOM PANES FOR Z-INDEX CONTROL ---
-               // Order is crucial: Lower Z-Index = Lower on stack
-
-                // 1. Heatmap Pane (Above tiles)
+                // --- CUSTOM PANES ---
                 mapInstance.createPane('heatmapPane');
                 mapInstance.getPane('heatmapPane').style.zIndex = 200;
 
-                // 2. Day/Night Pane
                 mapInstance.createPane('dayNightPane');
                 mapInstance.getPane('dayNightPane').style.zIndex = 225;
                 mapInstance.getPane('dayNightPane').style.pointerEvents = 'none';
 
-                // 3. Radar Pane
                 mapInstance.createPane('radarPane');
                 mapInstance.getPane('radarPane').style.zIndex = 250;
                 mapInstance.getPane('radarPane').style.pointerEvents = 'none';
 
-                // 4. Freezing Level (via OverlayPane usually, but we define zIndex in class)
-
-                // 5. User Location Pane
                 mapInstance.createPane('userLocationPane');
                 mapInstance.getPane('userLocationPane').style.zIndex = 350;
                 mapInstance.getPane('userLocationPane').style.pointerEvents = 'none';
 
-                // 6. Route Pane
                 mapInstance.createPane('routePane');
                 mapInstance.getPane('routePane').style.zIndex = 400;
                 mapInstance.getPane('routePane').style.pointerEvents = 'none';
 
-                // 7. Hazard Pane (SIGMETs) - Must be interactive
                 mapInstance.createPane('hazardPane');
                 mapInstance.getPane('hazardPane').style.zIndex = 405;
 
-                // 8. Marker Pane (Runways/Dots) - Topmost interactive layer
                 mapInstance.createPane('markerPane');
                 mapInstance.getPane('markerPane').style.zIndex = 600;
 
-                // 9. PIREP Pane
                 mapInstance.createPane('pirepPane');
                 mapInstance.getPane('pirepPane').style.zIndex = 625;
 
-                // --- RENDERERS ---
-                // CRITICAL: Use SVG for the markerPane.
-                // Canvas blocks clicks on transparent areas; SVG allows clicks to pass through to layers below (like Hazards).
-                markerRenderer = L.svg({ pane: 'markerPane' });
+                mapInstance.createPane('trafficPane');
+        mapInstance.getPane('trafficPane').style.zIndex = 650;
 
-                // Routes are static, Canvas is fine/faster
+                // --- RENDERERS ---
+                markerRenderer = L.svg({ pane: 'markerPane' });
                 routeRenderer = L.canvas({ pane: 'routePane' });
 
                 // Initialize Layer Groups
@@ -2146,10 +2201,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 labelLayerGroup = L.layerGroup().addTo(mapInstance);
 
                 // --- EVENT LISTENERS ---
-                // Re-render markers on move/zoom to handle Culling and LOD switching
                 mapInstance.on('moveend', () => {
                     updateMapLabels();
-                    // Only re-render heavy markers if the list exists
                     if (currentStationsData && currentStationsData.length > 0) {
                         renderMap(currentStationsData);
                     }
@@ -2166,13 +2219,11 @@ document.addEventListener('DOMContentLoaded', () => {
                             this._map = map;
                             this._canvas = L.DomUtil.create('canvas', 'leaflet-freezing-layer');
                             this._canvas.style.pointerEvents = 'none';
-                            this._canvas.style.zIndex = 300; // Between Radar and User
+                            this._canvas.style.zIndex = 300;
                             map.getPanes().overlayPane.appendChild(this._canvas);
 
-                            // Trigger draw on move/zoom
                             map.on('moveend', this._update, this);
-                            map.on('zoomend', this._update, this); // Re-calc on zoom
-
+                            map.on('zoomend', this._update, this);
                             this._update();
                         },
 
@@ -2184,20 +2235,14 @@ document.addEventListener('DOMContentLoaded', () => {
 
                         _update: function() {
                             if (!this._map) return;
-
                             const map = this._map;
                             const size = map.getSize();
                             const canvas = this._canvas;
-
-                            // Resize canvas to match map size (css pixels)
                             canvas.width = size.x;
                             canvas.height = size.y;
-
-                            // Standard approach:
                             const bounds = map.getBounds();
                             const topLeft = map.latLngToLayerPoint(bounds.getNorthWest());
                             L.DomUtil.setPosition(canvas, topLeft);
-
                             this._draw();
                         },
 
@@ -2209,39 +2254,33 @@ document.addEventListener('DOMContentLoaded', () => {
 
                             ctx.clearRect(0, 0, width, height);
 
-                            // Use allStationsData to allow gap bridging (runway filter ignored)
                             if (!allStationsData || allStationsData.length === 0) return;
 
-                            // 1. Filter stations to visible area + LARGE buffer
                             const bounds = map.getBounds();
                             const pad = 15.0;
                             const south = bounds.getSouth() - pad;
                             const north = bounds.getNorth() + pad;
-                            const west = bounds.getWest() - pad;
-                            const east = bounds.getEast() + pad;
+                            // No longitude filtering for wrapping
 
                             const relevantStations = allStationsData.filter(s =>
                                 s.latitude !== null && s.longitude !== null &&
                                 s.latitude >= south && s.latitude <= north &&
-                                s.longitude >= west && s.longitude <= east &&
                                 s.metar && s.metar.rawTempC !== null && !isNaN(s.metar.rawTempC)
                             );
 
                             if (relevantStations.length < 5) return;
 
-                            // 2. Define Grid Resolution (Pixels)
                             const RES = 15;
                             const cols = Math.ceil(width / RES);
                             const rows = Math.ceil(height / RES);
 
-                            // Pre-calculate data needed for loop
                             const stationData = relevantStations.map(s => ({
                                 lat: s.latitude,
                                 lon: s.longitude,
                                 temp: s.metar.rawTempC
                             }));
 
-                            ctx.fillStyle = 'rgba(6, 182, 212, 0.25)'; // Cyan-500, transparent
+                            ctx.fillStyle = 'rgba(6, 182, 212, 0.25)';
                             const NEIGHBOR_COUNT = 5;
 
                             for (let y = 0; y < rows; y++) {
@@ -2256,7 +2295,12 @@ document.addEventListener('DOMContentLoaded', () => {
                                     for (let i = 0; i < stationData.length; i++) {
                                         const s = stationData[i];
                                         const dLat = s.lat - ll.lat;
-                                        const dLon = (s.lon - ll.lng) * cosLat;
+
+                                        // UPDATED: Longitude distance with wrapping
+                                        let rawDiff = Math.abs(s.lon - ll.lng);
+                                        if (rawDiff > 180) rawDiff = 360 - rawDiff;
+                                        const dLon = rawDiff * cosLat;
+
                                         const distSq = dLat*dLat + dLon*dLon;
 
                                         if (closest.length < NEIGHBOR_COUNT) {
@@ -2409,18 +2453,22 @@ document.addEventListener('DOMContentLoaded', () => {
                             mapInstance.removeLayer(dayNightLayer);
                         }
 
-                        dayNightLayer = L.polygon(coords, {
+                        // Create copies for West (-360) and East (+360)
+                        const coordsWest = coords.map(p => [p[0], p[1] - 360]);
+                        const coordsEast = coords.map(p => [p[0], p[1] + 360]);
+
+                        // Render as one multi-polygon
+                        dayNightLayer = L.polygon([coordsWest, coords, coordsEast], {
                             color: 'transparent',
                             fillColor: '#000',
-                            fillOpacity: 0.35, // Adjust opacity as needed
-                            pane: 'dayNightPane', // Z-index 225
+                            fillOpacity: 0.35,
+                            pane: 'dayNightPane',
                             interactive: false,
                             smoothFactor: 1.0
                         }).addTo(mapInstance);
                     };
 
                     updateShadow();
-                    // Update every minute
                     dayNightInterval = setInterval(updateShadow, 60000);
                 }
 
@@ -2500,18 +2548,15 @@ document.addEventListener('DOMContentLoaded', () => {
                 updateLayerActiveState(); // New logic
             }
 
-        // --- HAZARDS / SIGMETS LOGIC (UPDATED FIX) ---
         async function updateHazardsLayer() {
             if (!mapInstance) return;
 
-            // 1. Clear existing layer if present
             if (hazardsLayer) {
                 mapInstance.removeLayer(hazardsLayer);
                 hazardsLayer = null;
             }
 
             try {
-                // 2. Fetch Data
                 const [usRes, intlRes] = await Promise.all([
                     fetch(SIGMET_DOMESTIC_URL),
                     fetch(SIGMET_INTL_URL)
@@ -2527,61 +2572,67 @@ document.addEventListener('DOMContentLoaded', () => {
                     console.warn("No SIGMETs found.");
                 }
 
-                // 3. Create Layer (Using SVG Renderer for clickability)
-                // Note: Using the specific 'hazardPane' ensures z-index correctness
                 const hazardRenderer = L.svg({ pane: 'hazardPane' });
+                const hazardGroup = L.layerGroup();
 
-                hazardsLayer = L.geoJSON(mergedGeoJSON, {
-                    pane: 'hazardPane',
-                    renderer: hazardRenderer,
-                    interactive: true,
-                    style: function (feature) {
-                        const hazard = feature.properties.hazard || '';
-                        const qual = feature.properties.qualifier || '';
-                        let color = '#888888';
-                        let dashArray = null;
-                        let weight = 2;
-                        if (hazard === 'TS' || qual === 'CONVECTIVE') { color = '#ef4444'; weight = 3; }
-                        else if (hazard === 'TURB') { color = '#f97316'; dashArray = '5, 10'; }
-                        else if (hazard === 'ICE') { color = '#3b82f6'; }
-                        else if (hazard === 'ASH' || hazard === 'VA') { color = '#4b5563'; }
-                        return { color, weight, opacity: 0.9, fillOpacity: 0.2, dashArray };
-                    },
-                    onEachFeature: function (feature, layer) {
-                        const props = feature.properties;
-                        const hazardType = props.hazard || 'Unknown';
-                        const raw = props.rawSigmet || props.rawAirSigmet || props.raw || 'No details';
-                        const validTo = props.validTimeTo || '';
+                // Render 3 copies: Main, West, East
+                [-360, 0, 360].forEach(offset => {
+                    const layer = L.geoJSON(mergedGeoJSON, {
+                        pane: 'hazardPane',
+                        renderer: hazardRenderer,
+                        interactive: true,
+                        // Magic trick: shift coordinates on the fly during parsing
+                        coordsToLatLng: function (coords) {
+                            return new L.LatLng(coords[1], coords[0] + offset, coords[2]);
+                        },
+                        style: function (feature) {
+                            const hazard = feature.properties.hazard || '';
+                            const qual = feature.properties.qualifier || '';
+                            let color = '#888888';
+                            let dashArray = null;
+                            let weight = 2;
+                            if (hazard === 'TS' || qual === 'CONVECTIVE') { color = '#ef4444'; weight = 3; }
+                            else if (hazard === 'TURB') { color = '#f97316'; dashArray = '5, 10'; }
+                            else if (hazard === 'ICE') { color = '#3b82f6'; }
+                            else if (hazard === 'ASH' || hazard === 'VA') { color = '#4b5563'; }
+                            return { color, weight, opacity: 0.9, fillOpacity: 0.2, dashArray };
+                        },
+                        onEachFeature: function (feature, layer) {
+                            const props = feature.properties;
+                            const hazardType = props.hazard || 'Unknown';
+                            const raw = props.rawSigmet || props.rawAirSigmet || props.raw || 'No details';
+                            const validTo = props.validTimeTo || '';
 
-                        layer.on('mouseover', function() { this.setStyle({ weight: 4, fillOpacity: 0.4 }); });
-                        layer.on('mouseout', function() { hazardsLayer.resetStyle(this); });
+                            layer.on('mouseover', function() { this.setStyle({ weight: 4, fillOpacity: 0.4 }); });
+                            layer.on('mouseout', function() { layer.resetStyle(this); }); // Fixed reference
 
-                        layer.bindPopup(`
-                            <div class="font-sans min-w-[200px]">
-                                <div class="font-bold text-sm mb-1 border-b pb-1">SIGMET: ${hazardType}</div>
-                                <div class="text-xs font-mono bg-gray-100 dark:bg-gray-800 p-1 mb-2 whitespace-pre-wrap">${raw}</div>
-                                <div class="text-xs text-gray-500">Valid until: ${validTo}</div>
-                            </div>
-                        `);
-                    }
-                }).addTo(mapInstance);
+                            layer.bindPopup(`
+                                <div class="font-sans min-w-[200px]">
+                                    <div class="font-bold text-sm mb-1 border-b pb-1">SIGMET: ${hazardType}</div>
+                                    <div class="text-xs font-mono bg-gray-100 dark:bg-gray-800 p-1 mb-2 whitespace-pre-wrap">${raw}</div>
+                                    <div class="text-xs text-gray-500">Valid until: ${validTo}</div>
+                                </div>
+                            `);
+                        }
+                    });
+                    hazardGroup.addLayer(layer);
+                });
+
+                hazardsLayer = hazardGroup.addTo(mapInstance);
 
             } catch (e) {
                 console.warn("Failed to fetch Hazards", e);
-                // If it fails, turn off the active state so the user knows
                 const btn = document.getElementById('hazardsBtn');
                 if(btn) btn.classList.remove('hazard-active');
             } finally {
-                // CRITICAL FIX: Reset the button icon to remove the spinner
                 const btn = document.getElementById('hazardsBtn');
                 if(btn) btn.innerHTML = '⚠️';
             }
         }
-            // --- PIREP LOGIC (NEW - UPDATED WITH NWS SYMBOLS & ROTATION) ---
-            async function updatePireps() {
+
+           async function updatePireps() {
                 if (!mapInstance) return;
 
-                // Clear existing
                 if (pirepLayer) {
                     mapInstance.removeLayer(pirepLayer);
                 }
@@ -2595,12 +2646,11 @@ document.addEventListener('DOMContentLoaded', () => {
                         const lon = parseFloat(node.querySelector("longitude")?.textContent);
                         if (isNaN(lat) || isNaN(lon)) return;
 
-                        const type = node.querySelector("report_type")?.textContent || "UA"; // UA or UUA
+                        const type = node.querySelector("report_type")?.textContent || "UA";
                         const aircraft = node.querySelector("aircraft_ref")?.textContent || "Unknown";
                         const time = node.querySelector("observation_time")?.textContent;
                         const rawText = node.querySelector("raw_text")?.textContent || "";
 
-                        // Parse Conditions
                         let turbInt = null;
                         const turbNode = node.querySelector("turbulence_condition");
                         if (turbNode) turbInt = turbNode.getAttribute("turbulence_intensity");
@@ -2613,59 +2663,44 @@ document.addEventListener('DOMContentLoaded', () => {
                     });
 
                     const markers = [];
+                    const offsets = [-360, 0, 360]; // Replicate across worlds
 
                     reports.forEach(rep => {
-                        // Determine Symbol and Color
                         let svgContent = '';
-                        let color = '#fb923c'; // Default Orange
-                        let strokeWidth = 2;
-
+                        let color = '#fb923c';
                         const isUrgent = (rep.type === 'UUA');
-                        if (isUrgent) color = '#ef4444'; // Red
-
-                        // ---- NWS SYMBOL LOGIC ----
+                        if (isUrgent) color = '#ef4444';
 
                         if (rep.icingInt && (rep.icingInt.includes('LGT') || rep.icingInt.includes('MOD') || rep.icingInt.includes('SEV'))) {
-                            // Icing Symbol (U / Pitchfork style)
                             if (rep.icingInt.includes('SEV')) {
-                                color = '#ef4444'; // Red
-                                // U with two vertical lines
+                                color = '#ef4444';
                                 svgContent = `<path d="M3 6 L3 12 A5 5 0 0 0 13 12 L13 6 M6 6 L6 14 M10 6 L10 14" fill="none" stroke="${color}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>`;
                             } else if (rep.icingInt.includes('MOD')) {
-                                color = '#f97316'; // Orange
-                                // U with one vertical line in center
+                                color = '#f97316';
                                  svgContent = `<path d="M3 6 L3 12 A5 5 0 0 0 13 12 L13 6 M8 6 L8 14" fill="none" stroke="${color}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>`;
-                            } else { // LGT
-                                color = '#22c55e'; // Green
-                                // Simple U
+                            } else {
+                                color = '#22c55e';
                                 svgContent = `<path d="M4 6 L4 12 A4 4 0 0 0 12 12 L12 6" fill="none" stroke="${color}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>`;
                             }
                         }
                         else if (rep.turbInt && (rep.turbInt.includes('LGT') || rep.turbInt.includes('MOD') || rep.turbInt.includes('SEV') || rep.turbInt.includes('EXTRM'))) {
-                            // Turbulence Symbol (Chevron/Peak)
                             if (rep.turbInt.includes('SEV') || rep.turbInt.includes('EXTRM')) {
-                                 color = '#ef4444'; // Red
-                                 // Double Chevron
+                                 color = '#ef4444';
                                  svgContent = `<path d="M4 12 L8 5 L12 12 M4 7 L8 0 L12 7" fill="none" stroke="${color}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>`;
                             } else if (rep.turbInt.includes('MOD')) {
-                                 color = '#f97316'; // Orange
-                                 // Single Chevron (Thicker/Larger)
+                                 color = '#f97316';
                                  svgContent = `<path d="M3 13 L8 4 L13 13" fill="none" stroke="${color}" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>`;
-                            } else { // LGT
-                                 color = '#22c55e'; // Green
-                                 // Single Chevron
+                            } else {
+                                 color = '#22c55e';
                                  svgContent = `<path d="M4 12 L8 6 L12 12" fill="none" stroke="${color}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>`;
                             }
                         }
                         else if (rep.rawText.includes('NEG') || rep.rawText.includes('NIL')) {
-                             // NIL Symbol (Blue Circle Slash)
                              color = '#3b82f6';
                              svgContent = `<circle cx="8" cy="8" r="6" stroke="${color}" stroke-width="2" fill="none"/><line x1="4" y1="12" x2="12" y2="4" stroke="${color}" stroke-width="2"/>`;
                         }
                         else {
-                            // Generic / Other Report (Aircraft Icon)
-                            color = '#ffffff'; // White
-                            // Rotated 45 degrees
+                            color = '#ffffff';
                             svgContent = `<g transform="rotate(45 8 8)"><path d="M8 1 L10 6 L15 8 L15 10 L10 9 L10 13 L12 15 L12 16 L8 15 L4 16 L4 15 L6 13 L6 9 L1 10 L1 8 L6 6 Z" fill="${color}" stroke="black" stroke-width="0.5"/></g>`;
                         }
 
@@ -2683,33 +2718,35 @@ document.addEventListener('DOMContentLoaded', () => {
                             iconAnchor: [10, 10]
                         });
 
-                        const marker = L.marker([rep.lat, rep.lon], {
-                            icon: icon,
-                            pane: 'pirepPane',
-                            zIndexOffset: isUrgent ? 1000 : 0,
-                            interactive: true // Ensure clickable
-                        });
+                        // LOOP over offsets to place 3 markers
+                        offsets.forEach(offset => {
+                            const marker = L.marker([rep.lat, rep.lon + offset], {
+                                icon: icon,
+                                pane: 'pirepPane',
+                                zIndexOffset: isUrgent ? 1000 : 0,
+                                interactive: true
+                            });
 
-                        // Formatted Time
-                        const age = calculateAgeInMinutes(rep.time);
-                        const ageText = formatAge(age);
+                            const age = calculateAgeInMinutes(rep.time);
+                            const ageText = formatAge(age);
 
-                        marker.bindPopup(`
-                            <div class="font-sans min-w-[200px]">
-                                <div class="flex items-center justify-between border-b pb-1 mb-2">
-                                    <span class="font-bold ${isUrgent ? 'text-red-600' : 'text-blue-600'}">
-                                        ${rep.type} PIREP
-                                    </span>
-                                    <span class="text-xs text-gray-500">${ageText}</span>
+                            marker.bindPopup(`
+                                <div class="font-sans min-w-[200px]">
+                                    <div class="flex items-center justify-between border-b pb-1 mb-2">
+                                        <span class="font-bold ${isUrgent ? 'text-red-600' : 'text-blue-600'}">
+                                            ${rep.type} PIREP
+                                        </span>
+                                        <span class="text-xs text-gray-500">${ageText}</span>
+                                    </div>
+                                    <div class="text-sm font-bold mb-1">${rep.aircraft}</div>
+                                    <div class="bg-gray-100 dark:bg-gray-800 p-2 rounded text-xs font-mono mb-2 whitespace-pre-wrap">${rep.rawText}</div>
+                                    ${rep.turbInt ? `<div class="text-xs"><span class="font-bold">Turb:</span> ${rep.turbInt}</div>` : ''}
+                                    ${rep.icingInt ? `<div class="text-xs"><span class="font-bold">Icing:</span> ${rep.icingInt}</div>` : ''}
                                 </div>
-                                <div class="text-sm font-bold mb-1">${rep.aircraft}</div>
-                                <div class="bg-gray-100 dark:bg-gray-800 p-2 rounded text-xs font-mono mb-2 whitespace-pre-wrap">${rep.rawText}</div>
-                                ${rep.turbInt ? `<div class="text-xs"><span class="font-bold">Turb:</span> ${rep.turbInt}</div>` : ''}
-                                ${rep.icingInt ? `<div class="text-xs"><span class="font-bold">Icing:</span> ${rep.icingInt}</div>` : ''}
-                            </div>
-                        `);
+                            `);
 
-                        markers.push(marker);
+                            markers.push(marker);
+                        });
                     });
 
                     pirepLayer = L.layerGroup(markers).addTo(mapInstance);
@@ -2719,7 +2756,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     document.getElementById('pirepBtn').classList.remove('pirep-active');
                 } finally {
                     const btn = document.getElementById('pirepBtn');
-                    if (btn.textContent === '...') btn.innerHTML = '✈️'; // Restore icon if it was loading
+                    if (btn.textContent === '...') btn.innerHTML = '✈️';
                 }
             }
         // --- GLOBAL VARIABLES (Add these at the top of your script if missing) ---
@@ -2779,6 +2816,220 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
                 updateLayerActiveState(); // New logic
             }
+
+        // --- TRAFFIC (ADS-B) LOGIC ---
+        // UPDATED: Accepts 'altText' string instead of raw number
+        function getTrafficIcon(track, flight, altText, gs, vs) {
+            const spd = (gs !== undefined && gs !== null) ? Math.round(gs) : '...';
+
+            let trend = '';
+            if (vs > 500) trend = '▲';
+            else if (vs < -500) trend = '▼';
+
+            // HTML now uses the passed 'altText' directly (e.g., "FL350" or "4500ft")
+            const iconHtml = `<div class="atc-container"><div class="atc-blip" style="transform: rotate(${track}deg);"></div><div class="atc-label">${flight}<span>${altText}${trend} ${spd}</span></div></div>`;
+
+            return L.divIcon({
+                className: 'bg-transparent',
+                html: iconHtml,
+                iconSize: [12, 12],
+                iconAnchor: [6, 6]
+            });
+        }
+
+        async function updateTrafficLayer() {
+            if (!mapInstance) return;
+
+            try {
+                const center = mapInstance.getCenter();
+                const bounds = mapInstance.getBounds();
+                const northEast = bounds.getNorthEast();
+
+                // 1. Calculate Radius
+                const radiusDeg = Math.max(Math.abs(northEast.lat - center.lat), Math.abs(northEast.lng - center.lng));
+                const radiusNm = Math.min(Math.ceil(radiusDeg * 60 * 1.5), 250);
+
+                // 2. Fetch Traffic
+                const targetUrl = `https://api.airplanes.live/v2/point/${center.lat.toFixed(4)}/${center.lng.toFixed(4)}/${radiusNm}?cb=${Date.now()}`;
+
+                const res = await fetch(targetUrl);
+                if (!res.ok) return;
+                const data = await res.json();
+                const aircraft = data.ac || data.aircraft;
+                if (!aircraft) return;
+
+                const seenIds = new Set();
+
+                aircraft.forEach(ac => {
+                    if (!ac.lat || !ac.lon) return;
+
+                    const hex = ac.hex;
+                    const flight = ac.flight ? ac.flight.trim() : (ac.r || hex);
+                    const alt = ac.alt_baro;
+                    const gs = ac.gs;
+                    const track = ac.track || 0;
+                    const vs = ac.baro_rate;
+
+                    seenIds.add(hex);
+
+                    // --- 3. PER-TRACK QNH & TRANSITION LOGIC ---
+                    let localQnhInHg = null;
+                    let transitionAlt = 6000; // Default Global TA
+
+                    if (typeof allStationsData !== 'undefined' && allStationsData.length > 0) {
+                        let minDist = Infinity;
+                        let nearestStation = null;
+
+                        for (const s of allStationsData) {
+                            if (s.latitude === null || s.longitude === null || !s.metar || s.metar.altimInHg === null) continue;
+
+                            const dLat = s.latitude - ac.lat;
+                            const dLon = s.longitude - ac.lon;
+                            const distSq = dLat*dLat + dLon*dLon;
+
+                            if (distSq < minDist) {
+                                minDist = distSq;
+                                nearestStation = s;
+                                localQnhInHg = s.metar.altimInHg;
+                            }
+                        }
+
+                        if (nearestStation) {
+                            const id = nearestStation.id;
+                            if (id.startsWith('K') || id.startsWith('C') || id.startsWith('P') || id.startsWith('T')) {
+                                transitionAlt = 18000;
+                            }
+                        }
+                    }
+
+                    // --- ALTITUDE DISPLAY CALCULATION ---
+                    let altDisplay = "---"; // Full string for Popup
+                    let altLabel = "ALT";   // Label for Popup
+                    let tagAlt = "---";     // Short string for Map Icon
+
+                    // FIX: Check if altitude is strictly "ground" or a number
+                    if (alt === 'ground') {
+                        altDisplay = "Ground";
+                        tagAlt = "Gnd";
+                        altLabel = "POS";
+                    }
+                    else if (typeof alt === 'number') {
+                        if (alt >= transitionAlt) {
+                            // Above Transition: Flight Level
+                            const flVal = Math.round(alt / 100);
+                            altDisplay = "FL" + flVal;
+                            tagAlt = "FL" + flVal;
+                            altLabel = "FL";
+                        } else if (localQnhInHg) {
+                            // Below Transition: QNH Corrected
+                            const correction = (localQnhInHg - 29.92) * 1000;
+                            const msl = alt + correction;
+                            altDisplay = Math.round(msl).toLocaleString() + " ft";
+                            tagAlt = Math.round(msl) + "ft";
+                            altLabel = "MSL";
+                        } else {
+                            // Fallback
+                            altDisplay = alt.toLocaleString() + " ft";
+                            tagAlt = alt + "ft";
+                            altLabel = "STD";
+                        }
+                    }
+
+                    const icon = getTrafficIcon(track, flight, tagAlt, gs, vs);
+
+                    const popupContent = `
+                        <div class="font-mono text-xs leading-none">
+                            <div class="font-bold bg-blue-600 text-white px-2 py-1 rounded-t mb-0.5">${flight}</div>
+                            <div class="px-2 pb-1 space-y-1 text-gray-700 dark:text-gray-200">
+                                <div class="flex justify-between gap-4">
+                                    <span class="text-gray-400 text-[10px]">${altLabel}</span>
+                                    <span class="font-bold">${altDisplay}</span>
+                                </div>
+                                <div class="flex justify-between gap-4">
+                                    <span class="text-gray-400 text-[10px]">SPD</span>
+                                    <span class="font-bold">${gs !== undefined ? Math.round(gs) + ' kts' : '---'}</span>
+                                </div>
+                                <div class="flex justify-between gap-4">
+                                    <span class="text-gray-400 text-[10px]">V/S</span>
+                                    <span class="font-bold">${vs !== undefined ? vs + ' fpm' : '---'}</span>
+                                </div>
+                            </div>
+                        </div>
+                    `;
+
+                    if (trafficMarkers.has(hex)) {
+                        const marker = trafficMarkers.get(hex);
+                        marker.setLatLng([ac.lat, ac.lon]);
+                        marker.setIcon(icon);
+                        marker.setPopupContent(popupContent);
+                    } else {
+                        const marker = L.marker([ac.lat, ac.lon], {
+                            icon: icon,
+                            pane: 'trafficPane',
+                            zIndexOffset: 1000
+                        });
+
+                        marker.bindPopup(popupContent, {
+                            closeButton: false,
+                            autoPan: false,
+                            className: 'traffic-popup-compact',
+                            offset: [0, -5]
+                        });
+
+                        if (trafficLayer) {
+                            trafficLayer.addLayer(marker);
+                            trafficMarkers.set(hex, marker);
+                        }
+                    }
+                });
+
+                // Cleanup
+                trafficMarkers.forEach((marker, hex) => {
+                    if (!seenIds.has(hex)) {
+                        if (trafficLayer) trafficLayer.removeLayer(marker);
+                        trafficMarkers.delete(hex);
+                    }
+                });
+
+            } catch (e) {
+                console.warn("Traffic error", e);
+            }
+        }
+
+        function toggleTraffic() {
+            const btn = document.getElementById('trafficBtn');
+            const creditEl = document.getElementById('adsbCredit'); // <--- Get Element
+
+            if(!mapInstance) return;
+
+            if (trafficRefreshInterval) {
+                // --- TURN OFF ---
+                clearInterval(trafficRefreshInterval);
+                trafficRefreshInterval = null;
+
+                if(trafficLayer) {
+                    mapInstance.removeLayer(trafficLayer);
+                    trafficLayer = null;
+                }
+                trafficMarkers.clear();
+
+                btn.classList.remove('traffic-active');
+                if (creditEl) creditEl.classList.add('hidden'); // <--- HIDE CREDIT
+            } else {
+                // --- TURN ON ---
+                btn.classList.add('traffic-active');
+                if (creditEl) creditEl.classList.remove('hidden'); // <--- SHOW CREDIT
+
+                trafficLayer = L.layerGroup().addTo(mapInstance);
+
+                // Initial update
+                updateTrafficLayer();
+
+                // 5 second polling
+                trafficRefreshInterval = setInterval(updateTrafficLayer, 5000);
+            }
+            updateLayerActiveState();
+        }
 
             function toggleFreezingLayer() {
                 const btn = document.getElementById('freezingBtn');
@@ -3001,9 +3252,9 @@ document.addEventListener('DOMContentLoaded', () => {
             // 3. Get current map bounds
             const bounds = mapInstance.getBounds();
 
-            // 4. Filter visible stations (Limit to max 150 to prevent freezing)
+            // 4. Filter visible stations (Limit to max 250 to prevent freezing)
             let count = 0;
-            const maxLabels = 150;
+            const maxLabels = 250;
 
             for (const station of currentStationsData) {
                 if (count >= maxLabels) break;
@@ -3041,36 +3292,55 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
             }
         }
-
             // --- GREAT CIRCLE MATH ---
             function toRad(deg) { return deg * Math.PI / 180; }
             function toDeg(rad) { return rad * 180 / Math.PI; }
 
             function getGreatCircleRoute(lat1, lon1, lat2, lon2, steps = 100) {
-                // Haversine/Spherical interpolation for curvature
-                const p1 = { lat: toRad(lat1), lon: toRad(lon1) };
-                const p2 = { lat: toRad(lat2), lon: toRad(lon2) };
+            // Haversine/Spherical interpolation for curvature
+            const p1 = { lat: toRad(lat1), lon: toRad(lon1) };
+            const p2 = { lat: toRad(lat2), lon: toRad(lon2) };
 
-                const d = 2 * Math.asin(Math.sqrt(Math.pow(Math.sin((p2.lat - p1.lat) / 2), 2) +
-                          Math.cos(p1.lat) * Math.cos(p2.lat) * Math.pow(Math.sin((p2.lon - p1.lon) / 2), 2)));
+            // Calculate total distance (angular)
+            const d = 2 * Math.asin(Math.sqrt(Math.pow(Math.sin((p2.lat - p1.lat) / 2), 2) +
+                      Math.cos(p1.lat) * Math.cos(p2.lat) * Math.pow(Math.sin((p2.lon - p1.lon) / 2), 2)));
 
-                const points = [];
-                for (let i = 0; i <= steps; i++) {
-                    const f = i / steps;
-                    const A = Math.sin((1 - f) * d) / Math.sin(d);
-                    const B = Math.sin(f * d) / Math.sin(d);
+            const points = [];
 
-                    const x = A * Math.cos(p1.lat) * Math.cos(p1.lon) + B * Math.cos(p2.lat) * Math.cos(p2.lon);
-                    const y = A * Math.cos(p1.lat) * Math.sin(p1.lon) + B * Math.cos(p2.lat) * Math.sin(p2.lon);
-                    const z = A * Math.sin(p1.lat) + B * Math.sin(p2.lat);
+            // Generate raw points
+            for (let i = 0; i <= steps; i++) {
+                const f = i / steps;
+                const A = Math.sin((1 - f) * d) / Math.sin(d);
+                const B = Math.sin(f * d) / Math.sin(d);
 
-                    const lat = Math.atan2(z, Math.sqrt(x * x + y * y));
-                    const lon = Math.atan2(y, x);
-                    points.push([toDeg(lat), toDeg(lon)]);
-                }
-                return points;
+                const x = A * Math.cos(p1.lat) * Math.cos(p1.lon) + B * Math.cos(p2.lat) * Math.cos(p2.lon);
+                const y = A * Math.cos(p1.lat) * Math.sin(p1.lon) + B * Math.cos(p2.lat) * Math.sin(p2.lon);
+                const z = A * Math.sin(p1.lat) + B * Math.sin(p2.lat);
+
+                const lat = Math.atan2(z, Math.sqrt(x * x + y * y));
+                const lon = Math.atan2(y, x);
+                points.push([toDeg(lat), toDeg(lon)]);
             }
 
+            // FIX: Unwrap longitudes for visual continuity across the Date Line
+            // Leaflet handles coordinates outside [-180, 180] correctly by wrapping them visually.
+            for (let i = 1; i < points.length; i++) {
+                let prevLon = points[i-1][1];
+                let currLon = points[i][1];
+                let diff = currLon - prevLon;
+
+                // If the jump is too large, shift the current longitude by 360 to smooth it out
+                if (diff < -180) {
+                    currLon += 360;
+                } else if (diff > 180) {
+                    currLon -= 360;
+                }
+
+                points[i][1] = currLon;
+            }
+
+            return points;
+        }
             function rgbToHex(rgbArray) {
                 // Helper to convert your RGB arrays [0, 170, 0] to Hex strings for Leaflet
                 return "#" + ((1 << 24) + (rgbArray[0] << 16) + (rgbArray[1] << 8) + rgbArray[2]).toString(16).slice(1);
@@ -3162,12 +3432,61 @@ document.addEventListener('DOMContentLoaded', () => {
             markerLayerGroup.clearLayers();
             labelLayerGroup.clearLayers();
 
-            // 2. Home Highlight & 3. Route Drawing (Keep existing code...)
-            // ... [Preserve existing Home and Route drawing logic here] ...
-            // Note: To save space in this answer, I am skipping the Home/Route logic blocks,
-            // ensure you keep them in your file.
+            // 2. Home Highlight
+            const homeInput = document.getElementById('icaoInput').value.trim().toUpperCase();
+            if (homeInput.length >= 3 && cachedStationMap && !gpsReferenceCoords) {
+                const homeCoords = getCoordsForICAO(homeInput, cachedStationMap);
+                if (homeCoords && homeCoords.lat !== null) {
+                    L.circleMarker([homeCoords.lat, homeCoords.lon], {
+                        pane: 'routePane', renderer: routeRenderer,
+                        radius: 12, fill: false, color: '#06b6d4', weight: 3, interactive: false
+                    }).addTo(markerLayerGroup);
+                }
+            }
 
-            // 4. Zoom Logic
+            // 3. Route Drawing
+            if (routeAnalysisEnabled) {
+                const depInput = document.getElementById('depIcao').value.trim().toUpperCase();
+                const destInput = document.getElementById('destIcao').value.trim().toUpperCase();
+
+                if (depInput.length >= 3 && destInput.length >= 3 && cachedStationMap) {
+                   let depCoords = getCoordsForICAO(depInput, cachedStationMap);
+                   let destCoords = getCoordsForICAO(destInput, cachedStationMap);
+
+                   if (depCoords && depCoords.lat !== null && destCoords && destCoords.lat !== null) {
+                       const isSameStation = (Math.abs(depCoords.lat - destCoords.lat) < 0.0001 && Math.abs(depCoords.lon - destCoords.lon) < 0.0001);
+
+                       if (!isSameStation) {
+                           const pathPoints = getGreatCircleRoute(depCoords.lat, depCoords.lon, destCoords.lat, destCoords.lon);
+
+                           L.polyline(pathPoints, {
+                               pane: 'routePane',
+                               renderer: routeRenderer,
+                               color: '#fbbf24',
+                               weight: 2,
+                               opacity: 0.8,
+                               dashArray: '5, 10',
+                               lineCap: 'round',
+                               interactive: false
+                           }).addTo(markerLayerGroup);
+                       }
+
+                       L.circleMarker([depCoords.lat, depCoords.lon], {
+                           pane: 'routePane', renderer: routeRenderer,
+                           radius: 12, fill: false, color: '#ffffff', weight: 2, interactive: false
+                       }).addTo(markerLayerGroup);
+
+                       if (!isSameStation) {
+                           L.circleMarker([destCoords.lat, destCoords.lon], {
+                               pane: 'routePane', renderer: routeRenderer,
+                               radius: 12, fill: false, color: '#ffffff', weight: 2, interactive: false
+                           }).addTo(markerLayerGroup);
+                       }
+                   }
+                }
+            }
+
+            // 4. Station Rendering
             const bounds = mapInstance.getBounds().pad(0.1);
             const currentZoom = mapInstance.getZoom();
             const isHighZoom = currentZoom >= 10;
@@ -3175,25 +3494,38 @@ document.addEventListener('DOMContentLoaded', () => {
             stations.forEach(station => {
                 if (station.latitude === null || station.longitude === null) return;
                 if (!station.metar || !station.metar.category || station.metar.category === 'NODATA') return;
+
+                // Culling
                 if (!bounds.contains([station.latitude, station.longitude])) return;
 
-                // Popup Content
                 const popupContent = generatePopupContent(station);
 
                 // --- MODE A: REALISTIC RUNWAYS ---
                 if (showRunwaysOnMap && isHighZoom && cachedRunwayMap && cachedRunwayMap.has(station.id)) {
                     const rwyData = cachedRunwayMap.get(station.id);
 
-                    // Wind
-                    let windDir = 0, windSpeed = 0;
-                    if (station.metar.windDir !== null) { windDir = station.metar.windDir; windSpeed = station.metar.windSpeed || 0; }
-                    else {
-                        const match = station.metar.rawText.match(/(\d{3}|VRB)(\d{2,3})(?:G(\d{2,3}))?KT/);
-                        if (match) { windDir = (match[1] === 'VRB') ? 0 : parseInt(match[1]); windSpeed = parseInt(match[2]); }
+                    // --- UPDATED WIND EXTRACTION LOGIC ---
+                    // We calculate effectiveSpeed (Max of Gust vs Sustained) to match the dashboard logic
+                    let windDir = 0, windSpeed = 0, effectiveSpeed = 0;
+
+                    // 1. Try to extract Gusts from Raw Text using Regex
+                    const windMatch = station.metar.rawText.match(/(\d{3}|VRB)(\d{2,3})(?:G(\d{2,3}))?KT/);
+
+                    if (windMatch) {
+                        windDir = (windMatch[1] === 'VRB') ? 0 : parseInt(windMatch[1]);
+                        windSpeed = parseInt(windMatch[2]);
+                        const windGust = windMatch[3] ? parseInt(windMatch[3]) : 0;
+                        effectiveSpeed = Math.max(windSpeed, windGust);
+                    }
+                    // 2. Fallback to XML parsed values if regex fails
+                    else if (station.metar.windDir !== null) {
+                        windDir = station.metar.windDir;
+                        windSpeed = station.metar.windSpeed || 0;
+                        effectiveSpeed = windSpeed; // No gust data available here
                     }
 
-                    // Determine Active Runway
-                    const bestIdx = getBestHeadwindRunwayIndex(station.id, windDir, windSpeed);
+                    // Determine Active Runway using Effective Speed
+                    const bestIdx = getBestHeadwindRunwayIndex(station.id, windDir, effectiveSpeed);
 
                     // Draw Runways (Vectors)
                     let sumLat = 0, sumLon = 0, count = 0;
@@ -3215,7 +3547,7 @@ document.addEventListener('DOMContentLoaded', () => {
                             pane: 'markerPane', renderer: markerRenderer, interactive: false, lineCap: 'square'
                         }).addTo(markerLayerGroup);
 
-                        // 2. Asphalt (Clickable)
+                        // 2. Asphalt
                         const asphaltLine = L.polyline([[r.leLat, r.leLon], [r.heLat, r.heLon]], {
                             color: '#1e293b', weight: isActive ? 10 : 6, opacity: 1,
                             pane: 'markerPane', renderer: markerRenderer, interactive: true, lineCap: 'square'
@@ -3235,14 +3567,14 @@ document.addEventListener('DOMContentLoaded', () => {
                     const centerLat = count > 0 ? sumLat / count : station.latitude;
                     const centerLon = count > 0 ? sumLon / count : station.longitude;
 
-                    // Arrow
+                    // Use effectiveSpeed for Arrow Color (Red if > 15kts)
                     const arrowIcon = L.divIcon({
                         className: 'bg-transparent',
                         html: `
                         <div style="transform: rotate(${windDir}deg); width: 60px; height: 60px; display: flex; justify-content: center; align-items: center; pointer-events: auto; cursor: pointer;">
-                            <svg viewBox="0 0 100 100" style="overflow: visible; filter: drop-shadow(0 2px 4px rgba(0,0,0,0.5));">
-                                <line x1="50" y1="0" x2="50" y2="100" stroke="${windSpeed > 15 ? '#ef4444' : '#fbbf24'}" stroke-width="8" stroke-linecap="round"/>
-                                <path d="M50 100 L70 70 L30 70 Z" fill="${windSpeed > 15 ? '#ef4444' : '#fbbf24'}" stroke="white" stroke-width="2"/>
+                            <svg width="60" height="60" viewBox="0 0 100 100" style="width: 100%; height: 100%; overflow: visible; filter: drop-shadow(0 2px 4px rgba(0,0,0,0.5));">
+                                <line x1="50" y1="0" x2="50" y2="100" stroke="${effectiveSpeed > 15 ? '#ef4444' : '#fbbf24'}" stroke-width="8" stroke-linecap="round"/>
+                                <path d="M50 100 L70 70 L30 70 Z" fill="${effectiveSpeed > 15 ? '#ef4444' : '#fbbf24'}" stroke="white" stroke-width="2"/>
                             </svg>
                         </div>`,
                         iconSize: [60, 60],
@@ -3256,13 +3588,16 @@ document.addEventListener('DOMContentLoaded', () => {
                     arrowMarker.stationId = station.id;
                     arrowMarker.bindPopup(popupContent, { autoPan: false });
 
-                    // --- CROSSWIND PILL (NEW) ---
+                    // --- CROSSWIND PILL (UPDATED) ---
                     if (rwyData.runways[bestIdx]) {
                         const bestRwy = rwyData.runways[bestIdx];
-                        const diff = Math.abs(windDir - bestRwy.heading) % 360;
+                        const rHeading = bestRwy.heading || 0;
+                        const diff = Math.abs(windDir - rHeading) % 360;
                         const rads = (diff * Math.PI) / 180;
-                        const hw = Math.round(Math.cos(rads) * windSpeed);
-                        const xw = Math.round(Math.sin(rads) * windSpeed);
+
+                        // Use effectiveSpeed (including gusts) for Pill Math
+                        const hw = Math.round(Math.cos(rads) * effectiveSpeed);
+                        const xw = Math.round(Math.sin(rads) * effectiveSpeed);
 
                         const pillIcon = L.divIcon({
                             className: 'bg-transparent',
@@ -3270,8 +3605,6 @@ document.addEventListener('DOMContentLoaded', () => {
                                     H:${hw} X:${Math.abs(xw)}
                                 </div>`,
                             iconSize: [60, 20],
-                            // Anchor Y negative puts it below the center point.
-                            // Center is 0,0. Arrow is +/-30. We want below arrow. Try anchor y = -35.
                             iconAnchor: [30, -35]
                         });
 
@@ -3286,12 +3619,10 @@ document.addEventListener('DOMContentLoaded', () => {
                     const colorRgb = COLORS[cat] || COLORS.NODATA;
                     const colorHex = rgbToHex(colorRgb);
 
-                    // Ghost
                     const hitMarker = L.circleMarker([station.latitude, station.longitude], {
                         pane: 'markerPane', renderer: markerRenderer,
                         radius: 20, stroke: false, fill: true, fillColor: '#fff', fillOpacity: 0.0, interactive: true
                     });
-                    // Visual
                     const visualMarker = L.circleMarker([station.latitude, station.longitude], {
                         pane: 'markerPane', renderer: markerRenderer,
                         radius: 6, fillColor: colorHex, color: '#000', weight: 1, opacity: 0.8, fillOpacity: 0.9, interactive: false
@@ -3463,7 +3794,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 handleGenerateClick(null, true);
             }, 100);
 
-            function toggleAdvancedPanel() {
+        function toggleAdvancedPanel() {
                 const isHidden = advancedInputsEl.classList.contains('hidden');
                 if (isHidden) {
                     // ENABLE MODE
@@ -3492,6 +3823,11 @@ document.addEventListener('DOMContentLoaded', () => {
                     routeAnalysisEnabled = false;
                     tabRouteAnalysis.classList.add('hidden');
                     nodataLegendEl.style.display = 'none';
+                }
+
+                // FORCE MAP UPDATE: Redraw map immediately to show/hide the route line
+                if (currentStationsData.length > 0 && mapInstance) {
+                    renderMap(currentStationsData);
                 }
             }
 
@@ -3871,6 +4207,14 @@ document.addEventListener('DOMContentLoaded', () => {
                 statusEl.style.display = 'none';
                 detailsEl.style.display = 'none';
             }
+
+
+        function clearFlightPath() {
+            if (selectedPlaneTrace && mapInstance) {
+                mapInstance.removeLayer(selectedPlaneTrace);
+                selectedPlaneTrace = null;
+            }
+        }
 
             function haversineDistance(lat1, lon1, lat2, lon2) {
                 const R = 6371;
@@ -5779,11 +6123,18 @@ document.addEventListener('DOMContentLoaded', () => {
                     // FORECAST TAF
                     if (station.taf) {
                         const target = new Date(new Date().getTime() + (dashboardTimeOffset * 3600000));
+
+                        // --- FIX: Round to nearest hour ---
+                        if (target.getUTCMinutes() >= 30) {
+                            target.setUTCHours(target.getUTCHours() + 1);
+                        }
+                        target.setUTCMinutes(0, 0, 0);
+                        // ----------------------------------
+
                         timeLabel = `${String(target.getUTCHours()).padStart(2,'0')}00Z`;
 
                         if (station.taf.validTo && target > station.taf.validTo) isExpired = true;
 
-                        // USE NEW HELPER: Gets exact conditions at 'target' time (including TEMPO)
                         const condition = getConditionsAtTime(station.taf.rawText, target);
 
                         displayCat = isExpired ? 'NODATA' : condition.category;
@@ -5831,7 +6182,9 @@ document.addEventListener('DOMContentLoaded', () => {
                 grid.appendChild(card);
             });
         }
-        function openDashDetail(icao, forceLive = false) {
+
+        // Updated function signature: added preserveSelection parameter
+        function openDashDetail(icao, forceLive = false, preserveSelection = false) {
             const stationLookup = new Map(allStationsData.map(s => [s.id, s]));
             const station = stationLookup.get(icao) || { id: icao, metar: null, taf: null };
 
@@ -5855,7 +6208,14 @@ document.addEventListener('DOMContentLoaded', () => {
             // 1. Determine Conditions & Wind based on Time Mode
             if (effectiveOffset > 0) {
                 targetTime = new Date(new Date().getTime() + (effectiveOffset * 3600000));
+
+                if (targetTime.getUTCMinutes() >= 30) {
+                    targetTime.setUTCHours(targetTime.getUTCHours() + 1);
+                }
+                targetTime.setUTCMinutes(0, 0, 0);
+
                 timeLabel = `${String(targetTime.getUTCHours()).padStart(2,'0')}00Z (Forecast)`;
+
                 if (station.taf) {
                     const condition = getConditionsAtTime(station.taf.rawText, targetTime);
                     displayCat = condition.category;
@@ -5870,12 +6230,16 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
             }
 
-            // 2. Auto-Select Best Runway (only if not already set by user interaction in this session)
+            // 2. Logic to Force Best Runway Selection on Entry
+            // We calculate the effective speed for runway logic (gusts included)
+            const effectiveSpeed = Math.max(windSpeed, gustSpeed);
+
             if (cachedRunwayMap && cachedRunwayMap.has(icao)) {
-                // If we haven't selected one yet, pick the best one
-                if (dashboardState.selectedRunways[icao] === undefined) {
-                     const bestIdx = getBestHeadwindRunwayIndex(icao, windDir, windSpeed);
+                // If we are NOT preserving selection (i.e. first open), or if it's undefined, reset to best
+                if (!preserveSelection || dashboardState.selectedRunways[icao] === undefined) {
+                     const bestIdx = getBestHeadwindRunwayIndex(icao, windDir, effectiveSpeed);
                      dashboardState.selectedRunways[icao] = bestIdx;
+                     // We generally don't need to save to localStorage here as this is ephemeral for the view
                 }
             }
 
@@ -5886,7 +6250,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 const rwyData = cachedRunwayMap.get(icao);
                 const selectedIdx = dashboardState.selectedRunways[icao] || 0;
 
-                // ADDED: 'relative z-30' to ensure buttons sit ABOVE the SVG/Pill layer
                 runwaySelectorHtml = `<div class="flex flex-wrap gap-2 justify-center mt-6 relative z-30 pointer-events-auto">`;
                 rwyData.runways.forEach((r, idx) => {
                     const isActive = (idx === selectedIdx);
@@ -5894,6 +6257,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         ? "bg-indigo-600 text-white border-indigo-400 shadow-lg scale-105"
                         : "bg-white/10 text-gray-400 border-transparent hover:bg-white/20";
 
+                    // Note: selectDashRunway calls back with preserveSelection = true
                     runwaySelectorHtml += `
                         <button onclick="event.stopPropagation(); selectDashRunway('${icao}', ${idx}, ${forceLive})"
                                 class="px-4 py-1.5 rounded-full text-xs font-bold font-mono border transition-all cursor-pointer ${btnClass}">
@@ -5963,6 +6327,8 @@ document.addEventListener('DOMContentLoaded', () => {
             modal.classList.remove('hidden');
         }
 
+
+
         // [UPDATED] Helper for Map Popups - Ensures data exists before opening
         async function openMapDetail(icao) {
             // 1. Ensure Runway Data is loaded (it might be missing if user hasn't opened Dashboard yet)
@@ -5988,8 +6354,8 @@ document.addEventListener('DOMContentLoaded', () => {
             dashboardState.selectedRunways[icao] = index;
             saveDashboardState();
 
-            // 2. Refresh the modal view immediately
-            openDashDetail(icao, forceLive);
+            // 2. Refresh the modal view immediately, PRESERVING the selection we just made
+            openDashDetail(icao, forceLive, true);
 
             // 3. Refresh background
             renderDashboard();
@@ -5997,6 +6363,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 renderMap(currentStationsData);
             }
         }
+
 
         function generateRunwaySVG(icao, windDir, windSpeed, gustSpeed, isExpired, size = 100, overrideRwyIndex = -1) {
             // 1. Validation
