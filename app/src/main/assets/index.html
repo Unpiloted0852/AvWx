@@ -351,27 +351,47 @@ document.addEventListener('DOMContentLoaded', () => {
 
             /* Layer Label (slides out on hover/focus - optional, currently keeping clean with just icons) */
 
-            .layer-menu-container {
-                position: absolute;
-                bottom: 2rem;
-                left: 1rem;
-                z-index: 1000;
-                display: flex;
-                flex-direction: column-reverse; /* Main button at bottom, menu expands up */
-                gap: 12px;
-                align-items: flex-start;
-            }
+    /* LAYER MENU STYLES */
+    /* LAYER MENU STYLES - MOVED TO TOP RIGHT */
+    .layer-menu-container {
+        position: absolute;
+        /* Positioned below GPS button (approx 4rem + height) */
+        top: 7rem !important;
+        right: 1rem !important;
+        left: auto !important;
+        bottom: auto !important;
+        z-index: 1000;
+        display: flex;
+        flex-direction: column; /* Expands downwards now */
+        gap: 12px;
+        align-items: flex-end; /* Aligns buttons to the right */
+    }
 
-            .layer-items {
-                display: flex;
-                flex-direction: column-reverse;
-                gap: 10px;
-                transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-                opacity: 0;
-                transform: translateY(20px) scale(0.9);
-                pointer-events: none;
-                margin-bottom: 4px;
-            }
+    .layer-items {
+        display: flex;
+        flex-direction: column; /* Stack downwards */
+        gap: 10px;
+        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        opacity: 0;
+        /* Animate from top down */
+        transform: translateY(-20px) scale(0.9);
+        pointer-events: none;
+        margin-top: 4px; /* Space between main button and list */
+    }
+
+    /* Ensure Fullscreen button stays on top in fullscreen mode */
+    .fullscreen-trigger {
+        z-index: 11000 !important; /* Higher than map overlay */
+    }
+
+    /* Logic to hide ADS-B Text Labels when specific class is added to map */
+    .hide-traffic-labels .atc-label {
+        display: none !important;
+    }
+    /* Keep the blip visible, just hide the text */
+    .hide-traffic-labels .atc-blip {
+        display: block !important;
+    }
 
             .layer-menu-open .layer-items {
                 opacity: 1;
@@ -1002,7 +1022,8 @@ document.addEventListener('DOMContentLoaded', () => {
             </button>
 
             <!-- LAYER MENU (FAB STYLE) -->
-            <div class="layer-menu-container">
+            <!-- Changed style to use top/right matching CSS classes -->
+            <div class="layer-menu-container" style="top: 7rem !important; right: 1rem !important; left: auto !important; bottom: auto !important;">
 
                 <!-- Expanded Items -->
                 <div id="layerMenuItems" class="layer-items">
@@ -1200,7 +1221,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         <script>
             // --- APP CONFIG ---
-            const CURRENT_VERSION = 'v2.6.5'; // Incremented Version
+            const CURRENT_VERSION = 'v2.6.6'; // Incremented Version
             const GITHUB_REPO = 'Unpiloted0852/AvWx';
 
             // Global Data Storage for Modal Access
@@ -1491,6 +1512,60 @@ document.addEventListener('DOMContentLoaded', () => {
                 LIFR: [255, 20, 147],
                 NODATA: [150, 150, 150]
             };
+
+        // --- WEATHER MATH HELPERS ---
+
+        function calculateWindChill(tempF, windMph) {
+            // NWS Formula: 35.74 + 0.6215T - 35.75(V^0.16) + 0.4275T(V^0.16)
+            return 35.74 + (0.6215 * tempF) - (35.75 * Math.pow(windMph, 0.16)) + (0.4275 * tempF * Math.pow(windMph, 0.16));
+        }
+
+        function calculateHeatIndex(tempF, rh) {
+            // NWS Rothfusz Regression
+            let hi = -42.379 + 2.04901523 * tempF + 10.14333127 * rh - 0.22475541 * tempF * rh - 0.00683783 * tempF * tempF - 0.05481717 * rh * rh + 0.00122874 * tempF * tempF * rh + 0.00085282 * tempF * rh * rh - 0.00000199 * tempF * tempF * rh * rh;
+
+            // Adjustments
+            if (rh < 13 && tempF > 80 && tempF < 112) {
+                hi -= ((13 - rh) / 4) * Math.sqrt((17 - Math.abs(tempF - 95)) / 17);
+            } else if (rh > 85 && tempF > 80 && tempF < 87) {
+                hi += ((rh - 85) / 10) * ((87 - tempF) / 5);
+            }
+            return hi;
+        }
+
+        // Logic Coordinator
+        function calculateFeelsLike(tempC, windKt, rh) {
+            if (tempC === null || isNaN(tempC)) return null;
+
+            const tempF = (tempC * 1.8) + 32;
+            const windMph = (windKt || 0) * 1.15078;
+
+            let finalF = tempF;
+            let label = null; // Default to null (don't show if just normal temp)
+
+            // 1. Wind Chill: Temp < 50F and Wind > 3 MPH
+            if (tempF < 50 && windMph > 3) {
+                finalF = calculateWindChill(tempF, windMph);
+                label = "Wind Chill";
+            }
+            // 2. Heat Index: Temp > 80F (requires RH)
+            else if (tempF > 80 && rh !== null && !isNaN(rh)) {
+                finalF = calculateHeatIndex(tempF, rh);
+                // Only label it Heat Index if it actually feels hotter
+                if (finalF > tempF) label = "Heat Index";
+            }
+
+            // If neither condition met, we return the Current Temp (finalF = tempF)
+            // But we leave label as null so we don't clutter the UI with "Feels Like: [Same Number]"
+
+            if (!label) return null; // Logic: If it matches current temp, don't display extra tag
+
+            return {
+                f: Math.round(finalF),
+                c: Math.round((finalF - 32) * (5/9)),
+                label: label
+            };
+        }
 
             // --- MATH HELPERS INCLUDING DENSITY ALTITUDE ---
             function calculateDensityAltitude(elevationFt, tempC, altimInHg) {
@@ -2201,6 +2276,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 labelLayerGroup = L.layerGroup().addTo(mapInstance);
 
                 // --- EVENT LISTENERS ---
+               // --- EVENT LISTENERS ---
                 mapInstance.on('moveend', () => {
                     updateMapLabels();
                     if (currentStationsData && currentStationsData.length > 0) {
@@ -2210,6 +2286,18 @@ document.addEventListener('DOMContentLoaded', () => {
 
                 mapInstance.on('zoomend', () => {
                    updateMapLabels();
+
+                   // --- NEW CODE: Toggle Traffic Labels based on Zoom ---
+                   const currentZoom = mapInstance.getZoom();
+                   const mapEl = document.getElementById('weatherMap');
+
+                   // Threshold: 9. Below zoom 9, text is hidden.
+                   if (currentZoom < 9) {
+                       mapEl.classList.add('hide-traffic-labels');
+                   } else {
+                       mapEl.classList.remove('hide-traffic-labels');
+                   }
+                   // ----------------------------------------------------
                 });
 
                 // --- FREEZING LAYER CLASS DEFINTION ---
@@ -2867,8 +2955,18 @@ document.addEventListener('DOMContentLoaded', () => {
                     const flight = ac.flight ? ac.flight.trim() : (ac.r || hex);
                     const alt = ac.alt_baro;
                     const gs = ac.gs;
-                    const track = ac.track || 0;
+                    const track = ac.track; // Usually True Track
                     const vs = ac.baro_rate;
+
+                    // New Data Fields
+                    const type = ac.t; // Aircraft Type
+                    const squawk = ac.squawk;
+                    const ias = ac.ias;
+                    const tas = ac.tas;
+                    const magHeading = ac.mag_heading;
+                    const trueHeading = ac.true_heading;
+                    const windDir = ac.wd; // Wind Direction
+                    const windSpd = ac.ws; // Wind Speed
 
                     seenIds.add(hex);
 
@@ -2907,7 +3005,6 @@ document.addEventListener('DOMContentLoaded', () => {
                     let altLabel = "ALT";   // Label for Popup
                     let tagAlt = "---";     // Short string for Map Icon
 
-                    // FIX: Check if altitude is strictly "ground" or a number
                     if (alt === 'ground') {
                         altDisplay = "Ground";
                         tagAlt = "Gnd";
@@ -2935,24 +3032,66 @@ document.addEventListener('DOMContentLoaded', () => {
                         }
                     }
 
-                    const icon = getTrafficIcon(track, flight, tagAlt, gs, vs);
+                    // --- BUILD POPUP CONTENT DYNAMICALLY ---
+                    let detailsHtml = '';
+
+                    // 1. Aircraft Type
+                    if (type) {
+                        detailsHtml += `<div class="flex justify-between gap-4"><span class="text-gray-400 text-[10px]">TYPE</span><span class="font-bold">${type}</span></div>`;
+                    }
+
+                    // 2. Altitude (Always show if available)
+                    detailsHtml += `<div class="flex justify-between gap-4"><span class="text-gray-400 text-[10px]">${altLabel}</span><span class="font-bold">${altDisplay}</span></div>`;
+
+                    // 3. Vertical Speed
+                    if (vs !== undefined && vs !== null) {
+                        detailsHtml += `<div class="flex justify-between gap-4"><span class="text-gray-400 text-[10px]">V/S</span><span class="font-bold">${vs} fpm</span></div>`;
+                    }
+
+                    // 4. Track (Ground Track)
+                    if (track !== undefined && track !== null) {
+                        detailsHtml += `<div class="flex justify-between gap-4"><span class="text-gray-400 text-[10px]">TRK</span><span class="font-bold">${Math.round(track)}°T</span></div>`;
+                    }
+
+                    // 5. Heading (Prefer Magnetic, fallback to True)
+                    if (magHeading !== undefined && magHeading !== null) {
+                        detailsHtml += `<div class="flex justify-between gap-4"><span class="text-gray-400 text-[10px]">HDG</span><span class="font-bold">${Math.round(magHeading)}°M</span></div>`;
+                    } else if (trueHeading !== undefined && trueHeading !== null) {
+                        detailsHtml += `<div class="flex justify-between gap-4"><span class="text-gray-400 text-[10px]">HDG</span><span class="font-bold">${Math.round(trueHeading)}°T</span></div>`;
+                    }
+
+                    // 6. Ground Speed
+                    if (gs !== undefined && gs !== null) {
+                        detailsHtml += `<div class="flex justify-between gap-4"><span class="text-gray-400 text-[10px]">GS</span><span class="font-bold">${Math.round(gs)} kts</span></div>`;
+                    }
+
+                    // 7. Indicated Airspeed
+                    if (ias !== undefined && ias !== null) {
+                        detailsHtml += `<div class="flex justify-between gap-4"><span class="text-gray-400 text-[10px]">IAS</span><span class="font-bold">${Math.round(ias)} kts</span></div>`;
+                    }
+
+                    // 8. True Airspeed
+                    if (tas !== undefined && tas !== null) {
+                        detailsHtml += `<div class="flex justify-between gap-4"><span class="text-gray-400 text-[10px]">TAS</span><span class="font-bold">${Math.round(tas)} kts</span></div>`;
+                    }
+
+                    // 9. Wind (Calculated)
+                    if (windDir !== undefined && windDir !== null && windSpd !== undefined && windSpd !== null) {
+                        detailsHtml += `<div class="flex justify-between gap-4"><span class="text-gray-400 text-[10px]">WIND</span><span class="font-bold">${Math.round(windDir)}° @ ${Math.round(windSpd)} kts</span></div>`;
+                    }
+
+                    // 10. Squawk
+                    if (squawk) {
+                        detailsHtml += `<div class="flex justify-between gap-4"><span class="text-gray-400 text-[10px]">SQ</span><span class="font-bold font-mono">${squawk}</span></div>`;
+                    }
+
+                    const icon = getTrafficIcon(track || 0, flight, tagAlt, gs, vs);
 
                     const popupContent = `
                         <div class="font-mono text-xs leading-none">
                             <div class="font-bold bg-blue-600 text-white px-2 py-1 rounded-t mb-0.5">${flight}</div>
                             <div class="px-2 pb-1 space-y-1 text-gray-700 dark:text-gray-200">
-                                <div class="flex justify-between gap-4">
-                                    <span class="text-gray-400 text-[10px]">${altLabel}</span>
-                                    <span class="font-bold">${altDisplay}</span>
-                                </div>
-                                <div class="flex justify-between gap-4">
-                                    <span class="text-gray-400 text-[10px]">SPD</span>
-                                    <span class="font-bold">${gs !== undefined ? Math.round(gs) + ' kts' : '---'}</span>
-                                </div>
-                                <div class="flex justify-between gap-4">
-                                    <span class="text-gray-400 text-[10px]">V/S</span>
-                                    <span class="font-bold">${vs !== undefined ? vs + ' fpm' : '---'}</span>
-                                </div>
+                                ${detailsHtml}
                             </div>
                         </div>
                     `;
@@ -2995,6 +3134,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 console.warn("Traffic error", e);
             }
         }
+
 
         function toggleTraffic() {
             const btn = document.getElementById('trafficBtn');
@@ -3360,61 +3500,71 @@ document.addEventListener('DOMContentLoaded', () => {
             }
 
         // [UPDATED] Popup Generator with Clickable ICAO and METAR
-        function generatePopupContent(station) {
-            let metarHtml = '<div class="text-xs italic text-gray-500">No METAR available</div>';
+            function generatePopupContent(station) {
+                let metarHtml = '<div class="text-xs italic text-gray-500">No METAR available</div>';
 
-            if (station.metar) {
-                metarHtml = `<div class="space-y-0.5 pointer-events-none">${formatRawText(station.metar.rawText)}</div>`;
-                let metaInfo = `${getDisplayTemp(station.metar)} • ${station.metar.rh}`;
-                if (station.metar.densityAlt) metaInfo += ` • ${station.metar.densityAlt}`;
-                metaInfo += ` • Age: ${formatAge(station.metar.age)}`;
-                metarHtml += `<div class="mt-1 text-xs text-gray-400 pointer-events-none">${metaInfo}</div>`;
-            }
+                if (station.metar) {
+                    metarHtml = `<div class="space-y-0.5 pointer-events-none">${formatRawText(station.metar.rawText)}</div>`;
 
-            let tafHtml = '<div class="text-xs italic text-gray-500">No TAF available</div>';
-            if (station.taf) {
-                tafHtml = `<div class="space-y-0.5">${formatRawText(station.taf.rawText)}</div>`;
-                let notes = [];
-                if (station.taf.validTo) notes.push(formatRemainingTime(station.taf.validTo));
-                if (station.taf.age !== null) notes.push(`Issued: ${formatAge(station.taf.age)}`);
+                    let metaInfo = `${getDisplayTemp(station.metar)} • ${station.metar.rh}`;
 
-                if (notes.length > 0) {
-                    tafHtml += `<div class="mt-2 border-t border-gray-200 dark:border-gray-700 pt-1 flex flex-col gap-0.5">`;
-                    notes.forEach(n => tafHtml += `<span class="text-xs text-gray-500 dark:text-gray-400 block">${n}</span>`);
-                    tafHtml += `</div>`;
+                    // --- Feels Like Logic for Popup ---
+                    if (station.metar.feelsLike) {
+                        const valStr = useCelsius ? `${station.metar.feelsLike.c}°` : `${station.metar.feelsLike.f}°`;
+                        const label = station.metar.feelsLike.label;
+                        const colorClass = label === 'Wind Chill' ? 'text-cyan-600 dark:text-cyan-400' : 'text-orange-600 dark:text-orange-400';
+
+                        metaInfo += ` • <span class="${colorClass} font-bold">${label} ${valStr}</span>`;
+                    }
+                    // ----------------------------------
+
+                    if (station.metar.densityAlt) metaInfo += ` • ${station.metar.densityAlt}`;
+                    metaInfo += ` • Age: ${formatAge(station.metar.age)}`;
+
+                    metarHtml += `<div class="mt-1 text-xs text-gray-400 pointer-events-none flex flex-wrap gap-1 items-center">${metaInfo}</div>`;
                 }
+
+                let tafHtml = '<div class="text-xs italic text-gray-500">No TAF available</div>';
+                if (station.taf) {
+                    tafHtml = `<div class="space-y-0.5">${formatRawText(station.taf.rawText)}</div>`;
+                    let notes = [];
+                    if (station.taf.validTo) notes.push(formatRemainingTime(station.taf.validTo));
+                    if (station.taf.age !== null) notes.push(`Issued: ${formatAge(station.taf.age)}`);
+
+                    if (notes.length > 0) {
+                        tafHtml += `<div class="mt-2 border-t border-gray-200 dark:border-gray-700 pt-1 flex flex-col gap-0.5">`;
+                        notes.forEach(n => tafHtml += `<span class="text-xs text-gray-500 dark:text-gray-400 block">${n}</span>`);
+                        tafHtml += `</div>`;
+                    }
+                }
+
+                return `
+                    <div class="font-sans">
+                        <div class="flex items-baseline justify-between mb-2 pb-1 border-b border-gray-200 dark:border-gray-700">
+                            <button onclick="openMapDetail('${station.id}')" class="font-bold text-lg text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 transition-colors text-left focus:outline-none">
+                                ${station.id}
+                                <span class="text-[10px] font-normal text-gray-400 ml-1">↗</span>
+                            </button>
+                            <span class="text-xs text-gray-500 dark:text-gray-300 ml-2 truncate" style="max-width: 150px;">${station.name || ''}</span>
+                        </div>
+
+                        <div class="mb-2 group cursor-pointer" onclick="openMapDetail('${station.id}')" title="Click for Airport View">
+                            <div class="flex justify-between items-center mb-1">
+                                <span class="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider block">METAR</span>
+                                <span class="text-[10px] text-blue-500 opacity-0 group-hover:opacity-100 transition-opacity">View Fullscreen</span>
+                            </div>
+                            <div class="group-hover:ring-2 group-hover:ring-blue-500/20 group-hover:bg-gray-50 dark:group-hover:bg-gray-800 rounded transition-all p-0.5 -m-0.5">
+                                ${metarHtml}
+                            </div>
+                        </div>
+
+                        <div class="mb-1">
+                            <span class="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider block mb-1">TAF</span>
+                            ${tafHtml}
+                        </div>
+                    </div>
+                `;
             }
-
-            // UPDATED HTML STRUCTURE:
-            // 1. ICAO Header has onclick + hover effects
-            // 2. METAR container has onclick + hover effects
-            return `
-                <div class="font-sans">
-                    <div class="flex items-baseline justify-between mb-2 pb-1 border-b border-gray-200 dark:border-gray-700">
-                        <button onclick="openMapDetail('${station.id}')" class="font-bold text-lg text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 transition-colors text-left focus:outline-none">
-                            ${station.id}
-                            <span class="text-[10px] font-normal text-gray-400 ml-1">↗</span>
-                        </button>
-                        <span class="text-xs text-gray-500 dark:text-gray-300 ml-2 truncate" style="max-width: 150px;">${station.name || ''}</span>
-                    </div>
-
-                    <div class="mb-2 group cursor-pointer" onclick="openMapDetail('${station.id}')" title="Click for Airport View">
-                        <div class="flex justify-between items-center mb-1">
-                            <span class="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider block">METAR</span>
-                            <span class="text-[10px] text-blue-500 opacity-0 group-hover:opacity-100 transition-opacity">View Fullscreen</span>
-                        </div>
-                        <div class="group-hover:ring-2 group-hover:ring-blue-500/20 group-hover:bg-gray-50 dark:group-hover:bg-gray-800 rounded transition-all p-0.5 -m-0.5">
-                            ${metarHtml}
-                        </div>
-                    </div>
-
-                    <div class="mb-1">
-                        <span class="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider block mb-1">TAF</span>
-                        ${tafHtml}
-                    </div>
-                </div>
-            `;
-        }
 
         function renderMap(stations) {
             if (!mapInstance) initMap();
@@ -3712,7 +3862,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (isFullscreen) {
                     // Entered Fullscreen
                     fsControls.classList.remove('hidden'); // Show floating island controls
-                    triggerBtn.classList.add('hidden');    // Hide the small toggle button
+                    //triggerBtn.classList.add('hidden');    // Hide the small toggle button
                     document.body.classList.add('map-mode'); // Prevent background scrolling
                     requestWakeLock(); // Prevent screen sleep
                 } else {
@@ -4277,12 +4427,11 @@ document.addEventListener('DOMContentLoaded', () => {
                 return CATEGORY_ORDER[c] || CATEGORY_ORDER.VFR;
             }
 
-            function calculateTempFAndRH(metarNode) {
+        function calculateTempFAndRH(metarNode) {
                 const tempC = parseFloat(metarNode.querySelector("temp_c")?.textContent);
                 const dewpointC = parseFloat(metarNode.querySelector("dewpoint_c")?.textContent);
 
-                // Pass dewpointC back so we can use it in records
-                if (isNaN(tempC) || isNaN(dewpointC)) return { tempF: "N/A", tempC: "N/A", rh: "N/A", rawDewC: null };
+                if (isNaN(tempC) || isNaN(dewpointC)) return { tempF: "N/A", tempC: "N/A", rh: "N/A", rawDewC: null, rawRh: null };
 
                 const tempF = Math.round(tempC * 9/5 + 32);
                 const satVP = 6.112 * Math.exp((17.67 * tempC) / (tempC + 243.5));
@@ -4293,7 +4442,8 @@ document.addEventListener('DOMContentLoaded', () => {
                     tempF: `${tempF}°F`,
                     tempC: `${Math.round(tempC)}°C`,
                     rh: `RH ${rh}%`,
-                    rawDewC: dewpointC
+                    rawDewC: dewpointC,
+                    rawRh: rh // <--- ADD THIS LINE
                 };
             }
 
@@ -4731,33 +4881,37 @@ document.addEventListener('DOMContentLoaded', () => {
                     const stationId = node.querySelector("station_id")?.textContent?.trim();
                     if (!stationId) return;
                     const station = getOrCreateStation(stationId);
-                    const { tempF, tempC, rh, rawDewC } = calculateTempFAndRH(node);
 
-                    // --- NEW: Parse Altimeter and Calculate DA ---
+                    // 1. Get RH and Temp
+                    const { tempF, tempC, rh, rawDewC, rawRh } = calculateTempFAndRH(node);
+
                     const altimInHg = parseFloat(node.querySelector("altim_in_hg")?.textContent);
-                    // Calculate raw tempC (needed for math) because calculateTempFAndRH formats it as string "20°C"
                     const rawTempC = parseFloat(node.querySelector("temp_c")?.textContent);
 
-                    // --- WIND PARSING FOR INTERPOLATION ---
+                    // 2. Get Wind
                     const windDir = parseInt(node.querySelector("wind_dir_degrees")?.textContent);
                     const windSpeed = parseInt(node.querySelector("wind_speed_kt")?.textContent);
-                    // ------------------------------------
 
                     const densityAlt = calculateDensityAltitude(station.elevationFt, rawTempC, altimInHg);
+
+                    // --- NEW: Calculate Feels Like (Wind Chill / Heat Index) ---
+                    // Passing rawRh obtained from step 1
+                    const feelsLikeData = calculateFeelsLike(rawTempC, windSpeed, rawRh);
+                    // ------------------------------------------------------------
 
                     const rawText = node.querySelector("raw_text")?.textContent?.trim() || 'N/A';
                     const category = node.querySelector("flight_category")?.textContent?.trim() || analyzeCondition(rawText);
                     const obsTimeText = node.querySelector("observation_time")?.textContent;
                     const metarAgeMinutes = calculateAgeInMinutes(obsTimeText);
 
-                    // Add densityAlt, Wind, Altimeter to the object for Interpolation logic
                     station.metar = {
                         rawText, category, tempF, tempC, rh, rawDewC, densityAlt,
+                        feelsLike: feelsLikeData, // <--- Add to object
                         age: metarAgeMinutes, obsTime: obsTimeText,
                         windDir: isNaN(windDir) ? null : windDir,
                         windSpeed: isNaN(windSpeed) ? null : windSpeed,
                         altimInHg: isNaN(altimInHg) ? null : altimInHg,
-                        rawTempC: rawTempC // Explicitly storing numeric C for math
+                        rawTempC: rawTempC
                     };
                 });
 
@@ -4974,7 +5128,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
             }
 
-            // New helper to create station card
+           // New helper to create station card
             function createStationCard(data) {
                 const metar = data.metar;
                 const taf = data.taf;
@@ -4988,20 +5142,39 @@ document.addEventListener('DOMContentLoaded', () => {
                     const category = metar.category;
                     const className = getCategoryClassName(category);
 
-                    // --- UPDATE: Push Density Alt ---
+                    // 1. Temp & RH
                     infoTextParts.push(`${getDisplayTemp(metar)} • ${metar.rh}`);
-                    if (metar.densityAlt) infoTextParts.push(metar.densityAlt); // Add DA
-                    // --------------------------------
 
+                    // 2. Feels Like (Wind Chill / Heat Index)
+                    if (metar.feelsLike) {
+                        const valStr = useCelsius ? `${metar.feelsLike.c}°C` : `${metar.feelsLike.f}°F`;
+                        const label = metar.feelsLike.label; // "Wind Chill" or "Heat Index"
+
+                        // Color Logic: Blue/Cyan for Wind Chill, Orange/Red for Heat Index
+                        const colorClass = label === 'Wind Chill'
+                            ? 'text-cyan-600 dark:text-cyan-400 border-cyan-200 dark:border-cyan-800'
+                            : 'text-orange-600 dark:text-orange-400 border-orange-200 dark:border-orange-800';
+
+                        infoTextParts.push(`<span class="${colorClass} font-bold text-[10px] uppercase tracking-wide border px-1.5 rounded-sm select-none">${label}: ${valStr}</span>`);
+                    }
+
+                    // 3. Density Altitude
+                    if (metar.densityAlt) infoTextParts.push(metar.densityAlt);
+
+                    // 4. Age
                     infoTextParts.push(`Observed ${formatAge(metar.age)}`);
+
+                    // 5. Distance
                     if (data.distanceNM !== null) infoTextParts.push(`${data.distanceNM.toFixed(0)} NM`);
+
                     const dotClassToBorderColor = {
                         'vfr-dot': 'border-green-500',
-                        'mvfr-dot': 'border-blue-600', // UPDATED to match new lighter MVFR
+                        'mvfr-dot': 'border-blue-600',
                         'ifr-dot': 'border-red-500',
                         'lifr-dot': 'border-pink-500'
                     };
                     const borderColorClass = dotClassToBorderColor[className] || 'border-gray-500';
+
                     metarHtml = `<div class="bg-gray-100 dark:bg-gray-900 p-2 rounded-lg border-l-4 ${borderColorClass} transition-colors duration-300 w-full overflow-hidden">
                                     <h4 class="font-bold mb-1 text-sm text-gray-600 dark:text-gray-300">METAR</h4>
                                     <div class="font-mono text-xs md:text-sm leading-relaxed break-words whitespace-pre-wrap">${formatRawText(metar.rawText)}</div>
@@ -5026,8 +5199,12 @@ document.addEventListener('DOMContentLoaded', () => {
                 stationEntry.className = 'border border-gray-200 dark:border-gray-800 rounded-lg p-4 shadow-md bg-white dark:bg-black transition-colors duration-300 w-full max-w-full mb-4';
                 stationEntry.innerHTML = `
                     <div class="flex flex-col items-start mb-3 border-b dark:border-gray-800 pb-2">
-                        <h3 class="text-xl font-extrabold text-gray-900 dark:text-gray-100 flex items-baseline flex-wrap">${headerText}</h3>
-                        <p class="text-xs text-gray-500 dark:text-gray-400 font-medium mt-1">${infoTextParts.join(' • ')}</p>
+                        <h3 class="text-xl font-extrabold text-gray-900 dark:text-gray-100 flex items-baseline flex-wrap gap-2">
+                            ${headerText}
+                        </h3>
+                        <div class="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-gray-500 dark:text-gray-400 font-medium mt-1">
+                            ${infoTextParts.map(part => `<span>${part}</span>`).join('<span class="opacity-50">•</span>')}
+                        </div>
                     </div>
                     <div class="space-y-3 w-full">${metarHtml}${tafHtml}</div>
                 `;
