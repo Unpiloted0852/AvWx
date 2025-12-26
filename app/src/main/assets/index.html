@@ -1325,7 +1325,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         <script>
             // --- APP CONFIG ---
-            const CURRENT_VERSION = 'v2.6.8'; // Incremented Version
+            const CURRENT_VERSION = 'v2.6.9'; // Incremented Version
             const GITHUB_REPO = 'Unpiloted0852/AvWx';
 
             // Global Data Storage for Modal Access
@@ -6573,7 +6573,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     const condition = getConditionsAtTime(station.taf.rawText, targetTime);
 
                     displayCat = condition.category;
-                    flightCat = displayCat; // <--- FIX 1: Update the text variable
+                    flightCat = displayCat;
 
                     parseWind(condition.rawText);
 
@@ -6581,7 +6581,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
             } else {
                 // --- LIVE MODE ---
-                showLiveStats = true; // <--- FIX 2: Enable stats only here
+                showLiveStats = true;
 
                 displayCat = station.metar?.category || 'VFR';
                 if (station.metar) {
@@ -6600,7 +6600,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         const flVal = useCelsius ? `${station.metar.feelsLike.c}°` : `${station.metar.feelsLike.f}°`;
                         const flLabel = station.metar.feelsLike.label;
                         const flColor = flLabel === 'Wind Chill' ? 'text-cyan-300' : 'text-orange-300';
-                        feelsLikeHtml = `<div class="bg-white/10 px-2 py-1 rounded text-[10px] font-bold uppercase ${flColor} border border-white/10 inline-block mt-1">${flLabel} ${flVal}</div>`;
+                        feelsLikeHtml = `<div class="bg-white/10 px-2 py-0.5 rounded text-[10px] font-bold uppercase ${flColor} border border-white/10 ml-auto">${flLabel} ${flVal}</div>`;
                     }
                 }
             }
@@ -6637,31 +6637,36 @@ document.addEventListener('DOMContentLoaded', () => {
                 runwaySelectorHtml = `<div class="mt-6 text-xs text-gray-500 italic text-center">No runway data available</div>`;
             }
 
-            // 4. Build Live Stats HTML Block (Conditionally)
+            // 4. Build Live Stats HTML Block (2x2 Grid)
             let liveStatsBlock = '';
             if (showLiveStats) {
+                const cleanRh = rhStr.replace(/^RH\s+/, '');
+                const cleanDa = daStr.replace(/^DA\s+/, '');
+
                 liveStatsBlock = `
-                    <div class="bg-black/30 p-4 rounded-2xl border border-white/10 flex-1">
-                        <span class="text-[9px] font-black uppercase opacity-60 block mb-2 border-b border-white/10 pb-1">Current Conditions</span>
-                        <div class="grid grid-cols-2 gap-y-3 gap-x-2 text-sm">
-                            <div>
-                                <span class="opacity-60 text-[10px] block">Temp</span>
-                                <span class="font-bold text-lg">${tempStr}</span>
+                    <div class="bg-black/30 p-3 rounded-xl border border-white/10 flex-1 flex flex-col justify-center min-h-[140px]">
+                        <div class="flex items-center mb-3">
+                            <span class="text-[10px] font-black uppercase opacity-60 tracking-wider">Current Conditions</span>
+                            ${feelsLikeHtml}
+                        </div>
+                        <div class="grid grid-cols-2 gap-2 text-center h-full">
+                            <div class="bg-white/5 rounded-lg p-2 flex flex-col justify-center items-center">
+                                <span class="text-[9px] uppercase opacity-60 leading-none mb-1">Temp</span>
+                                <span class="font-bold text-lg leading-none">${tempStr}</span>
                             </div>
-                            <div>
-                                <span class="opacity-60 text-[10px] block">Dewpoint</span>
-                                <span class="font-bold text-lg">${dewStr}</span>
+                            <div class="bg-white/5 rounded-lg p-2 flex flex-col justify-center items-center">
+                                <span class="text-[9px] uppercase opacity-60 leading-none mb-1">Dewpoint</span>
+                                <span class="font-bold text-lg leading-none">${dewStr}</span>
                             </div>
-                            <div>
-                                <span class="opacity-60 text-[10px] block">Humidity</span>
-                                <span class="font-mono font-bold">${rhStr}</span>
+                            <div class="bg-white/5 rounded-lg p-2 flex flex-col justify-center items-center">
+                                <span class="text-[9px] uppercase opacity-60 leading-none mb-1">Humidity</span>
+                                <span class="font-mono font-bold text-lg leading-none">${cleanRh}</span>
                             </div>
-                            <div>
-                                <span class="opacity-60 text-[10px] block">Dens Alt</span>
-                                <span class="font-mono font-bold">${daStr}</span>
+                            <div class="bg-white/5 rounded-lg p-2 flex flex-col justify-center items-center">
+                                <span class="text-[9px] uppercase opacity-60 leading-none mb-1">Density Alt</span>
+                                <span class="font-mono font-bold text-lg leading-none whitespace-nowrap">${cleanDa}</span>
                             </div>
                         </div>
-                        ${feelsLikeHtml}
                     </div>
                 `;
             }
@@ -6693,7 +6698,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
                         <!-- Runway Visualizer Card -->
-                        <div class="bg-black/30 rounded-3xl p-8 flex flex-col items-center border border-white/20 shadow-inner relative overflow-visible">
+                        <div class="bg-black/30 rounded-3xl p-8 flex flex-col items-center border border-white/20 shadow-inner relative overflow-visible min-h-[300px] justify-center">
                             ${generateRunwaySVG(icao, windDir, windSpeed, gustSpeed, isExpired, 180)}
                             ${runwaySelectorHtml}
                         </div>
@@ -6724,7 +6729,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     <div class="space-y-4">
                         <div class="bg-black/20 p-4 rounded-xl">
                             <h3 class="text-[10px] font-black uppercase tracking-widest opacity-60 mb-2">METAR</h3>
-                            <div class="font-mono text-sm leading-relaxed whitespace-pre-wrap">
+                            <div class="font-mono text-sm leading-relaxed">
                                 ${station.metar ? formatRawText(station.metar.rawText) : '<p class="italic opacity-40">No data</p>'}
                             </div>
                         </div>
@@ -6740,9 +6745,6 @@ document.addEventListener('DOMContentLoaded', () => {
             document.body.style.overflow = 'hidden';
             modal.classList.remove('hidden');
         }
-
-
-
 
         // [UPDATED] Helper for Map Popups - Ensures data exists before opening
         async function openMapDetail(icao) {
