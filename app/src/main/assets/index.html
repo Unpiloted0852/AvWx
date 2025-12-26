@@ -2444,6 +2444,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
                 mapInstance.createPane('trafficPane');
                 mapInstance.getPane('trafficPane').style.zIndex = 650;
+                mapInstance.getPane('trafficPane').style.pointerEvents = 'none';
 
                 // --- RENDERERS ---
                 markerRenderer = L.svg({ pane: 'markerPane' });
