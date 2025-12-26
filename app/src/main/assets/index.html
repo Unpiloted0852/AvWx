@@ -314,70 +314,211 @@ document.addEventListener('DOMContentLoaded', () => {
 
             body.map-mode { overflow: hidden; }
 
-            /* Floating Controls */
+    /* --- 1. FLOATING CONTROLS (Top Bar) --- */
             .map-overlay-top {
                 position: absolute; top: 0; left: 0; right: 0;
                 padding: 1rem; z-index: 1000; pointer-events: none;
                 display: flex; justify-content: center;
             }
 
-            /* Toggle Button Position in Embedded Mode */
-            .fullscreen-trigger {
-                position: absolute; top: 1rem; right: 1rem;
-                z-index: 1000;
-            }
+            /* --- 2. MAP BUTTONS (GPS & FULLSCREEN) --- */
+            .fullscreen-trigger, .gps-trigger {
+                /* Define size locally for buttons */
+                --btn-size: min(32px, 7vh);
 
-            /* GPS Button Position (Moved to top right) */
-            .gps-trigger {
-                position: absolute; top: 4rem; right: 1rem;
-                z-index: 1000;
-            }
+                width: var(--btn-size) !important;
+                height: var(--btn-size) !important;
+                padding: 0 !important;
 
-            /* LAYER MENU STYLES */
-            .layer-btn {
-                width: 44px;
-                height: 44px;
                 display: flex;
                 align-items: center;
                 justify-content: center;
-                border-radius: 12px;
-                box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+
+                position: absolute;
+                right: 0.5rem !important;
+                z-index: 1000;
+
+                background-color: white;
+                color: #374151;
+                border-radius: 8px;
+                box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+                transition: all 0.2s ease-in-out;
+                cursor: pointer;
+            }
+
+            .dark .fullscreen-trigger, .dark .gps-trigger {
+                background-color: #1f2937;
+                color: #e5e7eb;
+            }
+
+            .fullscreen-trigger {
+                top: 0.5rem !important;
+            }
+
+            .gps-trigger {
+                /* Calculate top based on button size + gap */
+                top: calc(0.5rem + var(--btn-size) + 6px) !important;
+            }
+
+            .fullscreen-trigger svg, .gps-trigger svg {
+                width: 60% !important; height: 60% !important;
+            }
+
+            .gps-trigger {
+                font-size: clamp(8px, 2vh, 10px) !important;
+                font-weight: 900;
+            }
+
+            /* --- 3. LAYER MENU CONTAINER --- */
+            .layer-menu-container {
+                /* CRITICAL FIX: Define the variable here so the calc works */
+                --btn-size: min(32px, 7vh);
+
+                position: absolute;
+                z-index: 1000;
+
+                /* Calculate position: Top margin + 2 buttons + 2 gaps */
+                top: calc(0.5rem + (var(--btn-size) * 2) + 12px) !important;
+
+                right: 0.5rem !important;
+                left: auto !important;
+                bottom: auto !important;
+
+                display: flex;
+                flex-direction: column;
+                align-items: flex-end;
+                gap: min(4px, 1vh);
+                pointer-events: none;
+            }
+
+            /* --- 4. LAYER MENU ITEMS LIST --- */
+            .layer-items {
+                display: flex;
+                flex-direction: column;
+                gap: min(4px, 1vh);
+                transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+                opacity: 0;
+                transform: translateY(-10px) scale(0.9);
+                pointer-events: none;
+                height: 0;
+                overflow: hidden;
+                margin-top: 2px;
+                max-height: calc(100vh - 12rem);
+                overflow-y: auto;
+                padding-right: 2px;
+            }
+
+            .layer-items::-webkit-scrollbar { width: 0px; background: transparent; }
+
+            .layer-menu-open .layer-items {
+                opacity: 1;
+                transform: translateY(0) scale(1);
+                pointer-events: auto;
+                height: auto;
+                overflow: visible;
+            }
+
+            /* --- 5. LAYER BUTTONS --- */
+            .layer-btn {
+                --btn-size: min(32px, 7vh);
+
+                width: var(--btn-size);
+                height: var(--btn-size);
+
+                display: flex;
+                align-items: center;
+                justify-content: center;
+
+                border-radius: 8px;
+                box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
                 transition: all 0.2s ease-in-out;
                 cursor: pointer;
                 pointer-events: auto;
-                position: relative; /* For tooltip or labels */
+                position: relative;
+                flex-shrink: 0;
             }
+
             .layer-btn:active { transform: scale(0.95); }
 
-            /* Layer Label (slides out on hover/focus - optional, currently keeping clean with just icons) */
+            .layer-btn svg { width: 60%; height: 60%; }
 
-    /* LAYER MENU STYLES */
-    /* LAYER MENU STYLES - MOVED TO TOP RIGHT */
-    .layer-menu-container {
-        position: absolute;
-        /* Positioned below GPS button (approx 4rem + height) */
-        top: 7rem !important;
-        right: 1rem !important;
-        left: auto !important;
-        bottom: auto !important;
-        z-index: 1000;
-        display: flex;
-        flex-direction: column; /* Expands downwards now */
-        gap: 12px;
-        align-items: flex-end; /* Aligns buttons to the right */
-    }
+    /* Text Scaling (RWY/ADS-B) */
+            .layer-btn span, .layer-btn div {
+                /* Reduced min size slightly (7px) to fit "ADS-B" */
+                font-size: clamp(7px, 2vh, 10px) !important;
+                font-weight: 900;
 
-    .layer-items {
-        display: flex;
-        flex-direction: column; /* Stack downwards */
-        gap: 10px;
-        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-        opacity: 0;
-        /* Animate from top down */
-        transform: translateY(-20px) scale(0.9);
-        pointer-events: none;
-        margin-top: 4px; /* Space between main button and list */
-    }
+                /* Force text onto one line */
+                white-space: nowrap;
+
+                /* Tighten letters slightly to fit */
+                letter-spacing: -0.5px;
+            }
+
+            .layer-btn.text-xl, .layer-btn.text-lg {
+                font-size: clamp(12px, 3.5vh, 1.1rem) !important;
+            }
+
+            /* --- 6. DESKTOP OVERRIDES --- */
+            @media (min-width: 768px) {
+                .fullscreen-trigger, .gps-trigger, .layer-btn {
+                    --btn-size: 44px; /* Fixed size on desktop */
+                    border-radius: 12px;
+                }
+
+                .fullscreen-trigger { top: 1rem !important; right: 1rem !important; }
+                .gps-trigger { top: 4rem !important; right: 1rem !important; }
+
+                .layer-menu-container {
+                    /* Fixed position on desktop, no calc needed */
+                    top: 7rem !important;
+                    right: 1rem !important;
+                    gap: 12px;
+                }
+
+                .layer-items {
+                    gap: 10px;
+                    margin-top: 4px;
+                    max-height: none;
+                    overflow-y: visible;
+                }
+
+                .layer-btn svg { width: 24px; height: 24px; }
+                .layer-btn.text-xl { font-size: 1.25rem !important; }
+            }
+
+            /* --- 6. DESKTOP OVERRIDES (MD BREAKPOINT) --- */
+            @media (min-width: 768px) {
+                /* Restore Standard Sizes */
+                .fullscreen-trigger, .gps-trigger, .layer-btn {
+                    --btn-size: 44px;
+                    border-radius: 12px;
+                }
+
+                /* Restore Positioning */
+                .fullscreen-trigger { top: 1rem !important; right: 1rem !important; }
+                .gps-trigger { top: 4rem !important; right: 1rem !important; }
+
+                .layer-menu-container {
+                    top: 7rem !important;
+                    right: 1rem !important;
+                    gap: 12px;
+                }
+
+                .layer-items {
+                    gap: 10px;
+                    margin-top: 4px;
+                    max-height: none;
+                    overflow-y: visible;
+                }
+
+                .layer-btn svg { width: 24px; height: 24px; }
+                .layer-btn.text-xl { font-size: 1.25rem !important; }
+            }
+
+
+            .dark .active-indicator { border-color: #1f2937; }
+            .has-active-layers .active-indicator { display: block; }
 
     /* Ensure Fullscreen button stays on top in fullscreen mode */
     .fullscreen-trigger {
@@ -392,33 +533,6 @@ document.addEventListener('DOMContentLoaded', () => {
     .hide-traffic-labels .atc-blip {
         display: block !important;
     }
-
-            .layer-menu-open .layer-items {
-                opacity: 1;
-                transform: translateY(0) scale(1);
-                pointer-events: auto;
-            }
-
-            /* Rotation for main menu button when open */
-            .menu-toggle-icon { transition: transform 0.3s ease; }
-            .layer-menu-open .menu-toggle-icon { transform: rotate(45deg); }
-
-            /* Active Indicator Dot on Main Button */
-            .active-indicator {
-                position: absolute;
-                top: -2px;
-                right: -2px;
-                width: 10px;
-                height: 10px;
-                background-color: #22c55e; /* Green */
-                border-radius: 50%;
-                border: 2px solid white;
-                display: none;
-            }
-            .dark .active-indicator { border-color: #1f2937; }
-            .has-active-layers .active-indicator { display: block; }
-
-
             /* Heatmap Legend */
             #heatmapLegend {
                 position: absolute;
@@ -1021,59 +1135,9 @@ document.addEventListener('DOMContentLoaded', () => {
                 GPS
             </button>
 
-            <!-- LAYER MENU (FAB STYLE) -->
-            <!-- Changed style to use top/right matching CSS classes -->
-            <div class="layer-menu-container" style="top: 7rem !important; right: 1rem !important; left: auto !important; bottom: auto !important;">
+            <div class="layer-menu-container">
 
-                <!-- Expanded Items -->
-                <div id="layerMenuItems" class="layer-items">
-
-
-                    <button id="runwayMapBtn" onclick="toggleRunwayOnMap()" class="layer-btn bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center justify-center" aria-label="Toggle Runway Icons" title="Runway Diagrams">
-                        <span class="font-black text-[10px] tracking-tighter leading-none">RWY</span>
-                    </button>
-
-                    <!-- Radar -->
-                    <button id="radarToggleBtn" onclick="toggleRadar()" class="layer-btn bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700" aria-label="Toggle Radar" title="Radar">
-                        <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 16a8 8 0 11-16 0c0-4.135 3.5-7.5 8-14 4.5 6.5 8 9.865 8 14z" />
-                        </svg>
-                    </button>
-
-                    <!-- Freezing Level -->
-                    <button id="freezingBtn" onclick="toggleFreezingLayer()" class="layer-btn bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 text-xl flex items-center justify-center" aria-label="Toggle Freezing Line" title="Freezing Area">
-                        🧊
-                    </button>
-
-                    <!-- Heatmap -->
-                    <button id="heatmapBtn" onclick="toggleHeatmap()" class="layer-btn bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 text-lg flex items-center justify-center" aria-label="Toggle Heatmap" title="Heatmap">
-                        🌡️
-                    </button>
-
-                    <!-- PIREP -->
-                    <button id="pirepBtn" onclick="togglePireps()" class="layer-btn bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 text-xl flex items-center justify-center" aria-label="Toggle PIREPs" title="PIREPs">
-                        ✈️
-                    </button>
-
-                    <!-- ADS-B Traffic -->
-                    <button id="trafficBtn" onclick="toggleTraffic()" class="layer-btn bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 text-[9px] font-black flex items-center justify-center leading-tight" aria-label="Toggle Traffic" title="Live ADS-B Traffic">
-                        ADS-B
-                    </button>
-
-                    <!-- Hazards / SIGMETs (NEW) -->
-                    <button id="hazardsBtn" onclick="toggleHazards()" class="layer-btn bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 text-lg flex items-center justify-center" aria-label="Toggle Significant Weather" title="Significant Weather">
-                        ⚠️
-                    </button>
-
-                    <!-- Day/Night -->
-                    <button id="dayNightBtn" onclick="toggleDayNight()" class="layer-btn bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 text-xl flex items-center justify-center" aria-label="Toggle Day/Night" title="Day/Night Map">
-                        🌗
-                    </button>
-
-
-                </div>
-
-                <!-- Main Toggle Button -->
+                <!-- 1. MAIN TOGGLE BUTTON (Put this FIRST) -->
                 <button id="mainLayerToggle" onclick="toggleLayerMenu()" class="layer-btn bg-blue-600 hover:bg-blue-700 text-white z-50">
                     <span class="active-indicator"></span>
                     <svg id="menuIcon" class="menu-toggle-icon h-6 w-6" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -1081,7 +1145,47 @@ document.addEventListener('DOMContentLoaded', () => {
                     </svg>
                 </button>
 
+                <!-- 2. EXPANDABLE ITEMS LIST (Put this SECOND) -->
+                <div id="layerMenuItems" class="layer-items">
+
+                    <button id="runwayMapBtn" onclick="toggleRunwayOnMap()" class="layer-btn bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center justify-center">
+                        <span class="font-black tracking-tighter leading-none">RWY</span>
+                    </button>
+
+                    <button id="radarToggleBtn" onclick="toggleRadar()" class="layer-btn bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 16a8 8 0 11-16 0c0-4.135 3.5-7.5 8-14 4.5 6.5 8 9.865 8 14z" />
+                        </svg>
+                    </button>
+
+                    <button id="freezingBtn" onclick="toggleFreezingLayer()" class="layer-btn bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 text-xl flex items-center justify-center">
+                        🧊
+                    </button>
+
+                    <button id="heatmapBtn" onclick="toggleHeatmap()" class="layer-btn bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 text-lg flex items-center justify-center">
+                        🌡️
+                    </button>
+
+                    <button id="pirepBtn" onclick="togglePireps()" class="layer-btn bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 text-xl flex items-center justify-center">
+                        ✈️
+                    </button>
+
+                    <button id="trafficBtn" onclick="toggleTraffic()" class="layer-btn bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center justify-center">
+                        <span class="font-black leading-tight">ADS-B</span>
+                    </button>
+
+                    <button id="hazardsBtn" onclick="toggleHazards()" class="layer-btn bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 text-lg flex items-center justify-center">
+                        ⚠️
+                    </button>
+
+                    <button id="dayNightBtn" onclick="toggleDayNight()" class="layer-btn bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 text-xl flex items-center justify-center">
+                        🌗
+                    </button>
+
+                </div>
+
             </div>
+
 
             <!-- NEW: Heatmap Legend -->
             <div id="heatmapLegend">
@@ -1221,7 +1325,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         <script>
             // --- APP CONFIG ---
-            const CURRENT_VERSION = 'v2.6.6'; // Incremented Version
+            const CURRENT_VERSION = 'v2.6.7'; // Incremented Version
             const GITHUB_REPO = 'Unpiloted0852/AvWx';
 
             // Global Data Storage for Modal Access
@@ -1316,19 +1420,19 @@ document.addEventListener('DOMContentLoaded', () => {
             const hasHazards = !!hazardsLayer;
             const hasDayNight = !!dayNightLayer;
             const hasRunways = showRunwaysOnMap;
-
-            // ADDED: Check for traffic
             const hasTraffic = !!trafficLayer;
 
             const mainBtn = document.getElementById('mainLayerToggle');
 
-            // ADDED: || hasTraffic
             if (hasRadar || hasFreezing || hasHeatmap || hasPirep || hasHazards || hasDayNight || hasRunways || hasTraffic) {
                 mainBtn.classList.add('has-active-layers');
             } else {
                 mainBtn.classList.remove('has-active-layers');
             }
             updateMapWarnings();
+
+            // NEW: Save settings every time a layer changes
+            saveLayerSettings();
         }
 
             // --- LIBRARIES SAFE LOADING ---
@@ -2214,7 +2318,77 @@ document.addEventListener('DOMContentLoaded', () => {
                 updateMapWarnings();
                 updateLayerActiveState(); // New logic
             }
+        // --- SAVED SETTINGS LOGIC ---
 
+        function saveLayerSettings() {
+            const settings = {
+                radar: !!radarRefreshInterval, // If interval exists, Radar is ON
+                traffic: !!trafficRefreshInterval,
+                runways: typeof showRunwaysOnMap !== 'undefined' ? showRunwaysOnMap : true,
+                freezing: !!freezingLayer,
+                heatmap: heatmapMode || 0,
+                pireps: document.getElementById('pirepBtn')?.classList.contains('pirep-active') || false,
+                hazards: !!hazardsRefreshInterval,
+                daynight: !!dayNightInterval
+            };
+            try {
+                localStorage.setItem('layerSettings', JSON.stringify(settings));
+            } catch(e) { console.warn("Settings save failed", e); }
+        }
+
+        function loadLayerSettings() {
+            let settings = null;
+            try {
+                settings = JSON.parse(localStorage.getItem('layerSettings'));
+            } catch(e) {}
+
+            // Default settings for a new user (First visit)
+            if (!settings) {
+                settings = {
+                    radar: true,      // Default ON
+                    daynight: true,   // Default ON
+                    runways: true,    // Default ON
+                    traffic: false,
+                    freezing: false,
+                    heatmap: 0,
+                    pireps: false,
+                    hazards: false
+                };
+            }
+
+            // Apply Runways
+            if (settings.runways !== showRunwaysOnMap) toggleRunwayOnMap();
+
+            // Apply Radar
+            const isRadarOn = !!radarRefreshInterval;
+            if (settings.radar !== isRadarOn) toggleRadar();
+
+            // Apply Day/Night
+            const isDayNightOn = !!dayNightInterval;
+            if (settings.daynight !== isDayNightOn) toggleDayNight();
+
+            // Apply Traffic
+            const isTrafficOn = !!trafficRefreshInterval;
+            if (settings.traffic !== isTrafficOn) toggleTraffic();
+
+            // Apply Hazards
+            const isHazardsOn = !!hazardsRefreshInterval;
+            if (settings.hazards !== isHazardsOn) toggleHazards();
+
+            // Apply Freezing
+            const isFreezingOn = !!freezingLayer;
+            if (settings.freezing !== isFreezingOn) toggleFreezingLayer();
+
+            // Apply PIREPs
+            const isPirepOn = document.getElementById('pirepBtn')?.classList.contains('pirep-active');
+            if (settings.pireps !== isPirepOn) togglePireps();
+
+            // Apply Heatmap (Cycle mode until matching saved state)
+            let target = settings.heatmap || 0;
+            while (heatmapMode !== target) {
+                toggleHeatmap();
+            }
+        }
 
          function initMap() {
                 if (mapInstance) return;
@@ -2265,7 +2439,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 mapInstance.getPane('pirepPane').style.zIndex = 625;
 
                 mapInstance.createPane('trafficPane');
-        mapInstance.getPane('trafficPane').style.zIndex = 650;
+                mapInstance.getPane('trafficPane').style.zIndex = 650;
 
                 // --- RENDERERS ---
                 markerRenderer = L.svg({ pane: 'markerPane' });
@@ -2276,7 +2450,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 labelLayerGroup = L.layerGroup().addTo(mapInstance);
 
                 // --- EVENT LISTENERS ---
-               // --- EVENT LISTENERS ---
                 mapInstance.on('moveend', () => {
                     updateMapLabels();
                     if (currentStationsData && currentStationsData.length > 0) {
@@ -2286,21 +2459,17 @@ document.addEventListener('DOMContentLoaded', () => {
 
                 mapInstance.on('zoomend', () => {
                    updateMapLabels();
-
-                   // --- NEW CODE: Toggle Traffic Labels based on Zoom ---
+                   // Toggle Traffic Labels based on Zoom
                    const currentZoom = mapInstance.getZoom();
                    const mapEl = document.getElementById('weatherMap');
-
-                   // Threshold: 9. Below zoom 9, text is hidden.
                    if (currentZoom < 9) {
                        mapEl.classList.add('hide-traffic-labels');
                    } else {
                        mapEl.classList.remove('hide-traffic-labels');
                    }
-                   // ----------------------------------------------------
                 });
 
-                // --- FREEZING LAYER CLASS DEFINTION ---
+                // --- FREEZING LAYER DEFINITION ---
                 if (typeof L.FreezingLayer === 'undefined') {
                     L.FreezingLayer = L.Layer.extend({
                         onAdd: function(map) {
@@ -2314,13 +2483,11 @@ document.addEventListener('DOMContentLoaded', () => {
                             map.on('zoomend', this._update, this);
                             this._update();
                         },
-
                         onRemove: function(map) {
                             map.getPanes().overlayPane.removeChild(this._canvas);
                             map.off('moveend', this._update, this);
                             map.off('zoomend', this._update, this);
                         },
-
                         _update: function() {
                             if (!this._map) return;
                             const map = this._map;
@@ -2333,22 +2500,17 @@ document.addEventListener('DOMContentLoaded', () => {
                             L.DomUtil.setPosition(canvas, topLeft);
                             this._draw();
                         },
-
                         _draw: function() {
                             const ctx = this._canvas.getContext('2d');
                             const width = this._canvas.width;
                             const height = this._canvas.height;
                             const map = this._map;
-
                             ctx.clearRect(0, 0, width, height);
-
                             if (!allStationsData || allStationsData.length === 0) return;
-
                             const bounds = map.getBounds();
                             const pad = 15.0;
                             const south = bounds.getSouth() - pad;
                             const north = bounds.getNorth() + pad;
-                            // No longitude filtering for wrapping
 
                             const relevantStations = allStationsData.filter(s =>
                                 s.latitude !== null && s.longitude !== null &&
@@ -2357,11 +2519,9 @@ document.addEventListener('DOMContentLoaded', () => {
                             );
 
                             if (relevantStations.length < 5) return;
-
                             const RES = 15;
                             const cols = Math.ceil(width / RES);
                             const rows = Math.ceil(height / RES);
-
                             const stationData = relevantStations.map(s => ({
                                 lat: s.latitude,
                                 lon: s.longitude,
@@ -2377,20 +2537,14 @@ document.addEventListener('DOMContentLoaded', () => {
                                     const py = y * RES;
                                     const ll = map.containerPointToLatLng(L.point(px + RES/2, py + RES/2));
                                     const cosLat = Math.cos(ll.lat * Math.PI / 180);
-
                                     let closest = [];
-
                                     for (let i = 0; i < stationData.length; i++) {
                                         const s = stationData[i];
                                         const dLat = s.lat - ll.lat;
-
-                                        // UPDATED: Longitude distance with wrapping
                                         let rawDiff = Math.abs(s.lon - ll.lng);
                                         if (rawDiff > 180) rawDiff = 360 - rawDiff;
                                         const dLon = rawDiff * cosLat;
-
                                         const distSq = dLat*dLat + dLon*dLon;
-
                                         if (closest.length < NEIGHBOR_COUNT) {
                                             closest.push({ distSq: distSq, temp: s.temp });
                                             closest.sort((a,b) => a.distSq - b.distSq);
@@ -2399,21 +2553,16 @@ document.addEventListener('DOMContentLoaded', () => {
                                             closest.sort((a,b) => a.distSq - b.distSq);
                                         }
                                     }
-
                                     let sumWeights = 0;
                                     let weightedTemp = 0;
-
                                     for(let i=0; i<closest.length; i++) {
                                         const w = 1 / (closest[i].distSq + 0.000001);
                                         weightedTemp += closest[i].temp * w;
                                         sumWeights += w;
                                     }
-
                                     if (sumWeights > 0) {
                                         const estimatedTemp = weightedTemp / sumWeights;
-                                        if (estimatedTemp < 0) {
-                                            ctx.fillRect(px, py, RES, RES);
-                                        }
+                                        if (estimatedTemp < 0) ctx.fillRect(px, py, RES, RES);
                                     }
                                 }
                             }
@@ -2421,17 +2570,10 @@ document.addEventListener('DOMContentLoaded', () => {
                     });
                 }
 
-               // --- DEFAULT RADAR ON ---
-                if (!radarLayer && !radarRefreshInterval) {
-                    toggleRadar();
-                }
-
-                // --- NEW: DEFAULT DAY/NIGHT ON ---
-                if (!dayNightLayer && !dayNightInterval) {
-                    toggleDayNight();
-                }
+                // --- LOAD SAVED SETTINGS ---
+                // This replaces the old hardcoded defaults
+                loadLayerSettings();
             }
-
 
             // --- DAY/NIGHT LOGIC ---
             function getTerminatorCoords(time) {
