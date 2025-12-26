@@ -1081,8 +1081,10 @@ document.addEventListener('DOMContentLoaded', () => {
             <!-- Radar Timestamp Display -->
             <div id="radarTimeDisplay">Radar Valid: --:--z</div>
 
+            <!-- SEARCH FOR THIS SECTION AROUND LINE 693 -->
             <!-- ADS-B Credit (Obscure, Bottom Center) -->
-            <div id="adsbCredit" class="hidden absolute bottom-0 left-1/2 transform -translate-x-1/2 z-[1000] text-[8px] font-mono text-gray-400/60 dark:text-gray-600/60 pointer-events-none select-none pb-0.5">
+            <!-- CHANGED: bottom-0 -> bottom-6 to lift it up -->
+            <div id="adsbCredit" class="hidden absolute bottom-6 left-1/2 transform -translate-x-1/2 z-[1000] text-[8px] font-mono text-gray-400/60 dark:text-gray-600/60 pointer-events-none select-none pb-0.5">
                 Traffic data <a href="https://airplanes.live" target="_blank" class="pointer-events-auto hover:text-gray-500 dark:hover:text-gray-400 underline decoration-dotted">airplanes.live</a>
             </div>
 
@@ -1325,7 +1327,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         <script>
             // --- APP CONFIG ---
-            const CURRENT_VERSION = 'v2.6.9'; // Incremented Version
+            const CURRENT_VERSION = 'v2.7.0'; // Incremented Version
             const GITHUB_REPO = 'Unpiloted0852/AvWx';
 
             // Global Data Storage for Modal Access
@@ -1353,7 +1355,9 @@ document.addEventListener('DOMContentLoaded', () => {
         let hazardRenderer = null;
         let trafficLayer = null;
         let selectedPlaneTrace = null; // Stores the active flight path polyline
+        let selectedPlaneTraceEst = null;
         let trafficRefreshInterval = null;
+        let selectedAircraftHex = null;
         let trafficMarkers = new Map(); // Stores markers to allow smooth movement updates
             let mapInstance = null;
             let markerLayerGroup = null;
@@ -2457,6 +2461,10 @@ document.addEventListener('DOMContentLoaded', () => {
                     }
                 });
 
+                mapInstance.on('click', () => {
+            clearFlightPath();
+        });
+
                 mapInstance.on('zoomend', () => {
                    updateMapLabels();
                    // Toggle Traffic Labels based on Zoom
@@ -3057,7 +3065,16 @@ document.addEventListener('DOMContentLoaded', () => {
             else if (vs < -500) trend = '▼';
 
             // HTML now uses the passed 'altText' directly (e.g., "FL350" or "4500ft")
-            const iconHtml = `<div class="atc-container"><div class="atc-blip" style="transform: rotate(${track}deg);"></div><div class="atc-label">${flight}<span>${altText}${trend} ${spd}</span></div></div>`;
+            // REPLACE the existing iconHtml line in getTrafficIcon with this:
+
+        const iconHtml = `
+        <div class="atc-container">
+            <!-- The Chevron SVG -->
+            <svg style="transform: rotate(${track}deg); width: 20px; height: 20px; margin-top: -4px; margin-left: -4px; filter: drop-shadow(0 1px 2px rgba(0,0,0,0.5));" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path d="M12 2L22 22L12 18L2 22L12 2Z" fill="#10b981" stroke="white" stroke-width="1.5" stroke-linejoin="round"/>
+            </svg>
+            <div class="atc-label" style="left: 14px; top: -2px;">${flight}<span>${altText}${trend} ${spd}</span></div>
+        </div>`;
 
             return L.divIcon({
                 className: 'bg-transparent',
@@ -3257,6 +3274,11 @@ document.addEventListener('DOMContentLoaded', () => {
                             offset: [0, -5]
                         });
 
+                        // --- CLICK LISTENER ---
+                        marker.on('click', () => {
+                            fetchAndDrawTrace(hex);
+                        });
+
                         if (trafficLayer) {
                             trafficLayer.addLayer(marker);
                             trafficMarkers.set(hex, marker);
@@ -3275,8 +3297,11 @@ document.addEventListener('DOMContentLoaded', () => {
             } catch (e) {
                 console.warn("Traffic error", e);
             }
-        }
 
+            // --- AUTO-REFRESH TRACE ---
+            // If a plane is selected, refresh its path to match the new position
+            if (selectedAircraftHex) fetchAndDrawTrace(selectedAircraftHex);
+        }
 
         function toggleTraffic() {
             const btn = document.getElementById('trafficBtn');
@@ -4500,11 +4525,109 @@ document.addEventListener('DOMContentLoaded', () => {
                 detailsEl.style.display = 'none';
             }
 
+        async function fetchAndDrawTrace(hex) {
+            // 1. Handle switching planes (Clear old path if clicking a new plane)
+            if (selectedAircraftHex && selectedAircraftHex !== hex) {
+                clearFlightPath();
+            }
+            selectedAircraftHex = hex;
+
+            try {
+                const lastTwo = hex.slice(-2);
+                const targetUrl = `https://globe.airplanes.live/data/traces/${lastTwo}/trace_full_${hex.toLowerCase()}.json`;
+                const proxyUrl = `https://corsproxy.io/?${encodeURIComponent(targetUrl)}`;
+
+                const res = await fetch(proxyUrl);
+                if (!res.ok) return;
+
+                const data = await res.json();
+                if (!data.trace || data.trace.length === 0) return;
+
+                const trace = data.trace;
+                let startIndex = 0;
+
+                // --- FILTER LEG LOGIC ---
+                const isGround = (p) => p[3] === "ground" || (typeof p[3] === 'number' && p[4] < 50 && p[3] < 500);
+                const lastPoint = trace[trace.length - 1];
+                let currentlyInAir = !isGround(lastPoint);
+
+                for (let i = trace.length - 1; i >= 0; i--) {
+                    const point = trace[i];
+                    const onGround = isGround(point);
+                    if (i > 0 && (point[0] - trace[i-1][0] > 1800)) { startIndex = i; break; }
+
+                    if (currentlyInAir) {
+                        if (onGround) { startIndex = i; break; }
+                    } else {
+                        if (!onGround) currentlyInAir = true;
+                    }
+                }
+
+                // 2. Get Historical Points
+                const latLngs = trace.slice(startIndex)
+                    .map(point => [point[1], point[2]])
+                    .filter(pt => pt[0] !== null && pt[1] !== null);
+
+                if (!mapInstance) return;
+
+                // 3. Draw or Update History (Solid Line)
+                if (selectedPlaneTrace) {
+                    // Update existing line (Smooth)
+                    selectedPlaneTrace.setLatLngs(latLngs);
+                } else {
+                    // Create new line
+                    selectedPlaneTrace = L.polyline(latLngs, {
+                        color: '#10b981',
+                        weight: 3,
+                        opacity: 0.8,
+                        dashArray: '5, 5',
+                        lineCap: 'round',
+                        pane: 'trafficPane',
+                        interactive: false
+                    }).addTo(mapInstance);
+                }
+
+                // 4. Draw or Update Estimated Segment
+                if (trafficMarkers.has(hex) && latLngs.length > 0) {
+                    const lastHistPos = latLngs[latLngs.length - 1];
+                    const currentLivePos = trafficMarkers.get(hex).getLatLng();
+                    const estPoints = [lastHistPos, currentLivePos];
+
+                    if (selectedPlaneTraceEst) {
+                        selectedPlaneTraceEst.setLatLngs(estPoints);
+                    } else {
+                        selectedPlaneTraceEst = L.polyline(estPoints, {
+                            color: '#6ee7b7',
+                            weight: 2,
+                            opacity: 0.6,
+                            dashArray: '2, 6',
+                            pane: 'trafficPane',
+                            interactive: false
+                        }).addTo(mapInstance);
+                    }
+                } else if (selectedPlaneTraceEst) {
+                    // If marker is gone or no history, remove the estimate line
+                    mapInstance.removeLayer(selectedPlaneTraceEst);
+                    selectedPlaneTraceEst = null;
+                }
+
+            } catch (e) {
+                // Silent fail
+            }
+        }
+
 
         function clearFlightPath() {
+            // Stop tracking the ID
+            selectedAircraftHex = null;
+
             if (selectedPlaneTrace && mapInstance) {
                 mapInstance.removeLayer(selectedPlaneTrace);
                 selectedPlaneTrace = null;
+            }
+            if (selectedPlaneTraceEst && mapInstance) {
+                mapInstance.removeLayer(selectedPlaneTraceEst);
+                selectedPlaneTraceEst = null;
             }
         }
 
