@@ -1327,7 +1327,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         <script>
             // --- APP CONFIG ---
-            const CURRENT_VERSION = 'v2.7.0'; // Incremented Version
+            const CURRENT_VERSION = 'v2.7.1'; // Incremented Version
             const GITHUB_REPO = 'Unpiloted0852/AvWx';
 
             // Global Data Storage for Modal Access
@@ -5288,11 +5288,12 @@ document.addEventListener('DOMContentLoaded', () => {
                 let depName = 'N/A', destName = 'N/A';
 
                 // Helper to check runway
-                const meetsRunwayReq = (id) => {
-                    if (!runwayMap || minRunwayLen <= 0) return true;
-                    const len = runwayMap.get(id);
-                    return len && len >= minRunwayLen;
-                };
+const meetsRunwayReq = (id) => {
+    if (!runwayMap || minRunwayLen <= 0) return true;
+    const entry = runwayMap.get(id); // Rename for clarity
+    // Check if entry exists AND if its maxLen property meets the requirement
+    return entry && entry.maxLen >= minRunwayLen;
+};
 
                 if (dep) {
                     const depCoords = getCoordsForICAO(dep, cachedStationMap);
