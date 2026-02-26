@@ -8,7 +8,6 @@
     <link rel="icon" href="./favicon.ico">
     <link rel="apple-touch-icon" href='./apple-touch-icon.png'>
 
-
     <title>Aviation Weather Report (TAF & METAR)</title>
 
     <script>
@@ -1383,7 +1382,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         <script>
             // --- APP CONFIG ---
-            const CURRENT_VERSION = 'v2.7.2'; // Incremented Version
+            const CURRENT_VERSION = 'v20000.5.3'; // Incremented Version
             const GITHUB_REPO = 'Unpiloted0852/AvWx';
 
             // Global Data Storage for Modal Access
@@ -3776,13 +3775,17 @@ document.addEventListener('DOMContentLoaded', () => {
 
                 return `
                     <div class="font-sans">
-                        <div class="flex items-baseline justify-between mb-2 pb-1 border-b border-gray-200 dark:border-gray-700">
-                            <button onclick="openMapDetail('${station.id}')" class="font-bold text-lg text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 transition-colors text-left focus:outline-none">
-                                ${station.id}
-                                <span class="text-[10px] font-normal text-gray-400 ml-1">↗</span>
-                            </button>
-                            <span class="text-xs text-gray-500 dark:text-gray-300 ml-2 truncate" style="max-width: 150px;">${station.name || ''}</span>
-                        </div>
+                        <div class="mb-2 pb-1 border-b border-gray-200 dark:border-gray-700">
+            <div class="flex items-baseline justify-between">
+                <button onclick="openMapDetail('${station.id}')" class="font-bold text-lg text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 transition-colors text-left focus:outline-none">
+                    ${station.id}
+                    <span class="text-[10px] font-normal text-gray-400 ml-1">↗</span>
+                </button>
+                <span class="text-xs text-gray-500 dark:text-gray-300 ml-2 truncate" style="max-width: 150px;">${station.name || ''}</span>
+            </div>
+            ${(() => { const sun = getSunTimes(station.latitude, station.longitude); return sun ? `<div class="text-[10px] font-mono text-amber-500 dark:text-amber-400 mt-0.5">🌅 ${sun.sr} &nbsp;&nbsp; 🌇 ${sun.ss}</div>` : ''; })()}
+        </div>
+
 
                         <div class="mb-2 group cursor-pointer" onclick="openMapDetail('${station.id}')" title="Click for Airport View">
                             <div class="flex justify-between items-center mb-1">
@@ -3953,14 +3956,15 @@ document.addEventListener('DOMContentLoaded', () => {
                     const centerLat = count > 0 ? sumLat / count : station.latitude;
                     const centerLon = count > 0 ? sumLon / count : station.longitude;
 
-                    // Use effectiveSpeed for Arrow Color (Red if > 15kts)
+                    // Pre-calculate crosswind for glow effect (glow red if xw >= 25)
+                    const _arrowRwy = rwyData.runways[bestIdx]; const _arXwRads = _arrowRwy ? (Math.abs(windDir - (_arrowRwy.heading || 0)) % 360) * Math.PI / 180 : 0; const _arXw = Math.abs(Math.sin(_arXwRads) * effectiveSpeed); const arrowXwGlow = _arXw >= 25;
                     const arrowIcon = L.divIcon({
                         className: 'bg-transparent',
                         html: `
                         <div style="transform: rotate(${windDir}deg); width: 60px; height: 60px; display: flex; justify-content: center; align-items: center; pointer-events: auto; cursor: pointer;">
-                            <svg width="60" height="60" viewBox="0 0 100 100" style="width: 100%; height: 100%; overflow: visible; filter: drop-shadow(0 2px 4px rgba(0,0,0,0.5));">
-                                <line x1="50" y1="0" x2="50" y2="100" stroke="${effectiveSpeed > 15 ? '#ef4444' : '#fbbf24'}" stroke-width="8" stroke-linecap="round"/>
-                                <path d="M50 100 L70 70 L30 70 Z" fill="${effectiveSpeed > 15 ? '#ef4444' : '#fbbf24'}" stroke="white" stroke-width="2"/>
+                            <svg width="60" height="60" viewBox="0 0 100 100" style="width: 100%; height: 100%; overflow: visible; filter: ${arrowXwGlow ? 'drop-shadow(0 0 4px #ff0000) drop-shadow(0 0 8px #ff4400) drop-shadow(0 0 14px #ff2200)' : 'drop-shadow(0 2px 4px rgba(0,0,0,0.5))'};">
+                                <line x1="50" y1="0" x2="50" y2="100" stroke="${arrowXwGlow ? '#ff2200' : effectiveSpeed > 15 ? '#ef4444' : '#fbbf24'}" stroke-width="${arrowXwGlow ? 10 : 8}" stroke-linecap="round"/>
+                                <path d="M50 100 L70 70 L30 70 Z" fill="${arrowXwGlow ? '#ff2200' : effectiveSpeed > 15 ? '#ef4444' : '#fbbf24'}" stroke="white" stroke-width="2"/>
                             </svg>
                         </div>`,
                         iconSize: [60, 60],
@@ -5494,7 +5498,10 @@ document.addEventListener('DOMContentLoaded', () => {
                     }
 
                     if (metar.densityAlt) infoTextParts.push(metar.densityAlt);
-                    infoTextParts.push(`Observed ${formatAge(metar.age)}`);
+        const _sun = getSunTimes(data.latitude, data.longitude);
+        if (_sun && _sun.ss) infoTextParts.push(`🌅${_sun.sr} 🌇${_sun.ss}`);
+        else if (_sun) infoTextParts.push(_sun.sr);
+        infoTextParts.push(`Observed ${formatAge(metar.age)}`);
                     if (data.distanceNM !== null) infoTextParts.push(`${data.distanceNM.toFixed(0)} NM`);
 
                     const dotClassToBorderColor = {
@@ -5712,28 +5719,32 @@ document.addEventListener('DOMContentLoaded', () => {
                     const runwayMap = (minRunwayLen > 0) ? results[3] : null;
 
                     // --- DATA VALIDITY CHECK (MANUAL LOAD) ---
-                    const validTafs = tafDoc.querySelectorAll("TAF").length;
-                    const validMetars = metarDoc.querySelectorAll("METAR").length;
+         const validTafs = tafDoc.querySelectorAll("TAF").length;
+         const validMetars = metarDoc.querySelectorAll("METAR").length;
 
-                    if (validTafs === 0 || validMetars === 0) {
-                        console.warn("NWS returned empty data files. Silently aborting update.");
+         if (validTafs === 0 || validMetars === 0) {
+             console.warn("NWS returned empty data files. Displaying downtime message.");
 
-                        // Restore UI state manually since we are returning early
-                        generateButton.disabled = false;
-                        generateButton.textContent = "Go!";
-                        generateButton.classList.remove('opacity-50', 'cursor-not-allowed');
+             // Restore UI state manually since we are returning early
+             generateButton.disabled = false;
+             generateButton.textContent = "Go!";
+             generateButton.classList.remove('opacity-50', 'cursor-not-allowed');
 
-                        // Hide any status that might be showing "Fetching Data..."
-                        statusEl.style.display = 'none';
+             // DISPLAY THE FRIENDLY MESSAGE
+             showStatus(
+                 "National Weather Service source data is temporarily down.",
+                 true,
+                 "Usually this is resolved between minutes to hours. Please try again later."
+             );
 
-                        if (currentStationsData.length > 0) {
-                            // We have old data, ensure PDF is enabled and auto-refresh continues
-                            downloadPdfBtn.disabled = false;
-                            startAutoRefresh();
-                        }
+             if (currentStationsData.length > 0) {
+                 // We have old data, ensure PDF is enabled and auto-refresh continues
+                 downloadPdfBtn.disabled = false;
+                 startAutoRefresh();
+             }
 
-                        return; // Stop processing, keep existing state
-                    }
+             return; // Stop processing, keep existing state
+         }
                     // ----------------------------------------
 
                     showStatus("Processing stations...");
@@ -5787,14 +5798,27 @@ document.addEventListener('DOMContentLoaded', () => {
                         }, 100);
                     }
 
-                } catch (error) {
-                    console.error(error);
-                    showStatus(`Error: ${error.message}`, true, "Check console for details.");
-                } finally {
-                    generateButton.disabled = false;
-                    generateButton.textContent = "Go!"; // Updated Text
-                    generateButton.classList.remove('opacity-50', 'cursor-not-allowed');
-                }
+               } catch (error) {
+             console.error(error);
+
+             // Catch specific source corruption and network errors
+             if (error.message.includes("Empty file") ||
+                 error.message.includes("Decompressed empty") ||
+                 error.message.includes("XML parse error") ||
+                 error.message.includes("HTTP")) {
+                 showStatus(
+                     "National Weather Service source data is temporarily down.",
+                     true,
+                     "Usually this is resolved between minutes to hours. Please try again later."
+                 );
+             } else {
+                 showStatus(`Error: ${error.message}`, true, "Check console for details.");
+             }
+         } finally {
+             generateButton.disabled = false;
+             generateButton.textContent = "Go!"; // Updated Text
+             generateButton.classList.remove('opacity-50', 'cursor-not-allowed');
+         }
             }
 
             // --- MODAL TAF DISPLAY LOGIC ---
@@ -6254,8 +6278,11 @@ document.addEventListener('DOMContentLoaded', () => {
                          const tempStr = (typeof getDisplayTemp === 'function') ? getDisplayTemp(data.metar) : (data.metar.tempC + "°C");
                          infoTextParts.push(`${tempStr} • ${data.metar.rh || ''}`);
                     }
-                    if (data.metar.densityAlt) infoTextParts.push(data.metar.densityAlt);
-                    if (typeof formatAge === 'function' && data.metar.age != null) {
+                   if (data.metar.densityAlt) infoTextParts.push(data.metar.densityAlt);
+        const _pdfSun = getSunTimes(data.latitude, data.longitude);
+        if (_pdfSun && _pdfSun.ss) infoTextParts.push(`SR:${_pdfSun.sr} SS:${_pdfSun.ss}`);
+        else if (_pdfSun) infoTextParts.push(_pdfSun.sr);
+        if (typeof formatAge === 'function' && data.metar.age != null) {
                         infoTextParts.push(`Observed ${formatAge(data.metar.age)}`);
                     }
                     if (data.distanceNM !== null) infoTextParts.push(`${data.distanceNM.toFixed(0)} NM`);
@@ -6886,7 +6913,8 @@ document.addEventListener('DOMContentLoaded', () => {
                     <div class="flex justify-between items-start mb-4">
                         <div>
                             <h2 class="text-6xl font-black font-mono tracking-tighter drop-shadow-lg leading-none">${icao}</h2>
-                            <p class="text-lg font-bold opacity-80 uppercase truncate max-w-[200px] sm:max-w-md">${station.name || ''}</p>
+                           <p class="text-lg font-bold opacity-80 uppercase truncate max-w-[200px] sm:max-w-md">${station.name || ''}</p>
+        ${(() => { const sun = getSunTimes(station.latitude, station.longitude); return sun ? `<div class="text-xs font-mono text-amber-300 mt-1">🌅 ${sun.sr} &nbsp; 🌇 ${sun.ss}</div>` : ''; })()}
                         </div>
                         <div class="flex gap-2">
                             <button onclick="jumpToMapFromModal('${icao}')" class="p-3 bg-blue-600 hover:bg-blue-500 rounded-full transition-colors shadow-lg z-50 text-white" title="View on Map">
@@ -7108,13 +7136,14 @@ document.addEventListener('DOMContentLoaded', () => {
             });
 
             // 6. Wind Arrow
+            const dashXwGlow = Math.abs(xw) >= 25;
             const arrowRot = windDir;
             const windHtml = (!isExpired && effectiveSpeed > 1) ? `
-                <g transform="rotate(${arrowRot}, 50, 50)">
+                <g transform="rotate(${arrowRot}, 50, 50)" style="filter: ${dashXwGlow ? 'drop-shadow(0 0 3px #ff0000) drop-shadow(0 0 6px #ff4400) drop-shadow(0 0 10px #ff2200)' : 'none'};">
                     <line x1="50" y1="10" x2="50" y2="90" stroke="black" stroke-width="5" stroke-linecap="round" opacity="0.3" />
-                    <line x1="50" y1="10" x2="50" y2="90" stroke="${effectiveSpeed > 15 ? '#ef4444' : '#fbbf24'}" stroke-width="2.5" stroke-linecap="round" />
+                    <line x1="50" y1="10" x2="50" y2="90" stroke="${dashXwGlow ? '#ff2200' : effectiveSpeed > 15 ? '#ef4444' : '#fbbf24'}" stroke-width="${dashXwGlow ? 3.5 : 2.5}" stroke-linecap="round" />
                     <path d="M50 90 L55 80 L45 80 Z" fill="black" opacity="0.3" transform="translate(0, 2)" />
-                    <path d="M50 90 L55 80 L45 80 Z" fill="${effectiveSpeed > 15 ? '#ef4444' : '#fbbf24'}" stroke="white" stroke-width="0.5" />
+                    <path d="M50 90 L55 80 L45 80 Z" fill="${dashXwGlow ? '#ff2200' : effectiveSpeed > 15 ? '#ef4444' : '#fbbf24'}" stroke="white" stroke-width="0.5" />
                 </g>
             ` : '';
 
@@ -7360,6 +7389,63 @@ document.addEventListener('DOMContentLoaded', () => {
                 ifr.innerHTML = "Cig 500-999' or Vis 1-2.9sm";
                 lifr.innerHTML = "Cig &lt;500' or Vis &lt;1sm";
             }
+        }
+
+           function getSunTimes(lat, lon) {
+            if (lat == null || lon == null) return null;
+            const now = new Date();
+            const rad = Math.PI / 180;
+
+            const JD = Math.floor(now.getTime() / 86400000) + 2440587.5;
+            const T = (JD - 2451545.0) / 36525.0;
+
+            const L0 = (280.46646 + T * (36000.76983 + T * 0.0003032)) % 360;
+            const M  = 357.52911 + T * (35999.05029 - 0.0001537 * T);
+            const Mrad = M * rad;
+            const e  = 0.016708634 - T * (0.000042037 + 0.0000001267 * T);
+
+            const C = Math.sin(Mrad) * (1.914602 - T * (0.004817 + 0.000014 * T))
+                    + Math.sin(2 * Mrad) * (0.019993 - 0.000101 * T)
+                    + Math.sin(3 * Mrad) * 0.000289;
+
+            const sunLon = L0 + C;
+            const omega  = 125.04 - 1934.136 * T;
+            const lambda = sunLon - 0.00569 - 0.00478 * Math.sin(omega * rad);
+
+            const eps0 = 23 + (26 + (21.448 - T * (46.815 + T * (0.00059 - T * 0.001813))) / 60) / 60;
+            const eps  = eps0 + 0.00256 * Math.cos(omega * rad);
+
+            const sinDec = Math.sin(eps * rad) * Math.sin(lambda * rad);
+            const dec    = Math.asin(sinDec);
+
+            const y   = Math.tan((eps / 2) * rad) ** 2;
+            const L0r = L0 * rad;
+            const Mr  = M * rad;
+            const eot = 4 * (180 / Math.PI) * (
+                  y * Math.sin(2 * L0r)
+                - 2 * e * Math.sin(Mr)
+                + 4 * e * y * Math.sin(Mr) * Math.cos(2 * L0r)
+                - 0.5 * y * y * Math.sin(4 * L0r)
+                - 1.25 * e * e * Math.sin(2 * Mr)
+            );
+
+            const latRad = lat * rad;
+            const cosHA  = (Math.sin(-0.8333 * rad) - Math.sin(latRad) * sinDec)
+                         / (Math.cos(latRad) * Math.cos(dec));
+
+            if (cosHA < -1) return { sr: "Polar Day", ss: "" };
+            if (cosHA >  1) return { sr: "Polar Night", ss: "" };
+
+            const HA = Math.acos(cosHA) * (180 / Math.PI);
+            const solarNoon = 720 - 4 * lon - eot;
+
+            const fmt = min => {
+                let m = ((min % 1440) + 1440) % 1440;
+                return String(Math.floor(m / 60)).padStart(2,'0')
+                     + String(Math.floor(m % 60)).padStart(2,'0') + 'Z';
+            };
+
+            return { sr: fmt(solarNoon - HA * 4), ss: fmt(solarNoon + HA * 4) };
         }
 
         // Start the 1-minute timer immediately on load
