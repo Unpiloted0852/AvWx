@@ -1382,7 +1382,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         <script>
             // --- APP CONFIG ---
-            const CURRENT_VERSION = 'v2.7.3'; // Incremented Version
+            const CURRENT_VERSION = 'v2.7.4'; // Incremented Version
             const GITHUB_REPO = 'Unpiloted0852/AvWx';
 
             // Global Data Storage for Modal Access
@@ -3783,7 +3783,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 </button>
                 <span class="text-xs text-gray-500 dark:text-gray-300 ml-2 truncate" style="max-width: 150px;">${station.name || ''}</span>
             </div>
-            ${(() => { const sun = getSunTimes(station.latitude, station.longitude); return sun ? `<div class="text-[10px] font-mono text-amber-500 dark:text-amber-400 mt-0.5">🌅 ${sun.sr} &nbsp;&nbsp; 🌇 ${sun.ss}</div>` : ''; })()}
+            ${(() => { const events = getUpcomingSunEvents(station.latitude, station.longitude); return events.length ? `<div class="text-[10px] font-mono text-amber-500 dark:text-amber-400 mt-0.5">${events.map(e => e.timeStr ? `${e.label}: ${e.timeStr}` : e.label).join(' &nbsp;&nbsp; ')}</div>` : ''; })()}
         </div>
 
 
@@ -5498,9 +5498,8 @@ document.addEventListener('DOMContentLoaded', () => {
                     }
 
                     if (metar.densityAlt) infoTextParts.push(metar.densityAlt);
-        const _sun = getSunTimes(data.latitude, data.longitude);
-        if (_sun && _sun.ss) infoTextParts.push(`🌅${_sun.sr} 🌇${_sun.ss}`);
-        else if (_sun) infoTextParts.push(_sun.sr);
+        const _sunEvents = getUpcomingSunEvents(data.latitude, data.longitude);
+        if (_sunEvents.length) infoTextParts.push(_sunEvents.map(e => e.timeStr ? `${e.label}: ${e.timeStr}` : e.label).join(' '));
         infoTextParts.push(`Observed ${formatAge(metar.age)}`);
                     if (data.distanceNM !== null) infoTextParts.push(`${data.distanceNM.toFixed(0)} NM`);
 
@@ -6279,9 +6278,8 @@ document.addEventListener('DOMContentLoaded', () => {
                          infoTextParts.push(`${tempStr} • ${data.metar.rh || ''}`);
                     }
                    if (data.metar.densityAlt) infoTextParts.push(data.metar.densityAlt);
-        const _pdfSun = getSunTimes(data.latitude, data.longitude);
-        if (_pdfSun && _pdfSun.ss) infoTextParts.push(`SR:${_pdfSun.sr} SS:${_pdfSun.ss}`);
-        else if (_pdfSun) infoTextParts.push(_pdfSun.sr);
+        const _pdfSunEvents = getUpcomingSunEvents(data.latitude, data.longitude);
+        if (_pdfSunEvents.length) infoTextParts.push(_pdfSunEvents.map(e => e.timeStr ? `${e.label.startsWith('Sunrise') ? 'SR' : 'SS'}: ${e.timeStr}` : e.label).join(' '));
         if (typeof formatAge === 'function' && data.metar.age != null) {
                         infoTextParts.push(`Observed ${formatAge(data.metar.age)}`);
                     }
@@ -6914,7 +6912,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         <div>
                             <h2 class="text-6xl font-black font-mono tracking-tighter drop-shadow-lg leading-none">${icao}</h2>
                            <p class="text-lg font-bold opacity-80 uppercase truncate max-w-[200px] sm:max-w-md">${station.name || ''}</p>
-        ${(() => { const sun = getSunTimes(station.latitude, station.longitude); return sun ? `<div class="text-xs font-mono text-amber-300 mt-1">🌅 ${sun.sr} &nbsp; 🌇 ${sun.ss}</div>` : ''; })()}
+        ${(() => { const events = getUpcomingSunEvents(station.latitude, station.longitude); return events.length ? `<div class="text-xs font-mono text-amber-300 mt-1">${events.map(e => e.timeStr ? `${e.label}: ${e.timeStr}` : e.label).join(' &nbsp; ')}</div>` : ''; })()}
                         </div>
                         <div class="flex gap-2">
                             <button onclick="jumpToMapFromModal('${icao}')" class="p-3 bg-blue-600 hover:bg-blue-500 rounded-full transition-colors shadow-lg z-50 text-white" title="View on Map">
@@ -7389,6 +7387,37 @@ document.addEventListener('DOMContentLoaded', () => {
                 ifr.innerHTML = "Cig 500-999' or Vis 1-2.9sm";
                 lifr.innerHTML = "Cig &lt;500' or Vis &lt;1sm";
             }
+        }
+
+           function getUpcomingSunEvents(lat, lon) {
+            const sun = getSunTimes(lat, lon);
+            if (!sun) return [];
+
+            // Handle polar day/night (no sunset string)
+            if (!sun.ss) return [{ label: sun.sr, timeStr: null }];
+
+            const now = new Date();
+            const cutoff = new Date(now.getTime() - 30 * 60 * 1000); // 30 mins ago
+
+            // Parse a "HHMMZ" UTC time string into a Date.
+            // If that time has already passed the cutoff, advance it by 1 day so it
+            // represents the next occurrence (handles western stations where sunset
+            // wraps past UTC midnight and appears as an early hour like 0143Z).
+            const parseUTCTime = (hhmm) => {
+                const h = parseInt(hhmm.substring(0, 2));
+                const m = parseInt(hhmm.substring(2, 4));
+                const d = new Date();
+                d.setUTCHours(h, m, 0, 0);
+                if (d < cutoff) d.setUTCDate(d.getUTCDate() + 1);
+                return d;
+            };
+
+            const events = [
+                { label: 'Sunrise', timeStr: sun.sr, time: parseUTCTime(sun.sr) },
+                { label: 'Sunset',  timeStr: sun.ss, time: parseUTCTime(sun.ss) }
+            ].sort((a, b) => a.time - b.time);
+
+            return events;
         }
 
            function getSunTimes(lat, lon) {
