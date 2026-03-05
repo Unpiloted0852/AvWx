@@ -932,7 +932,6 @@ document.addEventListener('DOMContentLoaded', () => {
         <p class="text-sm md:text-base text-gray-600 dark:text-gray-400 mt-2 px-4">
             Generates a report of current METARs and TAFs. Warning: this app should be considered experimental--use at your own risk!
         </p>
-
         <p class="text-[10px] md:text-xs text-gray-400 dark:text-gray-500 mt-2 px-4 max-w-2xl mx-auto leading-tight">
             <strong>Notice of Non-Affiliation:</strong> This application is an independent project. It is <strong>strictly NOT</strong> affiliated, associated, authorized, endorsed by, or in any way connected with the AVWX REST API or its creators.
         </p>
@@ -1386,7 +1385,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         <script>
             // --- APP CONFIG ---
-            const CURRENT_VERSION = 'v2.7.6'; // Incremented Version
+            const CURRENT_VERSION = 'v2.8.0'; // Incremented Version
             const GITHUB_REPO = 'Unpiloted0852/AvWx';
 
             // Global Data Storage for Modal Access
@@ -6924,6 +6923,11 @@ document.addEventListener('DOMContentLoaded', () => {
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 7m0 13V7" />
                                 </svg>
                             </button>
+                            <button onclick="loadStationHistory('${icao}')" class="p-3 bg-amber-600 hover:bg-amber-500 rounded-full transition-colors shadow-lg z-50 text-white" title="72hr History">
+                                <svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                </svg>
+                            </button>
                             <button onclick="closeTileModal()" class="p-3 bg-black/20 hover:bg-black/40 rounded-full transition-colors z-50">
                                 <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-width="4" d="M6 18L18 6M6 6l12 12"/></svg>
                             </button>
@@ -6974,10 +6978,167 @@ document.addEventListener('DOMContentLoaded', () => {
                             </div>
                         </div>
                     </div>
+
+                    <!-- History Panel (hidden by default, loaded on demand) -->
+                    <div id="historyPanel" class="hidden mt-4">
+                        <div class="flex items-center justify-between mb-2">
+                            <h3 class="text-[10px] font-black uppercase tracking-widest opacity-60">72hr Observation History</h3>
+                            <button onclick="document.getElementById('historyPanel').classList.add('hidden')" class="text-[10px] opacity-50 hover:opacity-100 transition-opacity">Hide</button>
+                        </div>
+                        <div id="historyContent" class="bg-black/20 rounded-xl overflow-x-auto">
+                            <p class="text-xs italic opacity-40 p-4">Loading...</p>
+                        </div>
+                    </div>
                 </div>
             `;
             document.body.style.overflow = 'hidden';
             modal.classList.remove('hidden');
+        }
+
+
+        // ── STATION HISTORY ──────────────────────────────────────────────────────────
+        async function loadStationHistory(icao) {
+            const panel = document.getElementById('historyPanel');
+            const contentEl = document.getElementById('historyContent');
+            if (!panel || !contentEl) return;
+
+            panel.classList.remove('hidden');
+            contentEl.innerHTML = '<p class="text-xs italic opacity-40 p-4">Fetching 72hr history...</p>';
+            panel.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+
+            try {
+                // Iowa State IEM ASOS API — open CORS, no key needed
+                // Build explicit UTC start/end times for last 72 hours
+                const now = new Date();
+                const start = new Date(now.getTime() - 72 * 60 * 60 * 1000);
+                const pad = n => String(n).padStart(2, '0');
+                const fmtDate = d => `${d.getUTCFullYear()}-${pad(d.getUTCMonth()+1)}-${pad(d.getUTCDate())}+${pad(d.getUTCHours())}%3A${pad(d.getUTCMinutes())}`;
+
+                const fields = 'drct,sknt,gust,vsby,wxcodes,skyc1,skyc2,skyc3,skyl1,skyl2,skyl3,tmpc,dwpc,alti,flight_rule';
+                const url = `https://mesonet.agron.iastate.edu/cgi-bin/request/asos.py`
+                    + `?station=${icao}&data=${fields}`
+                    + `&year1=${start.getUTCFullYear()}&month1=${start.getUTCMonth()+1}&day1=${start.getUTCDate()}&hour1=${start.getUTCHours()}&minute1=0`
+                    + `&year2=${now.getUTCFullYear()}&month2=${now.getUTCMonth()+1}&day2=${now.getUTCDate()}&hour2=${now.getUTCHours()}&minute2=${now.getUTCMinutes()}`
+                    + `&tz=UTC&format=onlycomma&latlon=no&elev=no&missing=M&trace=T&direct=no&report_type=3,4`;
+
+                const res = await fetch(url);
+                if (!res.ok) throw new Error(`HTTP ${res.status}`);
+                const csvText = await res.text();
+
+                const lines = csvText.trim().split('\n').filter(l => l && !l.startsWith('#') && !l.startsWith('station'));
+                if (!lines.length) {
+                    contentEl.innerHTML = '<p class="text-xs italic opacity-40 p-4">No historical data available for this station.</p>';
+                    return;
+                }
+
+                // CSV cols: station, valid, drct, sknt, gust, vsby, wxcodes, skyc1, skyc2, skyc3, skyl1, skyl2, skyl3, tmpc, dwpc, alti, flight_rule
+                const windColor = spd => {
+                    if (spd >= 50) return 'text-purple-400';
+                    if (spd >= 30) return 'text-red-400';
+                    if (spd >= 15) return 'text-yellow-300';
+                    return '';
+                };
+                const visColor = v => {
+                    const n = parseFloat(v);
+                    if (isNaN(n)) return '';
+                    if (n <= 1) return 'text-pink-400';
+                    if (n <= 3) return 'text-red-400';
+                    if (n < 5)  return 'text-orange-400';
+                    return '';
+                };
+                const catColor = cat => {
+                    if (cat === 'LIFR') return 'text-pink-400';
+                    if (cat === 'IFR')  return 'text-red-400';
+                    if (cat === 'MVFR') return 'text-blue-400';
+                    if (cat === 'VFR')  return 'text-green-400';
+                    return '';
+                };
+                const fmtTime = iso => {
+                    const d = new Date(iso.replace(' ', 'T') + 'Z');
+                    const dd = String(d.getUTCDate()).padStart(2,'0');
+                    const hh = String(d.getUTCHours()).padStart(2,'0');
+                    const mm = String(d.getUTCMinutes()).padStart(2,'0');
+                    return `${dd}/${hh}${mm}Z`;
+                };
+                const fmtClouds = (c1, c2, c3, l1, l2, l3) => {
+                    const parts = [];
+                    [[c1,l1],[c2,l2],[c3,l3]].forEach(([cov, base]) => {
+                        if (cov && cov !== 'M' && cov !== 'CLR' && cov !== 'SKC') {
+                            const b = base && base !== 'M' ? String(Math.round(parseInt(base)/100)).padStart(3,'0') : '///';
+                            parts.push(cov + b);
+                        }
+                    });
+                    return parts.length ? parts.join(' ') : '<span class="opacity-50">CLR</span>';
+                };
+
+                // Reverse so most recent is at top
+                lines.reverse();
+
+                // Unit conversions matching user settings
+                const fmtTemp = c => {
+                    if (c === 'M' || !c) return '—';
+                    const val = parseFloat(c);
+                    if (isNaN(val)) return '—';
+                    return useCelsius ? `${Math.round(val)}°C` : `${Math.round(val * 1.8 + 32)}°F`;
+                };
+                const fmtAltim = inHg => {
+                    if (inHg === 'M' || !inHg) return '—';
+                    const val = parseFloat(inHg);
+                    if (isNaN(val)) return '—';
+                    return useHpa ? `${Math.round(val * 33.8639)} hPa` : `${val.toFixed(2)}`;
+                };
+                const tempHeader = useCelsius ? 'T/Td °C' : 'T/Td °F';
+                const altimHeader = useHpa ? 'hPa' : 'inHg';
+
+                let rows = '';
+                for (const line of lines) {
+                    const f = line.split(',');
+                    // station, valid, drct, sknt, gust, vsby, wxcodes, skyc1, skyc2, skyc3, skyl1, skyl2, skyl3, tmpc, dwpc, alti, flight_rule
+                    const [station, valid, drct, sknt, gust, vsby, wxcodes, skyc1, skyc2, skyc3, skyl1, skyl2, skyl3, tmpc, dwpc, alti, flight_rule] = f;
+                    const timeStr = fmtTime(valid);
+                    const wdir    = drct && drct !== 'M' ? String(parseInt(drct)).padStart(3,'0') : 'VRB';
+                    const wspd    = sknt && sknt !== 'M' ? parseInt(sknt) : 0;
+                    const wgst    = gust && gust !== 'M' ? parseInt(gust) : null;
+                    const windStr = `${wdir}@${wspd}${wgst ? 'G'+wgst : ''}KT`;
+                    const wCol    = windColor(Math.max(wspd, wgst ?? 0));
+                    const vis     = vsby && vsby !== 'M' ? vsby : '—';
+                    const vCol    = visColor(vsby);
+                    const wx      = wxcodes && wxcodes !== 'M' ? wxcodes : '';
+                    const clouds  = fmtClouds(skyc1, skyc2, skyc3, skyl1, skyl2, skyl3);
+                    const temp    = fmtTemp(tmpc);
+                    const dewp    = fmtTemp(dwpc);
+                    const altim   = fmtAltim(alti);
+
+                    rows += `<tr class="border-t border-white/5 hover:bg-white/5 transition-colors">
+                        <td class="px-2 py-1 font-mono text-[11px] whitespace-nowrap opacity-70">${timeStr}</td>
+                        <td class="px-2 py-1 font-mono text-[11px] whitespace-nowrap ${wCol}">${windStr}</td>
+                        <td class="px-2 py-1 font-mono text-[11px] whitespace-nowrap ${vCol}">${vis}</td>
+                        <td class="px-2 py-1 font-mono text-[11px] whitespace-nowrap opacity-80">${wx}</td>
+                        <td class="px-2 py-1 font-mono text-[11px] whitespace-nowrap">${clouds}</td>
+                        <td class="px-2 py-1 font-mono text-[11px] whitespace-nowrap">${temp} / ${dewp}</td>
+                        <td class="px-2 py-1 font-mono text-[11px] whitespace-nowrap opacity-70">${altim}</td>
+                    </tr>`;
+                }
+
+                contentEl.innerHTML = `
+                    <table class="w-full text-left text-white border-collapse min-w-[520px]">
+                        <thead>
+                            <tr class="bg-white/10 sticky top-0">
+                                <th class="px-2 py-1.5 text-[9px] font-black uppercase tracking-wider opacity-60">Time</th>
+                                <th class="px-2 py-1.5 text-[9px] font-black uppercase tracking-wider opacity-60">Wind</th>
+                                <th class="px-2 py-1.5 text-[9px] font-black uppercase tracking-wider opacity-60">Vis</th>
+                                <th class="px-2 py-1.5 text-[9px] font-black uppercase tracking-wider opacity-60">Wx</th>
+                                <th class="px-2 py-1.5 text-[9px] font-black uppercase tracking-wider opacity-60">Clouds</th>
+                                <th class="px-2 py-1.5 text-[9px] font-black uppercase tracking-wider opacity-60">${tempHeader}</th>
+                                <th class="px-2 py-1.5 text-[9px] font-black uppercase tracking-wider opacity-60">${altimHeader}</th>
+                            </tr>
+                        </thead>
+                        <tbody>${rows}</tbody>
+                    </table>`;
+
+            } catch (err) {
+                contentEl.innerHTML = `<p class="text-xs text-red-400 p-4">Failed to load history: ${err.message}</p>`;
+            }
         }
 
         // [UPDATED] Helper for Map Popups - Ensures data exists before opening
