@@ -1385,7 +1385,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         <script>
             // --- APP CONFIG ---
-            const CURRENT_VERSION = 'v2.8.0'; // Incremented Version
+            const CURRENT_VERSION = 'v2.8.1'; // Incremented Version
             const GITHUB_REPO = 'Unpiloted0852/AvWx';
 
             // Global Data Storage for Modal Access
@@ -6909,27 +6909,27 @@ document.addEventListener('DOMContentLoaded', () => {
 
             container.className = `rounded-3xl shadow-2xl w-full max-w-2xl max-h-[90vh] flex flex-col modal-enter overflow-hidden ${tileClass} text-white`;
             container.innerHTML = `
-                <div class="p-6 overflow-y-auto custom-scrollbar font-sans">
+                <div class="p-3 overflow-y-auto custom-scrollbar font-sans" style="overflow-x:hidden">
                     <!-- Header -->
-                    <div class="flex justify-between items-start mb-4">
-                        <div>
-                            <h2 class="text-6xl font-black font-mono tracking-tighter drop-shadow-lg leading-none">${icao}</h2>
-                           <p class="text-lg font-bold opacity-80 uppercase truncate max-w-[200px] sm:max-w-md">${station.name || ''}</p>
-        ${(() => { const events = getUpcomingSunEvents(station.latitude, station.longitude); return events.length ? `<div class="text-xs font-mono text-amber-300 mt-1 whitespace-nowrap">${events.map(e => e.timeStr ? `${e.label}: ${e.timeStr}` : e.label).join(' &nbsp; ')}</div>` : ''; })()}
+                    <div class="flex justify-between items-start mb-4 gap-2">
+                        <div class="min-w-0 flex-1">
+                            <h2 class="text-5xl font-black font-mono tracking-tighter drop-shadow-lg leading-none">${icao}</h2>
+                           <p class="text-base font-bold opacity-80 uppercase truncate">${station.name || ''}</p>
+        ${(() => { const events = getUpcomingSunEvents(station.latitude, station.longitude); return events.length ? `<div class="text-xs font-mono text-amber-300 mt-1 flex flex-wrap gap-x-3">${events.map(e => e.timeStr ? `<span>${e.label}: ${e.timeStr}</span>` : `<span>${e.label}</span>`).join('')}</div>` : ''; })()}
                         </div>
-                        <div class="flex gap-2">
-                            <button onclick="jumpToMapFromModal('${icao}')" class="p-3 bg-blue-600 hover:bg-blue-500 rounded-full transition-colors shadow-lg z-50 text-white" title="View on Map">
-                                 <svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <div class="flex gap-1.5 shrink-0">
+                            <button onclick="jumpToMapFromModal('${icao}')" class="p-2.5 bg-blue-600 hover:bg-blue-500 rounded-full transition-colors shadow-lg z-50 text-white" title="View on Map">
+                                 <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 7m0 13V7" />
                                 </svg>
                             </button>
-                            <button onclick="loadStationHistory('${icao}')" class="p-3 bg-amber-600 hover:bg-amber-500 rounded-full transition-colors shadow-lg z-50 text-white" title="72hr History">
-                                <svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <button onclick="loadStationHistory('${icao}')" class="p-2.5 bg-amber-600 hover:bg-amber-500 rounded-full transition-colors shadow-lg z-50 text-white" title="72hr History">
+                                <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
                                 </svg>
                             </button>
-                            <button onclick="closeTileModal()" class="p-3 bg-black/20 hover:bg-black/40 rounded-full transition-colors z-50">
-                                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-width="4" d="M6 18L18 6M6 6l12 12"/></svg>
+                            <button onclick="closeTileModal()" class="p-2.5 bg-black/20 hover:bg-black/40 rounded-full transition-colors z-50">
+                                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-width="4" d="M6 18L18 6M6 6l12 12"/></svg>
                             </button>
                         </div>
                     </div>
@@ -6981,11 +6981,12 @@ document.addEventListener('DOMContentLoaded', () => {
 
                     <!-- History Panel (hidden by default, loaded on demand) -->
                     <div id="historyPanel" class="hidden mt-4">
-                        <div class="flex items-center justify-between mb-2">
-                            <h3 class="text-[10px] font-black uppercase tracking-widest opacity-60">72hr Observation History</h3>
-                            <button onclick="document.getElementById('historyPanel').classList.add('hidden')" class="text-[10px] opacity-50 hover:opacity-100 transition-opacity">Hide</button>
+                        <div class="flex items-center justify-between mb-2 gap-2">
+                            <h3 class="text-[10px] font-black uppercase tracking-widest opacity-60 shrink-0">72hr History</h3>
+                            <div id="historyViewBtns" class="flex gap-1 flex-wrap"></div>
+                            <button onclick="document.getElementById('historyPanel').classList.add('hidden')" class="text-[10px] opacity-40 hover:opacity-100 transition-opacity shrink-0">✕</button>
                         </div>
-                        <div id="historyContent" class="bg-black/20 rounded-xl overflow-x-auto">
+                        <div id="historyContent" class="bg-black/20 rounded-xl" style="overflow:hidden">
                             <p class="text-xs italic opacity-40 p-4">Loading...</p>
                         </div>
                     </div>
@@ -6998,22 +6999,20 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // ── STATION HISTORY ──────────────────────────────────────────────────────────
         async function loadStationHistory(icao) {
-            const panel = document.getElementById('historyPanel');
+            const panel     = document.getElementById('historyPanel');
             const contentEl = document.getElementById('historyContent');
+            const btnBar    = document.getElementById('historyViewBtns');
             if (!panel || !contentEl) return;
 
             panel.classList.remove('hidden');
-            contentEl.innerHTML = '<p class="text-xs italic opacity-40 p-4">Fetching 72hr history...</p>';
+            contentEl.innerHTML = '<p style="font-size:11px;opacity:0.4;padding:16px;font-style:italic">Fetching 72hr history…</p>';
+            if (btnBar) btnBar.innerHTML = '';
             panel.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
 
             try {
-                // Iowa State IEM ASOS API — open CORS, no key needed
-                // Build explicit UTC start/end times for last 72 hours
-                const now = new Date();
+                const now   = new Date();
                 const start = new Date(now.getTime() - 72 * 60 * 60 * 1000);
-                const pad = n => String(n).padStart(2, '0');
-                const fmtDate = d => `${d.getUTCFullYear()}-${pad(d.getUTCMonth()+1)}-${pad(d.getUTCDate())}+${pad(d.getUTCHours())}%3A${pad(d.getUTCMinutes())}`;
-
+                const pad   = n => String(n).padStart(2, '0');
                 const fields = 'drct,sknt,gust,vsby,wxcodes,skyc1,skyc2,skyc3,skyl1,skyl2,skyl3,tmpc,dwpc,alti,flight_rule';
                 const url = `https://mesonet.agron.iastate.edu/cgi-bin/request/asos.py`
                     + `?station=${icao}&data=${fields}`
@@ -7027,119 +7026,495 @@ document.addEventListener('DOMContentLoaded', () => {
 
                 const lines = csvText.trim().split('\n').filter(l => l && !l.startsWith('#') && !l.startsWith('station'));
                 if (!lines.length) {
-                    contentEl.innerHTML = '<p class="text-xs italic opacity-40 p-4">No historical data available for this station.</p>';
+                    contentEl.innerHTML = '<p style="font-size:11px;opacity:0.4;padding:16px;font-style:italic">No historical data available.</p>';
                     return;
                 }
 
-                // CSV cols: station, valid, drct, sknt, gust, vsby, wxcodes, skyc1, skyc2, skyc3, skyl1, skyl2, skyl3, tmpc, dwpc, alti, flight_rule
-                const windColor = spd => {
-                    if (spd >= 50) return 'text-purple-400';
-                    if (spd >= 30) return 'text-red-400';
-                    if (spd >= 15) return 'text-yellow-300';
-                    return '';
-                };
-                const visColor = v => {
-                    const n = parseFloat(v);
-                    if (isNaN(n)) return '';
-                    if (n <= 1) return 'text-pink-400';
-                    if (n <= 3) return 'text-red-400';
-                    if (n < 5)  return 'text-orange-400';
-                    return '';
-                };
-                const catColor = cat => {
-                    if (cat === 'LIFR') return 'text-pink-400';
-                    if (cat === 'IFR')  return 'text-red-400';
-                    if (cat === 'MVFR') return 'text-blue-400';
-                    if (cat === 'VFR')  return 'text-green-400';
-                    return '';
-                };
-                const fmtTime = iso => {
-                    const d = new Date(iso.replace(' ', 'T') + 'Z');
-                    const dd = String(d.getUTCDate()).padStart(2,'0');
-                    const hh = String(d.getUTCHours()).padStart(2,'0');
-                    const mm = String(d.getUTCMinutes()).padStart(2,'0');
-                    return `${dd}/${hh}${mm}Z`;
-                };
-                const fmtClouds = (c1, c2, c3, l1, l2, l3) => {
-                    const parts = [];
-                    [[c1,l1],[c2,l2],[c3,l3]].forEach(([cov, base]) => {
-                        if (cov && cov !== 'M' && cov !== 'CLR' && cov !== 'SKC') {
-                            const b = base && base !== 'M' ? String(Math.round(parseInt(base)/100)).padStart(3,'0') : '///';
-                            parts.push(cov + b);
+                // ── parse ─────────────────────────────────────────────────────────
+                const obs = lines.map(line => {
+                    const f = line.split(',');
+                    const [station, valid, drct, sknt, gust, vsby, wxcodes,
+                           skyc1, skyc2, skyc3, skyl1, skyl2, skyl3, tmpc, dwpc, alti, flight_rule] = f;
+                    const num = v => (v && v !== 'M') ? parseFloat(v) : null;
+                    const int = v => (v && v !== 'M') ? parseInt(v)   : null;
+                    return { t: new Date(valid.replace(' ','T')+'Z'), valid,
+                             drct:int(drct), sknt:int(sknt), gust:int(gust),
+                             vsby:num(vsby), tmpc:num(tmpc), dwpc:num(dwpc), alti:num(alti),
+                             skyc1,skyc2,skyc3,skyl1,skyl2,skyl3,
+                             wxcodes:(wxcodes&&wxcodes!=='M')?wxcodes:'',
+                             flight_rule:flight_rule?flight_rule.trim():'' };
+                });
+
+                // ── derive flight category from vis + ceiling ─────────────────────
+                // (IEM flight_rule field is often empty — compute it ourselves)
+                const flightCat = o => {
+                    const vis = o.vsby; // statute miles
+                    // find lowest BKN or OVC layer
+                    let cig = Infinity;
+                    [[o.skyc1,o.skyl1],[o.skyc2,o.skyl2],[o.skyc3,o.skyl3]].forEach(([cov,base])=>{
+                        if((cov==='BKN'||cov==='OVC'||cov==='VV')&&base&&base!=='M'){
+                            const ft=parseInt(base);
+                            if(!isNaN(ft)&&ft<cig) cig=ft;
                         }
                     });
-                    return parts.length ? parts.join(' ') : '<span class="opacity-50">CLR</span>';
+                    if(vis===null) return '';
+                    if(vis<1||cig<500)   return 'LIFR';
+                    if(vis<3||cig<1000)  return 'IFR';
+                    if(vis<5||cig<3000)  return 'MVFR';
+                    return 'VFR';
+                };
+                // patch each observation
+                obs.forEach(o=>{ o.cat = flightCat(o); });
+
+                // ── unit helpers ──────────────────────────────────────────────────
+                const toTemp = c  => c===null ? null : (useCelsius ? c : Math.round(c*1.8+32));
+                const toAlt  = v  => v===null ? null : (useHpa ? Math.round(v*33.8639) : v);
+                const toVis  = v  => v===null ? null : (useCelsius ? +(v*1.60934).toFixed(1) : v);
+                const unitT  = useCelsius ? '°C' : '°F';
+                const unitP  = useHpa ? 'hPa' : 'inHg';
+                const unitV  = useCelsius ? 'km' : 'sm';
+
+                const fmtSkyCell = (cov,base) => {
+                    if(!cov||cov==='M'||cov==='CLR'||cov==='SKC') return '';
+                    const b=(base&&base!=='M')?String(Math.round(parseInt(base)/100)).padStart(3,'0'):'///';
+                    return cov+b;
+                };
+                const fmtTc = c => c===null?'-':(useCelsius?Math.round(c):Math.round(c*1.8+32));
+                const fmtAc = v => v===null?'-':(useHpa?Math.round(v*33.8639)+'h':v.toFixed(2));
+                const fmtVc = v => v===null?'-':(useCelsius?(v*1.60934).toFixed(1)+'k':v+'sm');
+                const fmtWind = o => {
+                    if(o.sknt===null) return '---';
+                    const d=o.drct!==null?String(o.drct).padStart(3,'0'):'VRB';
+                    return `${d}${String(o.sknt).padStart(2,'0')}${o.gust?'G'+String(o.gust).padStart(2,'0'):''}KT`;
+                };
+                const fmtTime = valid => {
+                    const d=new Date(valid.replace(' ','T')+'Z');
+                    return `${String(d.getUTCDate()).padStart(2,'0')}/${String(d.getUTCHours()).padStart(2,'0')}${String(d.getUTCMinutes()).padStart(2,'0')}Z`;
                 };
 
-                // Reverse so most recent is at top
-                lines.reverse();
+                // colour scales
+                const wCol = spd => spd>=50?'#c084fc':spd>=30?'#f87171':spd>=15?'#fde047':'#6ee7b7';
+                const vCol = v   => v<=1?'#f472b6':v<=3?'#f87171':v<5?'#fb923c':'#6ee7b7';
+                const catCol = c => ({LIFR:'#f472b6',IFR:'#f87171',MVFR:'#60a5fa',VFR:'#4ade80'}[c]||'#4b5563');
 
-                // Unit conversions matching user settings
-                const fmtTemp = c => {
-                    if (c === 'M' || !c) return '—';
-                    const val = parseFloat(c);
-                    if (isNaN(val)) return '—';
-                    return useCelsius ? `${Math.round(val)}°C` : `${Math.round(val * 1.8 + 32)}°F`;
-                };
-                const fmtAltim = inHg => {
-                    if (inHg === 'M' || !inHg) return '—';
-                    const val = parseFloat(inHg);
-                    if (isNaN(val)) return '—';
-                    return useHpa ? `${Math.round(val * 33.8639)} hPa` : `${val.toFixed(2)}`;
-                };
-                const tempHeader = useCelsius ? 'T/Td °C' : 'T/Td °F';
-                const altimHeader = useHpa ? 'hPa' : 'inHg';
+                // ── SVG chart engine ──────────────────────────────────────────────
+                // Produces a smooth bezier line chart with gradient fill
+                function svgChart({ title, subtitle, series, yMin:forceYMin, yMax:forceYMax, yFmt, yTicks, barMode, catMode }) {
+                    const W=300,H=160,PL=38,PR=6,PT=16,PB=22;
+                    const cW=W-PL-PR, cH=H-PT-PB;
+                    const tMin=obs[0].t, tMax=obs[obs.length-1].t;
+                    const tSpan=tMax-tMin||1;
+                    const xS=t=>PL+(t-tMin)/tSpan*cW;
 
-                let rows = '';
-                for (const line of lines) {
-                    const f = line.split(',');
-                    // station, valid, drct, sknt, gust, vsby, wxcodes, skyc1, skyc2, skyc3, skyl1, skyl2, skyl3, tmpc, dwpc, alti, flight_rule
-                    const [station, valid, drct, sknt, gust, vsby, wxcodes, skyc1, skyc2, skyc3, skyl1, skyl2, skyl3, tmpc, dwpc, alti, flight_rule] = f;
-                    const timeStr = fmtTime(valid);
-                    const wdir    = drct && drct !== 'M' ? String(parseInt(drct)).padStart(3,'0') : 'VRB';
-                    const wspd    = sknt && sknt !== 'M' ? parseInt(sknt) : 0;
-                    const wgst    = gust && gust !== 'M' ? parseInt(gust) : null;
-                    const windStr = `${wdir}@${wspd}${wgst ? 'G'+wgst : ''}KT`;
-                    const wCol    = windColor(Math.max(wspd, wgst ?? 0));
-                    const vis     = vsby && vsby !== 'M' ? vsby : '—';
-                    const vCol    = visColor(vsby);
-                    const wx      = wxcodes && wxcodes !== 'M' ? wxcodes : '';
-                    const clouds  = fmtClouds(skyc1, skyc2, skyc3, skyl1, skyl2, skyl3);
-                    const temp    = fmtTemp(tmpc);
-                    const dewp    = fmtTemp(dwpc);
-                    const altim   = fmtAltim(alti);
+                    // collect all valid Y values across series
+                    const allY=series.flatMap(s=>s.values.filter(v=>v!==null));
+                    if(!allY.length) return `<div style="display:flex;align-items:center;justify-content:center;height:120px;opacity:0.3;font-size:11px">No data</div>`;
 
-                    rows += `<tr class="border-t border-white/5 hover:bg-white/5 transition-colors">
-                        <td class="px-2 py-1 font-mono text-[11px] whitespace-nowrap opacity-70">${timeStr}</td>
-                        <td class="px-2 py-1 font-mono text-[11px] whitespace-nowrap ${wCol}">${windStr}</td>
-                        <td class="px-2 py-1 font-mono text-[11px] whitespace-nowrap ${vCol}">${vis}</td>
-                        <td class="px-2 py-1 font-mono text-[11px] whitespace-nowrap opacity-80">${wx}</td>
-                        <td class="px-2 py-1 font-mono text-[11px] whitespace-nowrap">${clouds}</td>
-                        <td class="px-2 py-1 font-mono text-[11px] whitespace-nowrap">${temp} / ${dewp}</td>
-                        <td class="px-2 py-1 font-mono text-[11px] whitespace-nowrap opacity-70">${altim}</td>
-                    </tr>`;
+                    let yLo=forceYMin??Math.min(...allY), yHi=forceYMax??Math.max(...allY);
+                    const pad=(yHi-yLo)*0.12||0.5;
+                    yLo-=pad; yHi+=pad;
+                    const yS=y=>PT+cH-(y-yLo)/(yHi-yLo)*cH;
+
+                    // grid lines + y labels
+                    let grid='';
+                    (yTicks||[]).forEach(g=>{
+                        if(g<yLo||g>yHi) return;
+                        const gy=yS(g).toFixed(1);
+                        grid+=`<line x1="${PL}" y1="${gy}" x2="${W-PR}" y2="${gy}" stroke="rgba(255,255,255,0.07)" stroke-width="1"/>`;
+                        grid+=`<text x="${PL-3}" y="${+gy+3}" text-anchor="end" font-size="7" fill="rgba(255,255,255,0.38)" font-family="monospace">${yFmt?yFmt(g):g}</text>`;
+                    });
+
+                    // x time labels every 12h
+                    let xAxis='';
+                    for(let h=0;h<=72;h+=12){
+                        const tl=new Date(tMin.getTime()+h*3600000);
+                        const x=xS(tl).toFixed(1);
+                        if(+x<PL||+x>W-PR) continue;
+                        xAxis+=`<line x1="${x}" y1="${PT}" x2="${x}" y2="${H-PB}" stroke="rgba(255,255,255,0.05)" stroke-width="1"/>`;
+                        xAxis+=`<text x="${x}" y="${H-4}" text-anchor="middle" font-size="6" fill="rgba(255,255,255,0.3)" font-family="monospace">${String(tl.getUTCDate()).padStart(2,'0')}/${String(tl.getUTCHours()).padStart(2,'0')}Z</text>`;
+                    }
+
+                    // series paths
+                    let paths='';
+                    series.forEach(s=>{
+                        const pts=obs.map((o,i)=>{
+                            const y=s.values[i];
+                            return y===null?null:{x:xS(o.t),y:yS(y)};
+                        });
+
+                        if(barMode){
+                            // bar chart
+                            const bW=Math.max(1,cW/obs.length*0.75);
+                            pts.forEach(p=>{
+                                if(!p) return;
+                                const bH=yS(yLo)-p.y;
+                                if(bH<=0) return;
+                                paths+=`<rect x="${(p.x-bW/2).toFixed(1)}" y="${p.y.toFixed(1)}" width="${bW.toFixed(1)}" height="${bH.toFixed(1)}" fill="${s.color}" opacity="0.8" rx="1"/>`;
+                            });
+                            return;
+                        }
+
+                        if(catMode){
+                            // stepped fill blocks
+                            for(let i=0;i<obs.length;i++){
+                                const c=s.catValues[i]; if(!c) continue;
+                                const x1=xS(obs[i].t);
+                                const x2=i+1<obs.length?xS(obs[i+1].t):W-PR;
+                                const bW=Math.max(0.5,x2-x1);
+                                paths+=`<rect x="${x1.toFixed(1)}" y="${PT}" width="${bW.toFixed(1)}" height="${cH}" fill="${catCol(c)}" opacity="0.85"/>`;
+                            }
+                            return;
+                        }
+
+                        // smooth bezier line
+                        const valid=pts.filter(Boolean);
+                        if(valid.length<2) return;
+
+                        // build smooth path using cardinal spline approximation
+                        let d='';
+                        let seg=[];
+                        pts.forEach((p,i)=>{
+                            if(!p){
+                                if(seg.length) { d+=makeBezier(seg,s.color,yS(yLo),s.fill,s.dashed); seg=[]; }
+                                return;
+                            }
+                            seg.push(p);
+                        });
+                        if(seg.length) d+=makeBezier(seg,s.color,yS(yLo),s.fill,s.dashed);
+                        paths+=d;
+                    });
+
+                    const titleEl=`<text x="${PL}" y="${PT-4}" font-size="9" font-weight="700" fill="rgba(255,255,255,0.7)" font-family="sans-serif" text-transform="uppercase" letter-spacing="0.5">${title}</text>`;
+                    const subEl=subtitle?`<text x="${W-PR}" y="${PT-4}" font-size="7" fill="rgba(255,255,255,0.35)" text-anchor="end" font-family="monospace">${subtitle}</text>`:'';
+
+                    return `<svg width="100%" viewBox="0 0 ${W} ${H}" style="display:block;overflow:visible">
+                        <rect x="${PL}" y="${PT}" width="${cW}" height="${cH}" fill="rgba(0,0,0,0.25)" rx="3"/>
+                        ${titleEl}${subEl}${grid}${xAxis}${paths}
+                    </svg>`;
                 }
 
-                contentEl.innerHTML = `
-                    <table class="w-full text-left text-white border-collapse min-w-[520px]">
-                        <thead>
-                            <tr class="bg-white/10 sticky top-0">
-                                <th class="px-2 py-1.5 text-[9px] font-black uppercase tracking-wider opacity-60">Time</th>
-                                <th class="px-2 py-1.5 text-[9px] font-black uppercase tracking-wider opacity-60">Wind</th>
-                                <th class="px-2 py-1.5 text-[9px] font-black uppercase tracking-wider opacity-60">Vis</th>
-                                <th class="px-2 py-1.5 text-[9px] font-black uppercase tracking-wider opacity-60">Wx</th>
-                                <th class="px-2 py-1.5 text-[9px] font-black uppercase tracking-wider opacity-60">Clouds</th>
-                                <th class="px-2 py-1.5 text-[9px] font-black uppercase tracking-wider opacity-60">${tempHeader}</th>
-                                <th class="px-2 py-1.5 text-[9px] font-black uppercase tracking-wider opacity-60">${altimHeader}</th>
-                            </tr>
-                        </thead>
+                function makeBezier(pts, color, baseY, fill, dashed) {
+                    if(pts.length===1) return `<circle cx="${pts[0].x.toFixed(1)}" cy="${pts[0].y.toFixed(1)}" r="2" fill="${color}"/>`;
+                    let d=`M${pts[0].x.toFixed(1)},${pts[0].y.toFixed(1)}`;
+                    for(let i=1;i<pts.length;i++){
+                        const p0=pts[i-1],p1=pts[i];
+                        const cpx=(p0.x+p1.x)/2;
+                        d+=` C${cpx.toFixed(1)},${p0.y.toFixed(1)} ${cpx.toFixed(1)},${p1.y.toFixed(1)} ${p1.x.toFixed(1)},${p1.y.toFixed(1)}`;
+                    }
+                    const last=pts[pts.length-1], first=pts[0];
+                    const areaD=fill?d+` L${last.x.toFixed(1)},${baseY.toFixed(1)} L${first.x.toFixed(1)},${baseY.toFixed(1)} Z`:'';
+                    return (fill?`<path d="${areaD}" fill="${color}" opacity="0.12"/>`:'')+
+                           `<path d="${d}" fill="none" stroke="${color}" stroke-width="1.8" stroke-linejoin="round" stroke-linecap="round"${dashed?' stroke-dasharray="5,3"':''}/>`;
+                }
+
+                // ── individual view renderers ──────────────────────────────────────
+                const tempTicks = useCelsius?[-20,-10,0,10,20,30,40]:[-4,14,32,50,68,86,104];
+                const altTicks  = useHpa?[980,990,1000,1013,1020,1030]:[29.50,29.70,29.92,30.12,30.30];
+                const visTicks  = useCelsius?[1,3,5,10,16]:[1,3,5,10,15];
+
+                const views = [
+                    { id:'table',  label:'Raw Data', icon:'☰' },
+                    { id:'temp',   label:'Temp',     icon:'🌡' },
+                    { id:'wind',   label:'Wind',     icon:'💨' },
+                    { id:'vis',    label:'Vis',      icon:'👁' },
+                    { id:'pres',   label:'Pressure', icon:'📊' },
+                    { id:'cat',    label:'Category', icon:'✈' },
+                ];
+
+                function render(id) {
+                    if(id==='table') return renderTable();
+                    if(id==='temp')  return renderTemp();
+                    if(id==='wind')  return renderWind();
+                    if(id==='vis')   return renderVis();
+                    if(id==='pres')  return renderPres();
+                    if(id==='cat')   return renderCat();
+                    return '';
+                }
+
+                function renderTable() {
+                    const wMap={'text-yellow-300':'#fde047','text-red-400':'#f87171','text-purple-400':'#c084fc'};
+                    const vMap={'text-pink-400':'#f472b6','text-red-400':'#f87171','text-orange-400':'#fb923c'};
+                    const wCls=spd=>spd>=50?'text-purple-400':spd>=30?'text-red-400':spd>=15?'text-yellow-300':'';
+                    const vCls=v=>{const n=parseFloat(v);if(isNaN(n))return '';return n<=1?'text-pink-400':n<=3?'text-red-400':n<5?'text-orange-400':'';};
+
+                    // Use a real table with percentage widths so it fills 100% of available space.
+                    // table-layout:fixed + overflow:hidden on each td = guaranteed no wrapping, no scroll.
+                    // Proportions: Time 17%, Wind 21%, Vis 11%, Sky/Wx 27%, T/D 13%, Alt 11%
+                    const tdBase = "font-family:monospace;font-size:8px;white-space:nowrap;overflow:hidden;padding:2px 4px;border-top:1px solid rgba(255,255,255,0.09)";
+                    const thBase = "font-family:monospace;font-size:8px;font-weight:800;text-transform:uppercase;opacity:0.45;letter-spacing:0.04em;padding:3px 4px;white-space:nowrap;overflow:hidden;background:rgba(255,255,255,0.1)";
+
+                    let rows='';
+                    for(const o of [...obs].reverse()){
+                        const wc=wMap[wCls(Math.max(o.sknt??0,o.gust??0))]||'';
+                        const vc=vMap[vCls(o.vsby)]||'';
+                        const sky=[fmtSkyCell(o.skyc1,o.skyl1),fmtSkyCell(o.skyc2,o.skyl2),fmtSkyCell(o.skyc3,o.skyl3),o.wxcodes].filter(Boolean).join(' ')||'CLR';
+                        const catC=catCol(o.cat);
+                        rows+=`<tr>
+                            <td style="${tdBase};opacity:0.55">${fmtTime(o.valid)}</td>
+                            <td style="${tdBase}${wc?';color:'+wc:''}">${fmtWind(o)}</td>
+                            <td style="${tdBase}${vc?';color:'+vc:''}">${fmtVc(o.vsby)}</td>
+                            <td style="${tdBase}">${sky}</td>
+                            <td style="${tdBase}">${fmtTc(o.tmpc)}/${fmtTc(o.dwpc)}</td>
+                            <td style="${tdBase};opacity:0.55">${fmtAc(o.alti)}</td>
+                        </tr>`;
+                    }
+                    return `<table style="width:100%;border-collapse:collapse;table-layout:fixed;color:white">
+                        <colgroup>
+                            <col style="width:17%"><col style="width:21%"><col style="width:11%">
+                            <col style="width:27%"><col style="width:13%"><col style="width:11%">
+                        </colgroup>
+                        <thead><tr>
+                            <th style="${thBase};text-align:left">Time</th>
+                            <th style="${thBase};text-align:left">Wind</th>
+                            <th style="${thBase};text-align:left">Vis</th>
+                            <th style="${thBase};text-align:left">Sky/Wx</th>
+                            <th style="${thBase};text-align:left">T/D ${unitT}</th>
+                            <th style="${thBase};text-align:left">${unitP}</th>
+                        </tr></thead>
                         <tbody>${rows}</tbody>
                     </table>`;
+                }
 
-            } catch (err) {
-                contentEl.innerHTML = `<p class="text-xs text-red-400 p-4">Failed to load history: ${err.message}</p>`;
+                function renderTemp() {
+                    const tempVals = obs.map(o=>toTemp(o.tmpc));
+                    const dewVals  = obs.map(o=>toTemp(o.dwpc));
+                    // Spread always computed in °C for threshold logic, displayed in user unit
+                    const spreadC  = obs.map(o=>(o.tmpc!==null&&o.dwpc!==null)?+(o.tmpc-o.dwpc).toFixed(1):null);
+                    const spreadDisp = obs.map(o=>{
+                        if(o.tmpc===null||o.dwpc===null) return null;
+                        return useCelsius ? +(o.tmpc-o.dwpc).toFixed(1) : +((o.tmpc-o.dwpc)*1.8).toFixed(1);
+                    });
+                    const allV=[...tempVals,...dewVals].filter(v=>v!==null);
+                    const yLo=Math.min(...allV)-2, yHi=Math.max(...allV)+2;
+                    const tks=[];
+                    const step=Math.ceil((yHi-yLo)/6)||1;
+                    for(let t=Math.ceil(yLo);t<=yHi;t+=step) tks.push(t);
+
+                    // Build segmented spread path — colour changes based on raw °C spread
+                    function buildSpreadPath(obsArr, spreadCArr, spreadDispArr) {
+                        const W=300,H=130,PL=38,PR=6,PT=16,PB=22;
+                        const cW=W-PL-PR, cH=H-PT-PB;
+                        const tMin=obsArr[0].t, tMax=obsArr[obsArr.length-1].t, tSpan=tMax-tMin||1;
+                        const xS=t=>PL+(t-tMin)/tSpan*cW;
+                        const valid=spreadDispArr.filter(v=>v!==null);
+                        if(!valid.length) return `<div style="display:flex;align-items:center;justify-content:center;height:80px;opacity:0.3;font-size:11px">No data</div>`;
+
+                        let yLo2=0, yHi2=Math.max(...valid)+1;
+                        const yS=y=>PT+cH-(y-yLo2)/(yHi2-yLo2)*cH;
+
+                        // grid
+                        let grid='';
+                        [0,2,5,10,15,20].filter(g=>g<=yHi2).forEach(g=>{
+                            const gy=yS(g).toFixed(1);
+                            const isZero=g===0;
+                            grid+=`<line x1="${PL}" y1="${gy}" x2="${W-PR}" y2="${gy}" stroke="${isZero?'rgba(255,255,255,0.45)':'rgba(255,255,255,0.07)'}" stroke-width="${isZero?1.5:1}"/>`;
+                            grid+=`<text x="${PL-3}" y="${+gy+3}" text-anchor="end" font-size="7" fill="${isZero?'rgba(255,255,255,0.7)':'rgba(255,255,255,0.38)'}" font-family="monospace" font-weight="${isZero?'bold':'normal'}">${g}°</text>`;
+                        });
+
+                        // x labels
+                        let xAxis='';
+                        for(let h=0;h<=72;h+=12){
+                            const tl=new Date(tMin.getTime()+h*3600000);
+                            const x=xS(tl).toFixed(1);
+                            if(+x<PL||+x>W-PR) continue;
+                            xAxis+=`<line x1="${x}" y1="${PT}" x2="${x}" y2="${H-PB}" stroke="rgba(255,255,255,0.05)" stroke-width="1"/>`;
+                            xAxis+=`<text x="${x}" y="${H-4}" text-anchor="middle" font-size="6" fill="rgba(255,255,255,0.3)" font-family="monospace">${String(tl.getUTCDate()).padStart(2,'0')}/${String(tl.getUTCHours()).padStart(2,'0')}Z</text>`;
+                        }
+
+                        // segmented coloured path — each segment coloured by its °C spread
+                        const spreadColour = sc => sc<=1?'#f87171':sc<=2?'#fb923c':'#fde047';
+                        let segs='', areaD='', areaFirst=true;
+                        for(let i=0;i<obsArr.length-1;i++){
+                            const s0=spreadDispArr[i], s1=spreadDispArr[i+1];
+                            const sc=spreadCArr[i];
+                            if(s0===null||s1===null||sc===null) continue;
+                            const x0=xS(obsArr[i].t).toFixed(1),   y0=yS(s0).toFixed(1);
+                            const x1=xS(obsArr[i+1].t).toFixed(1), y1=yS(s1).toFixed(1);
+                            const col=spreadColour(sc);
+                            segs+=`<line x1="${x0}" y1="${y0}" x2="${x1}" y2="${y1}" stroke="${col}" stroke-width="2" stroke-linecap="round"/>`;
+                            if(areaFirst){ areaD+=`M${x0},${yS(0).toFixed(1)} L${x0},${y0}`; areaFirst=false; }
+                            areaD+=` L${x1},${y1}`;
+                        }
+                        if(!areaFirst){
+                            const last=obsArr.filter((_,i)=>spreadDispArr[i]!==null).pop();
+                            areaD+=` L${xS(last.t).toFixed(1)},${yS(0).toFixed(1)} Z`;
+                        }
+
+                        return `<svg width="100%" viewBox="0 0 ${W} ${H}" style="display:block;overflow:visible">
+                            <rect x="${PL}" y="${PT}" width="${cW}" height="${cH}" fill="rgba(0,0,0,0.25)" rx="3"/>
+                            ${grid}${xAxis}
+                            <path d="${areaD}" fill="#fb923c" opacity="0.1"/>
+                            ${segs}
+                        </svg>`;
+                    }
+
+                    return `<div style="padding:6px 8px;color:white">
+                        ${svgChart({title:'Temperature & Dewpoint',subtitle:unitT,
+                            series:[
+                                {values:tempVals,color:'#f87171',fill:true},
+                                {values:dewVals, color:'#34d399',fill:false,dashed:true}
+                            ],
+                            yLo,yHi,yFmt:v=>`${v}°`,yTicks:tks})}
+                        <div style="display:flex;gap:14px;margin-top:5px;font-size:8px;opacity:0.6;font-family:monospace">
+                            <span><span style="display:inline-block;width:14px;height:2px;background:#f87171;vertical-align:middle;margin-right:3px;border-radius:1px"></span>Temp</span>
+                            <span><span style="display:inline-block;width:14px;height:1px;background:#34d399;vertical-align:middle;margin-right:3px;border-top:2px dashed #34d399"></span>Dewpoint</span>
+                        </div>
+                        <div style="margin-top:12px">
+                            <div style="font-size:9px;font-weight:700;text-transform:uppercase;opacity:0.5;letter-spacing:0.06em;margin-bottom:2px">Temp–Dew Spread <span style="font-weight:400">${unitT} — approaches 0 = fog/precip risk</span></div>
+                            ${buildSpreadPath(obs, spreadC, spreadDisp)}
+                            <div style="display:flex;gap:10px;margin-top:4px;font-size:7px;font-family:monospace">
+                                <span><span style="display:inline-block;width:10px;height:2px;background:#fde047;vertical-align:middle;margin-right:2px"></span><span style="opacity:0.6">&gt;2°C</span></span>
+                                <span><span style="display:inline-block;width:10px;height:2px;background:#fb923c;vertical-align:middle;margin-right:2px"></span><span style="opacity:0.6">≤2°C</span></span>
+                                <span><span style="display:inline-block;width:10px;height:2px;background:#f87171;vertical-align:middle;margin-right:2px"></span><span style="opacity:0.6">≤1°C — near saturation</span></span>
+                            </div>
+                        </div>
+                    </div>`;
+                }
+
+                function renderWind() {
+                    const spdVals = obs.map(o=>o.sknt);
+                    const gustVals= obs.map(o=>o.gust);
+                    const maxSpd  = Math.max(...[...spdVals,...gustVals].filter(v=>v!==null),0);
+                    const wTicks  = [0,10,20,30,40,50].filter(v=>v<=maxSpd+10);
+
+                    return `<div style="padding:6px 8px;color:white">
+                        ${svgChart({title:'Wind Speed',subtitle:'kt',
+                            series:[
+                                {values:gustVals,color:'#f87171',fill:false,dashed:true},
+                                {values:spdVals, color:'#6ee7b7',fill:true}
+                            ],
+                            yLo:0,yTicks:wTicks,yFmt:v=>`${v}`})}
+                        <div style="display:flex;gap:14px;margin-top:5px;font-size:8px;opacity:0.6;font-family:monospace">
+                            <span><span style="display:inline-block;width:14px;height:2px;background:#6ee7b7;vertical-align:middle;margin-right:3px;border-radius:1px"></span>Speed</span>
+                            <span><span style="display:inline-block;width:14px;height:1px;background:#f87171;vertical-align:middle;margin-right:3px;border-top:2px dashed #f87171"></span>Gust</span>
+                        </div>
+                        <div style="margin-top:10px">
+                        ${svgChart({title:'Wind Direction',subtitle:'°',
+                            series:[{values:obs.map(o=>o.drct),color:'#a78bfa',fill:false}],
+                            yLo:0,yHi:360,yTicks:[0,90,180,270,360],yFmt:v=>['N','E','S','W','N'][v/90]||`${v}°`})}
+                        </div>
+                    </div>`;
+                }
+
+                function renderVis() {
+                    const visVals = obs.map(o=>toVis(o.vsby));
+                    const maxVis  = Math.max(...visVals.filter(v=>v!==null),0);
+
+                    return `<div style="padding:6px 8px;color:white">
+                        ${svgChart({title:'Visibility',subtitle:unitV,
+                            series:[{values:visVals,color:'#60a5fa',fill:true}],
+                            yLo:0,yTicks:visTicks.filter(v=>v<=maxVis+2),yFmt:v=>`${v}`})}
+                        <div style="margin-top:8px;display:flex;gap:8px;font-size:7px;font-family:monospace;flex-wrap:wrap">
+                            ${[['≤1','#f472b6','LIFR'],['≤3','#f87171','IFR'],['<5','#fb923c','MVFR'],['≥5','#6ee7b7','VFR']].map(([v,c,l])=>
+                                `<span style="display:flex;align-items:center;gap:3px"><span style="width:8px;height:8px;background:${c};border-radius:2px;display:inline-block"></span><span style="opacity:0.6">${v} ${unitV} = ${l}</span></span>`
+                            ).join('')}
+                        </div>
+                    </div>`;
+                }
+
+                function renderPres() {
+                    const altVals = obs.map(o=>toAlt(o.alti));
+                    return `<div style="padding:6px 8px;color:white">
+                        ${svgChart({title:'Altimeter / QNH',subtitle:unitP,
+                            series:[{values:altVals,color:'#a78bfa',fill:true}],
+                            yTicks:altTicks,yFmt:v=>useHpa?`${v}`:`${v.toFixed(2)}`})}
+                    </div>`;
+                }
+
+                function renderCat() {
+                    // Timeline: chart area + space below for labels, no SVG overflow clipping
+                    const W=300, TH=36, PL=38, PR=6;
+                    const cW=W-PL-PR;
+                    const tMin=obs[0].t, tMax=obs[obs.length-1].t, tSpan=tMax-tMin||1;
+                    const xS=t=>PL+(t-tMin)/tSpan*cW;
+
+                    let blocks='';
+                    for(let i=0;i<obs.length;i++){
+                        const c=obs[i].cat; if(!c) continue;
+                        const x1=xS(obs[i].t);
+                        const x2=i+1<obs.length?xS(obs[i+1].t):W-PR;
+                        blocks+=`<rect x="${x1.toFixed(1)}" y="0" width="${Math.max(0.5,x2-x1).toFixed(1)}" height="${TH}" fill="${catCol(c)}" opacity="0.9"/>`;
+                    }
+
+                    // x-axis labels rendered as HTML divs below SVG, not inside it
+                    const xLabelDivs=[];
+                    for(let h=0;h<=72;h+=12){
+                        const tl=new Date(tMin.getTime()+h*3600000);
+                        const xPct=((xS(tl)-PL)/cW*100).toFixed(1);
+                        if(+xPct<0||+xPct>100) continue;
+                        const lbl=`${String(tl.getUTCDate()).padStart(2,'0')}/${String(tl.getUTCHours()).padStart(2,'0')}Z`;
+                        xLabelDivs.push(`<span style="position:absolute;left:${xPct}%;transform:translateX(-50%);font-size:6px;white-space:nowrap;opacity:0.5;font-family:monospace">${lbl}</span>`);
+                    }
+
+                    const timeline=`
+                        <svg width="100%" viewBox="0 0 ${W} ${TH}" style="display:block;border-radius:4px">
+                            <rect x="${PL}" y="0" width="${cW}" height="${TH}" fill="rgba(0,0,0,0.3)"/>
+                            ${blocks}
+                        </svg>
+                        <div style="position:relative;height:14px;margin-left:${PL/W*100}%;margin-right:${PR/W*100}%">
+                            ${xLabelDivs.join('')}
+                        </div>`;
+
+                    // distribution bars
+                    const counts={VFR:0,MVFR:0,IFR:0,LIFR:0};
+                    obs.forEach(o=>{ const k=o.cat; if(k&&counts[k]!==undefined) counts[k]++; });
+                    const total=Object.values(counts).reduce((a,b)=>a+b,0)||1;
+                    const barH=16;
+                    let barSvg=`<svg width="100%" viewBox="0 0 300 ${Object.keys(counts).length*(barH+5)+4}" style="display:block;margin-top:6px">`;
+                    Object.entries(counts).forEach(([cat,n],i)=>{
+                        const y=4+i*(barH+5);
+                        const w=(n/total)*240;
+                        const pct=Math.round(n/total*100);
+                        barSvg+=`<text x="36" y="${y+11}" text-anchor="end" font-size="8" fill="rgba(255,255,255,0.65)" font-family="monospace" font-weight="700">${cat}</text>`;
+                        barSvg+=`<rect x="40" y="${y}" width="${Math.max(w,1).toFixed(1)}" height="${barH}" fill="${catCol(cat)}" rx="2" opacity="0.85"/>`;
+                        barSvg+=`<text x="${(42+w).toFixed(1)}" y="${y+11}" font-size="8" fill="rgba(255,255,255,0.55)" font-family="monospace">${n} obs (${pct}%)</text>`;
+                    });
+                    barSvg+='</svg>';
+
+                    return `<div style="padding:6px 8px;color:white">
+                        <div style="font-size:9px;font-weight:800;text-transform:uppercase;opacity:0.5;letter-spacing:0.06em;margin-bottom:5px">Flight Category — 72hr Timeline</div>
+                        ${timeline}
+                        <div style="font-size:9px;font-weight:800;text-transform:uppercase;opacity:0.5;letter-spacing:0.06em;margin:10px 0 2px">Distribution</div>
+                        ${barSvg}
+                        <div style="display:flex;gap:10px;margin-top:6px;font-size:7px;font-family:monospace;flex-wrap:wrap">
+                            ${['VFR','MVFR','IFR','LIFR'].map(c=>`<span style="display:inline-flex;align-items:center;gap:3px"><span style="width:8px;height:8px;background:${catCol(c)};border-radius:2px;flex-shrink:0"></span><span style="opacity:0.65">${c}</span></span>`).join('')}
+                        </div>
+                    </div>`;
+                }
+
+                // ── tab buttons ───────────────────────────────────────────────────
+                let activeView = 'table';
+                if(btnBar){
+                    btnBar.style.cssText = 'display:flex;gap:3px;flex-wrap:wrap';
+                    btnBar.innerHTML = views.map(v=>`<button
+                        data-hview="${v.id}"
+                        onclick="(function(b){
+                            const bar=b.closest('#historyPanel').querySelector('#historyViewBtns');
+                            bar.querySelectorAll('[data-hview]').forEach(x=>{
+                                const on=x.dataset.hview===b.dataset.hview;
+                                x.style.background=on?'rgba(255,255,255,0.22)':'rgba(255,255,255,0.06)';
+                                x.style.opacity=on?'1':'0.55';
+                                x.style.fontWeight=on?'700':'400';
+                            });
+                            document.getElementById('historyContent').innerHTML=window._histRenders[b.dataset.hview]();
+                        })(this)"
+                        style="font-size:9px;padding:2px 7px;border-radius:20px;border:none;cursor:pointer;color:white;transition:all 0.15s;font-family:inherit;background:rgba(255,255,255,0.06);opacity:0.55;white-space:nowrap">
+                        ${v.label}
+                    </button>`).join('');
+
+                    // activate default
+                    const firstBtn=btnBar.querySelector('[data-hview="table"]');
+                    if(firstBtn){firstBtn.style.background='rgba(255,255,255,0.22)';firstBtn.style.opacity='1';firstBtn.style.fontWeight='700';}
+                }
+
+                window._histRenders = { table:renderTable, temp:renderTemp, wind:renderWind, vis:renderVis, pres:renderPres, cat:renderCat };
+                contentEl.innerHTML = renderTable();
+
+            } catch(err) {
+                contentEl.innerHTML = `<p style="font-size:11px;color:#f87171;padding:12px">Failed to load history: ${err.message}</p>`;
             }
         }
+
 
         // [UPDATED] Helper for Map Popups - Ensures data exists before opening
         async function openMapDetail(icao) {
