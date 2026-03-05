@@ -932,6 +932,10 @@ document.addEventListener('DOMContentLoaded', () => {
         <p class="text-sm md:text-base text-gray-600 dark:text-gray-400 mt-2 px-4">
             Generates a report of current METARs and TAFs. Warning: this app should be considered experimental--use at your own risk!
         </p>
+
+        <p class="text-[10px] md:text-xs text-gray-400 dark:text-gray-500 mt-2 px-4 max-w-2xl mx-auto leading-tight">
+            <strong>Notice of Non-Affiliation:</strong> This application is an independent project. It is <strong>strictly NOT</strong> affiliated, associated, authorized, endorsed by, or in any way connected with the AVWX REST API or its creators.
+        </p>
         <!-- Dropdown Legend Container -->
         <div class="relative inline-block text-left mt-4" id="legendDropdownContainer">
             <button type="button" onclick="toggleLegendDropdown()" class="inline-flex justify-center items-center rounded-full border border-gray-300 dark:border-gray-700 shadow-sm px-4 py-1.5 bg-white dark:bg-gray-800 text-xs font-bold text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 focus:outline-none transition-colors">
@@ -1382,7 +1386,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         <script>
             // --- APP CONFIG ---
-            const CURRENT_VERSION = 'v2.7.4'; // Incremented Version
+            const CURRENT_VERSION = 'v2.7.6'; // Incremented Version
             const GITHUB_REPO = 'Unpiloted0852/AvWx';
 
             // Global Data Storage for Modal Access
@@ -6912,7 +6916,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         <div>
                             <h2 class="text-6xl font-black font-mono tracking-tighter drop-shadow-lg leading-none">${icao}</h2>
                            <p class="text-lg font-bold opacity-80 uppercase truncate max-w-[200px] sm:max-w-md">${station.name || ''}</p>
-        ${(() => { const events = getUpcomingSunEvents(station.latitude, station.longitude); return events.length ? `<div class="text-xs font-mono text-amber-300 mt-1">${events.map(e => e.timeStr ? `${e.label}: ${e.timeStr}` : e.label).join(' &nbsp; ')}</div>` : ''; })()}
+        ${(() => { const events = getUpcomingSunEvents(station.latitude, station.longitude); return events.length ? `<div class="text-xs font-mono text-amber-300 mt-1 whitespace-nowrap">${events.map(e => e.timeStr ? `${e.label}: ${e.timeStr}` : e.label).join(' &nbsp; ')}</div>` : ''; })()}
                         </div>
                         <div class="flex gap-2">
                             <button onclick="jumpToMapFromModal('${icao}')" class="p-3 bg-blue-600 hover:bg-blue-500 rounded-full transition-colors shadow-lg z-50 text-white" title="View on Map">
