@@ -1385,7 +1385,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         <script>
             // --- APP CONFIG ---
-            const CURRENT_VERSION = 'v2.8.1'; // Incremented Version
+            const CURRENT_VERSION = 'v2.8.2'; // Incremented Version
             const GITHUB_REPO = 'Unpiloted0852/AvWx';
 
             // Global Data Storage for Modal Access
@@ -2808,9 +2808,17 @@ document.addEventListener('DOMContentLoaded', () => {
                         radarLayer = L.tileLayer(`${host}/v2/radar/${time}/256/{z}/{x}/{y}/2/1_1.png`, {
                             pane: 'radarPane',
                             opacity: 0.8,
-                            maxZoom: 10,
+                            maxNativeZoom: 10,
+                            maxZoom: 19,
                             attribution: '&copy; <a href="https://www.rainviewer.com">RainViewer</a>'
                         });
+
+                        // Hard-cap z at 10 so RainViewer never receives a request
+                        // for an unsupported zoom level (which returns an error tile image)
+                        radarLayer.getTileUrl = function(coords) {
+                            const cappedCoords = Object.assign({}, coords, { z: Math.min(coords.z, 10) });
+                            return L.TileLayer.prototype.getTileUrl.call(this, cappedCoords);
+                        };
 
                         radarLayer.addTo(mapInstance);
 
@@ -7099,7 +7107,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
                 // ── SVG chart engine ──────────────────────────────────────────────
                 // Produces a smooth bezier line chart with gradient fill
-                function svgChart({ title, subtitle, series, yMin:forceYMin, yMax:forceYMax, yFmt, yTicks, barMode, catMode }) {
+                function svgChart({ title, subtitle, series, yMin:forceYMin, yMax:forceYMax, yFmt, tooltipFmt, yTicks, barMode, catMode, labels }) {
                     const W=300,H=160,PL=38,PR=6,PT=16,PB=22;
                     const cW=W-PL-PR, cH=H-PT-PB;
                     const tMin=obs[0].t, tMax=obs[obs.length-1].t;
@@ -7187,9 +7195,34 @@ document.addEventListener('DOMContentLoaded', () => {
                     const titleEl=`<text x="${PL}" y="${PT-4}" font-size="9" font-weight="700" fill="rgba(255,255,255,0.7)" font-family="sans-serif" text-transform="uppercase" letter-spacing="0.5">${title}</text>`;
                     const subEl=subtitle?`<text x="${W-PR}" y="${PT-4}" font-size="7" fill="rgba(255,255,255,0.35)" text-anchor="end" font-family="monospace">${subtitle}</text>`:'';
 
-                    return `<svg width="100%" viewBox="0 0 ${W} ${H}" style="display:block;overflow:visible">
+                    // ── Interactivity ─────────────────────────────────────────────
+                    const cid = 'hc' + (window._hcIdx = ((window._hcIdx||0)+1));
+                    if(!window._histCharts) window._histCharts = {};
+                    window._histCharts[cid] = {
+                        obs, series, PL, PR, PT, PB, W, H, cW, cH, yLo, yHi,
+                        yFmt: yFmt||(v=>String(v)),
+                        tooltipFmt: tooltipFmt||yFmt||(v=>String(v)),
+                        labels: labels||series.map((_,i)=>`S${i+1}`)
+                    };
+                    const ttH = series.length * 10 + 14;
+                    const ttW = 82;
+                    const crosshair = `
+                        <g id="${cid}-ch" style="display:none" pointer-events="none">
+                            <line id="${cid}-vl" x1="0" y1="${PT}" x2="0" y2="${H-PB}"
+                                  stroke="rgba(255,255,255,0.55)" stroke-width="1" stroke-dasharray="3,2"/>
+                            ${series.map((s,i)=>`<circle id="${cid}-d${i}" r="2.5" fill="${s.color}" stroke="rgba(0,0,0,0.6)" stroke-width="0.8"/>`).join('')}
+                            <rect id="${cid}-tb" width="${ttW}" height="${ttH}" rx="3"
+                                  fill="rgba(0,0,0,0.85)" stroke="rgba(255,255,255,0.15)" stroke-width="0.5"/>
+                            <text id="${cid}-t0" font-size="7" font-family="monospace" fill="rgba(255,255,255,0.5)" font-weight="600"></text>
+                            ${series.map((s,i)=>`<text id="${cid}-tv${i}" font-size="7.5" font-family="monospace" fill="${s.color}" font-weight="700"></text>`).join('')}
+                        </g>
+                        <rect id="${cid}-ov" x="${PL}" y="${PT}" width="${cW}" height="${cH}"
+                              fill="transparent" style="cursor:crosshair" data-chart="${cid}"/>`;
+
+                    return `<svg id="${cid}" width="100%" viewBox="0 0 ${W} ${H}" style="display:block;overflow:visible">
                         <rect x="${PL}" y="${PT}" width="${cW}" height="${cH}" fill="rgba(0,0,0,0.25)" rx="3"/>
                         ${titleEl}${subEl}${grid}${xAxis}${paths}
+                        ${crosshair}
                     </svg>`;
                 }
 
@@ -7241,6 +7274,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     // table-layout:fixed + overflow:hidden on each td = guaranteed no wrapping, no scroll.
                     // Proportions: Time 17%, Wind 21%, Vis 11%, Sky/Wx 27%, T/D 13%, Alt 11%
                     const tdBase = "font-family:monospace;font-size:8px;white-space:nowrap;overflow:hidden;padding:2px 4px;border-top:1px solid rgba(255,255,255,0.09)";
+                    const tdSky  = "font-family:monospace;font-size:8px;white-space:normal;word-break:break-word;padding:2px 4px;border-top:1px solid rgba(255,255,255,0.09);line-height:1.5";
                     const thBase = "font-family:monospace;font-size:8px;font-weight:800;text-transform:uppercase;opacity:0.45;letter-spacing:0.04em;padding:3px 4px;white-space:nowrap;overflow:hidden;background:rgba(255,255,255,0.1)";
 
                     let rows='';
@@ -7253,7 +7287,7 @@ document.addEventListener('DOMContentLoaded', () => {
                             <td style="${tdBase};opacity:0.55">${fmtTime(o.valid)}</td>
                             <td style="${tdBase}${wc?';color:'+wc:''}">${fmtWind(o)}</td>
                             <td style="${tdBase}${vc?';color:'+vc:''}">${fmtVc(o.vsby)}</td>
-                            <td style="${tdBase}">${sky}</td>
+                            <td style="${tdSky}">${sky}</td>
                             <td style="${tdBase}">${fmtTc(o.tmpc)}/${fmtTc(o.dwpc)}</td>
                             <td style="${tdBase};opacity:0.55">${fmtAc(o.alti)}</td>
                         </tr>`;
@@ -7354,7 +7388,8 @@ document.addEventListener('DOMContentLoaded', () => {
                                 {values:tempVals,color:'#f87171',fill:true},
                                 {values:dewVals, color:'#34d399',fill:false,dashed:true}
                             ],
-                            yLo,yHi,yFmt:v=>`${v}°`,yTicks:tks})}
+                            labels:['Temp','Dew'],
+                            yLo,yHi,yFmt:v=>`${v}°`,tooltipFmt:v=>`${v}${unitT}`,yTicks:tks})}
                         <div style="display:flex;gap:14px;margin-top:5px;font-size:8px;opacity:0.6;font-family:monospace">
                             <span><span style="display:inline-block;width:14px;height:2px;background:#f87171;vertical-align:middle;margin-right:3px;border-radius:1px"></span>Temp</span>
                             <span><span style="display:inline-block;width:14px;height:1px;background:#34d399;vertical-align:middle;margin-right:3px;border-top:2px dashed #34d399"></span>Dewpoint</span>
@@ -7383,7 +7418,8 @@ document.addEventListener('DOMContentLoaded', () => {
                                 {values:gustVals,color:'#f87171',fill:false,dashed:true},
                                 {values:spdVals, color:'#6ee7b7',fill:true}
                             ],
-                            yLo:0,yTicks:wTicks,yFmt:v=>`${v}`})}
+                            labels:['Gust','Spd'],
+                            yLo:0,yTicks:wTicks,yFmt:v=>`${v}kt`})}
                         <div style="display:flex;gap:14px;margin-top:5px;font-size:8px;opacity:0.6;font-family:monospace">
                             <span><span style="display:inline-block;width:14px;height:2px;background:#6ee7b7;vertical-align:middle;margin-right:3px;border-radius:1px"></span>Speed</span>
                             <span><span style="display:inline-block;width:14px;height:1px;background:#f87171;vertical-align:middle;margin-right:3px;border-top:2px dashed #f87171"></span>Gust</span>
@@ -7391,7 +7427,8 @@ document.addEventListener('DOMContentLoaded', () => {
                         <div style="margin-top:10px">
                         ${svgChart({title:'Wind Direction',subtitle:'°',
                             series:[{values:obs.map(o=>o.drct),color:'#a78bfa',fill:false}],
-                            yLo:0,yHi:360,yTicks:[0,90,180,270,360],yFmt:v=>['N','E','S','W','N'][v/90]||`${v}°`})}
+                            labels:['Dir'],
+                            yLo:0,yHi:360,yTicks:[0,90,180,270,360],yFmt:v=>['N','E','S','W','N'][v/90]||`${v}°`,tooltipFmt:v=>`${String(Math.round(v)).padStart(3,'0')}°`})}
                         </div>
                     </div>`;
                 }
@@ -7403,7 +7440,8 @@ document.addEventListener('DOMContentLoaded', () => {
                     return `<div style="padding:6px 8px;color:white">
                         ${svgChart({title:'Visibility',subtitle:unitV,
                             series:[{values:visVals,color:'#60a5fa',fill:true}],
-                            yLo:0,yTicks:visTicks.filter(v=>v<=maxVis+2),yFmt:v=>`${v}`})}
+                            labels:['Vis'],
+                            yLo:0,yTicks:visTicks.filter(v=>v<=maxVis+2),yFmt:v=>`${v}`,tooltipFmt:v=>`${v}${unitV}`})}
                         <div style="margin-top:8px;display:flex;gap:8px;font-size:7px;font-family:monospace;flex-wrap:wrap">
                             ${[['≤1','#f472b6','LIFR'],['≤3','#f87171','IFR'],['<5','#fb923c','MVFR'],['≥5','#6ee7b7','VFR']].map(([v,c,l])=>
                                 `<span style="display:flex;align-items:center;gap:3px"><span style="width:8px;height:8px;background:${c};border-radius:2px;display:inline-block"></span><span style="opacity:0.6">${v} ${unitV} = ${l}</span></span>`
@@ -7417,7 +7455,8 @@ document.addEventListener('DOMContentLoaded', () => {
                     return `<div style="padding:6px 8px;color:white">
                         ${svgChart({title:'Altimeter / QNH',subtitle:unitP,
                             series:[{values:altVals,color:'#a78bfa',fill:true}],
-                            yTicks:altTicks,yFmt:v=>useHpa?`${v}`:`${v.toFixed(2)}`})}
+                            labels:['Alt'],
+                            yTicks:altTicks,yFmt:v=>useHpa?`${v}`:`${v.toFixed(2)}`,tooltipFmt:v=>useHpa?`${v}hPa`:`${v.toFixed(2)}inHg`})}
                     </div>`;
                 }
 
@@ -7446,13 +7485,23 @@ document.addEventListener('DOMContentLoaded', () => {
                         xLabelDivs.push(`<span style="position:absolute;left:${xPct}%;transform:translateX(-50%);font-size:6px;white-space:nowrap;opacity:0.5;font-family:monospace">${lbl}</span>`);
                     }
 
+                    // ── Interactive crosshair overlay ──────────────────────────────
+                    const catId = 'catTL';
+                    // store obs ref for the interactivity handler
+                    window._catObs = { obs, tMin, tMax, tSpan, W, TH, PL, PR, cW, xS, catCol, fmtSkyCell, fmtVc, fmtTc, unitV, unitT };
+
                     const timeline=`
-                        <svg width="100%" viewBox="0 0 ${W} ${TH}" style="display:block;border-radius:4px">
+                        <div style="position:relative" id="${catId}-wrap">
+                        <svg id="${catId}" width="100%" viewBox="0 0 ${W} ${TH}" style="display:block;border-radius:4px;cursor:crosshair">
                             <rect x="${PL}" y="0" width="${cW}" height="${TH}" fill="rgba(0,0,0,0.3)"/>
                             ${blocks}
+                            <line id="${catId}-vl" x1="${PL}" y1="0" x2="${PL}" y2="${TH}"
+                                  stroke="rgba(255,255,255,0.8)" stroke-width="1.5" stroke-dasharray="3,2" style="display:none" pointer-events="none"/>
                         </svg>
                         <div style="position:relative;height:14px;margin-left:${PL/W*100}%;margin-right:${PR/W*100}%">
                             ${xLabelDivs.join('')}
+                        </div>
+                        <div id="${catId}-tt" style="display:none;position:fixed;background:rgba(0,0,0,0.88);border:1px solid rgba(255,255,255,0.15);border-radius:4px;padding:4px 7px;font-family:monospace;font-size:8px;color:white;white-space:nowrap;pointer-events:none;z-index:9999"></div>
                         </div>`;
 
                     // distribution bars
@@ -7497,6 +7546,7 @@ document.addEventListener('DOMContentLoaded', () => {
                                 x.style.fontWeight=on?'700':'400';
                             });
                             document.getElementById('historyContent').innerHTML=window._histRenders[b.dataset.hview]();
+                            if(window._initCharts) window._initCharts();
                         })(this)"
                         style="font-size:9px;padding:2px 7px;border-radius:20px;border:none;cursor:pointer;color:white;transition:all 0.15s;font-family:inherit;background:rgba(255,255,255,0.06);opacity:0.55;white-space:nowrap">
                         ${v.label}
@@ -7508,6 +7558,174 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
 
                 window._histRenders = { table:renderTable, temp:renderTemp, wind:renderWind, vis:renderVis, pres:renderPres, cat:renderCat };
+
+                function initChartInteractivity() {
+                    // ── helper: convert clientX to nearest obs index ──────────────
+                    function findObs(clientX, rect, svgW, obs, PL, PR, cW) {
+                        const viewX = (clientX - rect.left) / rect.width * svgW;
+                        const cx = Math.max(PL, Math.min(svgW - PR, viewX));
+                        const tMin = obs[0].t.getTime(), tMax = obs[obs.length-1].t.getTime();
+                        const tSpan = tMax - tMin || 1;
+                        const targetT = tMin + ((cx - PL) / cW) * tSpan;
+                        let bestIdx = 0, bestDiff = Infinity;
+                        obs.forEach((o, i) => {
+                            const d = Math.abs(o.t.getTime() - targetT);
+                            if(d < bestDiff) { bestDiff = d; bestIdx = i; }
+                        });
+                        const o = obs[bestIdx];
+                        const snapX = PL + (o.t.getTime() - tMin) / tSpan * cW;
+                        return { idx: bestIdx, o, snapX };
+                    }
+
+                    function fmtTime(o) {
+                        return String(o.t.getUTCDate()).padStart(2,'0') + '/' +
+                               String(o.t.getUTCHours()).padStart(2,'0') +
+                               String(o.t.getUTCMinutes()).padStart(2,'0') + 'Z';
+                    }
+
+                    // ── Line charts ───────────────────────────────────────────────
+                    if(window._histCharts) {
+                        document.querySelectorAll('[data-chart]').forEach(overlay => {
+                            if(overlay._chartBound) return;  // don't double-attach
+                            overlay._chartBound = true;
+                            overlay.style.touchAction = 'none'; // prevent browser scroll hijack
+
+                            const cid = overlay.dataset.chart;
+                            const cd = window._histCharts[cid];
+                            if(!cd) return;
+                            const svgEl = document.getElementById(cid);
+                            if(!svgEl) return;
+
+                            // Cache all elements up front — no querySelector on every event
+                            const elCh  = svgEl.getElementById ? svgEl.getElementById(cid+'-ch')  : document.getElementById(cid+'-ch');
+                            const elVl  = document.getElementById(cid+'-vl');
+                            const elTb  = document.getElementById(cid+'-tb');
+                            const elT0  = document.getElementById(cid+'-t0');
+                            const elDots = cd.series.map((_,i) => document.getElementById(cid+'-d'+i));
+                            const elTvs  = cd.series.map((_,i) => document.getElementById(cid+'-tv'+i));
+
+                            const ttW = 82;
+
+                            let rafId = null;
+                            const show = (clientX) => {
+                                if(rafId) cancelAnimationFrame(rafId);
+                                rafId = requestAnimationFrame(() => {
+                                    const rect = svgEl.getBoundingClientRect();
+                                    if(!rect.width) return;
+                                    const { idx, o, snapX } = findObs(clientX, rect, cd.W, cd.obs, cd.PL, cd.PR, cd.cW);
+
+                                    elVl.setAttribute('x1', snapX.toFixed(1));
+                                    elVl.setAttribute('x2', snapX.toFixed(1));
+                                    elT0.textContent = fmtTime(o);
+
+                                    cd.series.forEach((s, i) => {
+                                        const val = s.values[idx];
+                                        if(val !== null && val !== undefined) {
+                                            const yPos = cd.PT + cd.cH - (val - cd.yLo) / (cd.yHi - cd.yLo) * cd.cH;
+                                            const cy = Math.max(cd.PT, Math.min(cd.PT + cd.cH, yPos));
+                                            elDots[i].setAttribute('cx', snapX.toFixed(1));
+                                            elDots[i].setAttribute('cy', cy.toFixed(1));
+                                            elDots[i].style.display = '';
+                                            elTvs[i].textContent = cd.labels[i] + ': ' + cd.tooltipFmt(val);
+                                        } else {
+                                            elDots[i].style.display = 'none';
+                                            elTvs[i].textContent = '';
+                                        }
+                                    });
+
+                                    const ttX = (snapX + 6 + ttW > cd.W - cd.PR) ? snapX - ttW - 6 : snapX + 6;
+                                    const ttY = cd.PT + 2;
+                                    elTb.setAttribute('x', ttX.toFixed(1));
+                                    elTb.setAttribute('y', ttY.toFixed(1));
+                                    elT0.setAttribute('x', (ttX + 4).toFixed(1));
+                                    elT0.setAttribute('y', (ttY + 9).toFixed(1));
+                                    cd.series.forEach((_, i) => {
+                                        elTvs[i].setAttribute('x', (ttX + 4).toFixed(1));
+                                        elTvs[i].setAttribute('y', (ttY + 9 + (i+1)*10).toFixed(1));
+                                    });
+
+                                    elCh.style.display = '';
+                                });
+                            };
+
+                            const hide = () => {
+                                if(rafId) { cancelAnimationFrame(rafId); rafId = null; }
+                                elCh.style.display = 'none';
+                            };
+
+                            overlay.addEventListener('pointermove', e => show(e.clientX));
+                            overlay.addEventListener('pointerleave', hide);
+                            overlay.addEventListener('pointercancel', hide);
+                        });
+                    }
+
+                    // ── Category timeline ─────────────────────────────────────────
+                    const catSvg = document.getElementById('catTL');
+                    const catTt  = document.getElementById('catTL-tt');
+                    const catVl  = document.getElementById('catTL-vl');
+                    if(catSvg && !catSvg._chartBound && catTt && window._catObs) {
+                        catSvg._chartBound = true;
+                        catSvg.style.touchAction = 'none';
+                        const cd = window._catObs;
+
+                        let rafId = null;
+                        const show = (clientX) => {
+                            if(rafId) cancelAnimationFrame(rafId);
+                            rafId = requestAnimationFrame(() => {
+                                const rect = catSvg.getBoundingClientRect();
+                                if(!rect.width) return;
+                                const { idx, o, snapX } = findObs(clientX, rect, cd.W, cd.obs, cd.PL, cd.PR, cd.cW);
+
+                                catVl.setAttribute('x1', snapX.toFixed(1));
+                                catVl.setAttribute('x2', snapX.toFixed(1));
+                                catVl.style.display = '';
+
+                                const cat = o.cat || '—';
+                                const col = cd.catCol(cat);
+                                const skyParts = [[o.skyc1,o.skyl1],[o.skyc2,o.skyl2],[o.skyc3,o.skyl3]]
+                                    .map(([c,b]) => cd.fmtSkyCell(c,b)).filter(Boolean);
+                                const skyStr = skyParts.length ? skyParts.join(' ') : 'CLR';
+                                const visStr = o.vsby != null ? cd.fmtVc(o.vsby) : '—';
+
+                                catTt.innerHTML =
+                                    `<span style="color:rgba(255,255,255,0.5)">${fmtTime(o)}</span>` +
+                                    ` <span style="color:${col};font-weight:800">${cat}</span>` +
+                                    `<br><span style="opacity:0.7">Sky: ${skyStr}</span>` +
+                                    `<br><span style="opacity:0.7">Vis: ${visStr}${o.wxcodes?' '+o.wxcodes:''}</span>`;
+
+                                // Position fixed tooltip above the bar in screen space
+                                const svgRect = catSvg.getBoundingClientRect();
+                                const xFrac = (snapX - cd.PL) / cd.cW;
+                                const screenX = svgRect.left + (snapX / cd.W) * svgRect.width;
+                                const screenTop = svgRect.top - 6; // just above the bar
+
+                                catTt.style.display = 'block';
+                                catTt.style.top  = 'auto';
+                                catTt.style.bottom = (window.innerHeight - screenTop) + 'px';
+                                catTt.style.transform = 'none';
+                                if(xFrac > 0.55) {
+                                    catTt.style.left  = 'auto';
+                                    catTt.style.right = (window.innerWidth - screenX) + 'px';
+                                } else {
+                                    catTt.style.right = 'auto';
+                                    catTt.style.left  = screenX + 'px';
+                                }
+                            });
+                        };
+
+                        const hide = () => {
+                            if(rafId) { cancelAnimationFrame(rafId); rafId = null; }
+                            catTt.style.display = 'none';
+                            catVl.style.display = 'none';
+                        };
+
+                        catSvg.addEventListener('pointermove', e => show(e.clientX));
+                        catSvg.addEventListener('pointerleave', hide);
+                        catSvg.addEventListener('pointercancel', hide);
+                    }
+                }
+                window._initCharts = initChartInteractivity;
+
                 contentEl.innerHTML = renderTable();
 
             } catch(err) {

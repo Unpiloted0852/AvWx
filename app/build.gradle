@@ -14,8 +14,8 @@ android {
         applicationId "com.example.AvWx"
         minSdk 21
         targetSdk 34
-        versionCode 65
-        versionName "2.8.1"
+        versionCode 66
+        versionName "2.8.2"
     }
 
     buildTypes {
