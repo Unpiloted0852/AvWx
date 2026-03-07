@@ -1385,7 +1385,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         <script>
             // --- APP CONFIG ---
-            const CURRENT_VERSION = 'v2.8.2'; // Incremented Version
+            const CURRENT_VERSION = 'v2.8.3'; // Incremented Version
             const GITHUB_REPO = 'Unpiloted0852/AvWx';
 
             // Global Data Storage for Modal Access
@@ -7217,9 +7217,9 @@ document.addEventListener('DOMContentLoaded', () => {
                             ${series.map((s,i)=>`<text id="${cid}-tv${i}" font-size="7.5" font-family="monospace" fill="${s.color}" font-weight="700"></text>`).join('')}
                         </g>
                         <rect id="${cid}-ov" x="${PL}" y="${PT}" width="${cW}" height="${cH}"
-                              fill="transparent" style="cursor:crosshair" data-chart="${cid}"/>`;
+                              fill="transparent" style="cursor:crosshair;touch-action:none;user-select:none;-webkit-user-select:none" data-chart="${cid}"/>`;
 
-                    return `<svg id="${cid}" width="100%" viewBox="0 0 ${W} ${H}" style="display:block;overflow:visible">
+                    return `<svg id="${cid}" width="100%" viewBox="0 0 ${W} ${H}" style="display:block;overflow:visible;touch-action:pan-y;user-select:none;-webkit-user-select:none;-webkit-touch-callout:none">
                         <rect x="${PL}" y="${PT}" width="${cW}" height="${cH}" fill="rgba(0,0,0,0.25)" rx="3"/>
                         ${titleEl}${subEl}${grid}${xAxis}${paths}
                         ${crosshair}
@@ -7442,11 +7442,6 @@ document.addEventListener('DOMContentLoaded', () => {
                             series:[{values:visVals,color:'#60a5fa',fill:true}],
                             labels:['Vis'],
                             yLo:0,yTicks:visTicks.filter(v=>v<=maxVis+2),yFmt:v=>`${v}`,tooltipFmt:v=>`${v}${unitV}`})}
-                        <div style="margin-top:8px;display:flex;gap:8px;font-size:7px;font-family:monospace;flex-wrap:wrap">
-                            ${[['≤1','#f472b6','LIFR'],['≤3','#f87171','IFR'],['<5','#fb923c','MVFR'],['≥5','#6ee7b7','VFR']].map(([v,c,l])=>
-                                `<span style="display:flex;align-items:center;gap:3px"><span style="width:8px;height:8px;background:${c};border-radius:2px;display:inline-block"></span><span style="opacity:0.6">${v} ${unitV} = ${l}</span></span>`
-                            ).join('')}
-                        </div>
                     </div>`;
                 }
 
@@ -7492,7 +7487,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
                     const timeline=`
                         <div style="position:relative" id="${catId}-wrap">
-                        <svg id="${catId}" width="100%" viewBox="0 0 ${W} ${TH}" style="display:block;border-radius:4px;cursor:crosshair">
+                        <svg id="${catId}" width="100%" viewBox="0 0 ${W} ${TH}" style="display:block;border-radius:4px;cursor:crosshair;touch-action:pan-y;user-select:none;-webkit-user-select:none;-webkit-touch-callout:none">
                             <rect x="${PL}" y="0" width="${cW}" height="${TH}" fill="rgba(0,0,0,0.3)"/>
                             ${blocks}
                             <line id="${catId}-vl" x1="${PL}" y1="0" x2="${PL}" y2="${TH}"
@@ -7560,7 +7555,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 window._histRenders = { table:renderTable, temp:renderTemp, wind:renderWind, vis:renderVis, pres:renderPres, cat:renderCat };
 
                 function initChartInteractivity() {
-                    // ── helper: convert clientX to nearest obs index ──────────────
+                    // ── shared helpers ────────────────────────────────────────────
                     function findObs(clientX, rect, svgW, obs, PL, PR, cW) {
                         const viewX = (clientX - rect.left) / rect.width * svgW;
                         const cx = Math.max(PL, Math.min(svgW - PR, viewX));
@@ -7583,12 +7578,19 @@ document.addEventListener('DOMContentLoaded', () => {
                                String(o.t.getUTCMinutes()).padStart(2,'0') + 'Z';
                     }
 
+                    function lockEl(el) {
+                        el.style.touchAction = 'pan-y';
+                        el.style.userSelect = 'none';
+                        el.style.webkitUserSelect = 'none';
+                        el.style.webkitTouchCallout = 'none';
+                    }
+
                     // ── Line charts ───────────────────────────────────────────────
                     if(window._histCharts) {
                         document.querySelectorAll('[data-chart]').forEach(overlay => {
-                            if(overlay._chartBound) return;  // don't double-attach
+                            if(overlay._chartBound) return;
                             overlay._chartBound = true;
-                            overlay.style.touchAction = 'none'; // prevent browser scroll hijack
+                            lockEl(overlay);
 
                             const cid = overlay.dataset.chart;
                             const cd = window._histCharts[cid];
@@ -7596,21 +7598,29 @@ document.addEventListener('DOMContentLoaded', () => {
                             const svgEl = document.getElementById(cid);
                             if(!svgEl) return;
 
-                            // Cache all elements up front — no querySelector on every event
-                            const elCh  = svgEl.getElementById ? svgEl.getElementById(cid+'-ch')  : document.getElementById(cid+'-ch');
-                            const elVl  = document.getElementById(cid+'-vl');
-                            const elTb  = document.getElementById(cid+'-tb');
-                            const elT0  = document.getElementById(cid+'-t0');
+                            // Cache all SVG elements once
+                            const elCh   = document.getElementById(cid+'-ch');
+                            const elVl   = document.getElementById(cid+'-vl');
+                            const elTb   = document.getElementById(cid+'-tb');
+                            const elT0   = document.getElementById(cid+'-t0');
                             const elDots = cd.series.map((_,i) => document.getElementById(cid+'-d'+i));
                             const elTvs  = cd.series.map((_,i) => document.getElementById(cid+'-tv'+i));
-
                             const ttW = 82;
 
+                            // Cache rect — only refresh on resize, not every event
+                            let cachedRect = null;
+                            const getRect = () => cachedRect || (cachedRect = svgEl.getBoundingClientRect());
+                            const invalidateRect = () => { cachedRect = null; };
+                            window.addEventListener('resize', invalidateRect, {passive:true});
+                            window.addEventListener('scroll', invalidateRect, {passive:true});
+
                             let rafId = null;
-                            const show = (clientX) => {
+                            let active = false;
+
+                            const update = (clientX) => {
                                 if(rafId) cancelAnimationFrame(rafId);
                                 rafId = requestAnimationFrame(() => {
-                                    const rect = svgEl.getBoundingClientRect();
+                                    const rect = getRect();
                                     if(!rect.width) return;
                                     const { idx, o, snapX } = findObs(clientX, rect, cd.W, cd.obs, cd.PL, cd.PR, cd.cW);
 
@@ -7643,19 +7653,41 @@ document.addEventListener('DOMContentLoaded', () => {
                                         elTvs[i].setAttribute('x', (ttX + 4).toFixed(1));
                                         elTvs[i].setAttribute('y', (ttY + 9 + (i+1)*10).toFixed(1));
                                     });
-
                                     elCh.style.display = '';
                                 });
                             };
 
                             const hide = () => {
+                                active = false;
                                 if(rafId) { cancelAnimationFrame(rafId); rafId = null; }
                                 elCh.style.display = 'none';
                             };
 
-                            overlay.addEventListener('pointermove', e => show(e.clientX));
-                            overlay.addEventListener('pointerleave', hide);
+                            // Track start position so we can distinguish horizontal (chart)
+                            // from vertical (page scroll) gestures before capturing the pointer
+                            let startX = 0, startY = 0, decided = false;
+
+                            overlay.addEventListener('pointerdown', e => {
+                                startX = e.clientX; startY = e.clientY;
+                                decided = false; active = false;
+                                invalidateRect();
+                            });
+                            overlay.addEventListener('pointermove', e => {
+                                if(e.pointerType === 'mouse') { update(e.clientX); return; }
+                                if(!decided) {
+                                    const dx = Math.abs(e.clientX - startX);
+                                    const dy = Math.abs(e.clientY - startY);
+                                    if(dx < 4 && dy < 4) return; // not enough movement yet
+                                    if(dy > dx) { decided = true; return; } // vertical — let browser scroll
+                                    // horizontal — claim the pointer and show crosshair
+                                    decided = true; active = true;
+                                    overlay.setPointerCapture(e.pointerId);
+                                }
+                                if(active) update(e.clientX);
+                            });
+                            overlay.addEventListener('pointerup',     hide);
                             overlay.addEventListener('pointercancel', hide);
+                            overlay.addEventListener('pointerleave',  e => { if(!active) hide(); });
                         });
                     }
 
@@ -7665,14 +7697,34 @@ document.addEventListener('DOMContentLoaded', () => {
                     const catVl  = document.getElementById('catTL-vl');
                     if(catSvg && !catSvg._chartBound && catTt && window._catObs) {
                         catSvg._chartBound = true;
-                        catSvg.style.touchAction = 'none';
+                        lockEl(catSvg);
                         const cd = window._catObs;
 
+                        // Pre-build tooltip child nodes — avoid innerHTML churn on every frame
+                        const ttTime = document.createElement('span');
+                        const ttCat  = document.createElement('span');
+                        ttCat.style.fontWeight = '800';
+                        const ttBr1  = document.createElement('br');
+                        const ttSky  = document.createElement('span');
+                        ttSky.style.opacity = '0.7';
+                        const ttBr2  = document.createElement('br');
+                        const ttVis  = document.createElement('span');
+                        ttVis.style.opacity = '0.7';
+                        catTt.append(ttTime, ' ', ttCat, ttBr1, ttSky, ttBr2, ttVis);
+
+                        let cachedRect = null;
+                        const getRect = () => cachedRect || (cachedRect = catSvg.getBoundingClientRect());
+                        const invalidateRect = () => { cachedRect = null; };
+                        window.addEventListener('resize', invalidateRect, {passive:true});
+                        window.addEventListener('scroll', invalidateRect, {passive:true});
+
                         let rafId = null;
-                        const show = (clientX) => {
+                        let active = false;
+
+                        const update = (clientX) => {
                             if(rafId) cancelAnimationFrame(rafId);
                             rafId = requestAnimationFrame(() => {
-                                const rect = catSvg.getBoundingClientRect();
+                                const rect = getRect();
                                 if(!rect.width) return;
                                 const { idx, o, snapX } = findObs(clientX, rect, cd.W, cd.obs, cd.PL, cd.PR, cd.cW);
 
@@ -7684,25 +7736,23 @@ document.addEventListener('DOMContentLoaded', () => {
                                 const col = cd.catCol(cat);
                                 const skyParts = [[o.skyc1,o.skyl1],[o.skyc2,o.skyl2],[o.skyc3,o.skyl3]]
                                     .map(([c,b]) => cd.fmtSkyCell(c,b)).filter(Boolean);
-                                const skyStr = skyParts.length ? skyParts.join(' ') : 'CLR';
-                                const visStr = o.vsby != null ? cd.fmtVc(o.vsby) : '—';
 
-                                catTt.innerHTML =
-                                    `<span style="color:rgba(255,255,255,0.5)">${fmtTime(o)}</span>` +
-                                    ` <span style="color:${col};font-weight:800">${cat}</span>` +
-                                    `<br><span style="opacity:0.7">Sky: ${skyStr}</span>` +
-                                    `<br><span style="opacity:0.7">Vis: ${visStr}${o.wxcodes?' '+o.wxcodes:''}</span>`;
+                                // Update pre-built nodes — no DOM churn
+                                ttTime.textContent = fmtTime(o);
+                                ttTime.style.color = 'rgba(255,255,255,0.5)';
+                                ttCat.textContent  = cat;
+                                ttCat.style.color  = col;
+                                ttSky.textContent  = 'Sky: ' + (skyParts.length ? skyParts.join(' ') : 'CLR');
+                                ttVis.textContent  = 'Vis: ' + (o.vsby != null ? cd.fmtVc(o.vsby) : '—') +
+                                                     (o.wxcodes ? ' ' + o.wxcodes : '');
 
-                                // Position fixed tooltip above the bar in screen space
-                                const svgRect = catSvg.getBoundingClientRect();
-                                const xFrac = (snapX - cd.PL) / cd.cW;
-                                const screenX = svgRect.left + (snapX / cd.W) * svgRect.width;
-                                const screenTop = svgRect.top - 6; // just above the bar
+                                const xFrac  = (snapX - cd.PL) / cd.cW;
+                                const screenX   = rect.left + (snapX / cd.W) * rect.width;
+                                const screenTop = rect.top - 6;
 
                                 catTt.style.display = 'block';
-                                catTt.style.top  = 'auto';
+                                catTt.style.top    = 'auto';
                                 catTt.style.bottom = (window.innerHeight - screenTop) + 'px';
-                                catTt.style.transform = 'none';
                                 if(xFrac > 0.55) {
                                     catTt.style.left  = 'auto';
                                     catTt.style.right = (window.innerWidth - screenX) + 'px';
@@ -7714,14 +7764,34 @@ document.addEventListener('DOMContentLoaded', () => {
                         };
 
                         const hide = () => {
+                            active = false;
                             if(rafId) { cancelAnimationFrame(rafId); rafId = null; }
                             catTt.style.display = 'none';
                             catVl.style.display = 'none';
                         };
 
-                        catSvg.addEventListener('pointermove', e => show(e.clientX));
-                        catSvg.addEventListener('pointerleave', hide);
+                        let startX = 0, startY = 0, decided = false;
+
+                        catSvg.addEventListener('pointerdown', e => {
+                            startX = e.clientX; startY = e.clientY;
+                            decided = false; active = false;
+                            invalidateRect();
+                        });
+                        catSvg.addEventListener('pointermove', e => {
+                            if(e.pointerType === 'mouse') { update(e.clientX); return; }
+                            if(!decided) {
+                                const dx = Math.abs(e.clientX - startX);
+                                const dy = Math.abs(e.clientY - startY);
+                                if(dx < 4 && dy < 4) return;
+                                if(dy > dx) { decided = true; return; }
+                                decided = true; active = true;
+                                catSvg.setPointerCapture(e.pointerId);
+                            }
+                            if(active) update(e.clientX);
+                        });
+                        catSvg.addEventListener('pointerup',     hide);
                         catSvg.addEventListener('pointercancel', hide);
+                        catSvg.addEventListener('pointerleave',  e => { if(!active) hide(); });
                     }
                 }
                 window._initCharts = initChartInteractivity;
