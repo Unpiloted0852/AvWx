@@ -1932,9 +1932,6 @@ document.addEventListener('DOMContentLoaded', () => {
         // Uses NTP-style multi-sample sync + performance.now() monotonic reference
         // so the display never drifts even if the JS event loop is busy.
 
-        let _clockEpoch = Date.now();       // best estimate of wall-clock UTC in ms
-        let _clockPerf  = performance.now(); // performance.now() value at that epoch
-        let _clockSynced = false;
         let _clockTickId = null;
 
         async function syncTime() {
@@ -1945,26 +1942,22 @@ document.addEventListener('DOMContentLoaded', () => {
 
             for (let i = 0; i < SAMPLES; i++) {
                 try {
-                    const t0 = performance.now();
+                    const t0 = Date.now();
                     const res = await fetch(
                         "https://worldtimeapi.org/api/timezone/Etc/UTC",
                         { cache: 'no-store' }
                     );
                     const data = await res.json();
-                    const t1 = performance.now();
+                    const t1 = Date.now();
                     const rtt = t1 - t0;
 
                     // Server timestamp is assumed to have been generated at t0 + rtt/2
                     const serverMs = new Date(data.utc_datetime).getTime();
-                    const localAtMidpoint = Date.now() - rtt / 2;
-                    const offset = serverMs - localAtMidpoint;
+                    const offset = serverMs - (t0 + rtt / 2);
 
                     if (rtt < bestRTT) {
                         bestRTT = rtt;
                         bestOffset = offset;
-                        // Update monotonic reference immediately with this better sample
-                        _clockEpoch = Date.now() + bestOffset;
-                        _clockPerf  = performance.now();
                     }
 
                     // Small gap between samples to avoid hammering the API
@@ -1975,23 +1968,21 @@ document.addEventListener('DOMContentLoaded', () => {
             }
 
             if (bestOffset !== null) {
-                timeOffset = bestOffset; // keep legacy variable in sync
-                _clockSynced = true;
-                console.log(`Zulu sync: best offset ${bestOffset.toFixed(1)}ms, RTT ${bestRTT.toFixed(1)}ms`);
+                timeOffset = bestOffset;
+                console.log(`Zulu sync: offset ${bestOffset.toFixed(1)}ms, best RTT ${bestRTT.toFixed(1)}ms`);
             } else {
                 console.warn("Time sync failed, using system clock");
-                _clockEpoch = Date.now();
-                _clockPerf  = performance.now();
+                timeOffset = 0;
             }
 
-            // Re-sync every 5 minutes to correct any drift
+            // Re-sync every 5 minutes
             setTimeout(syncTime, 5 * 60 * 1000);
         }
 
         function _nowAccurate() {
-            // Use performance.now() delta from the last sync epoch —
-            // this is monotonic and unaffected by system clock adjustments.
-            return _clockEpoch + (performance.now() - _clockPerf);
+            // Date.now() + NTP offset — simple and works correctly in both
+            // browsers and Android WebView (performance.now() is unreliable in WebView)
+            return Date.now() + timeOffset;
         }
 
         function updateZuluClock() {
@@ -2001,12 +1992,12 @@ document.addEventListener('DOMContentLoaded', () => {
             const s = String(now.getUTCSeconds()).padStart(2, '0');
             zuluClockEl.textContent = `${h}:${m}:${s}Z`;
 
-            // Schedule next tick to fire exactly at the next whole-second boundary
+            // Schedule next tick to land exactly on the next whole-second boundary
             const msUntilNext = 1000 - (_nowAccurate() % 1000);
             _clockTickId = setTimeout(updateZuluClock, msUntilNext);
         }
 
-            // Sync time on load, then start the clock
+            // Sync time on load, then restart the clock with the corrected offset
             syncTime().then(() => {
                 if(_clockTickId) clearTimeout(_clockTickId);
                 updateZuluClock();
