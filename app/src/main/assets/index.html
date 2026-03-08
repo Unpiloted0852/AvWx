@@ -392,9 +392,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
             /* --- 4. LAYER MENU ITEMS LIST --- */
             .layer-items {
-                display: flex;
-                flex-direction: column;
+                display: grid;
+                grid-template-columns: repeat(2, var(--btn-size));
                 gap: min(4px, 1vh);
+                justify-items: center;
                 transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
                 opacity: 0;
                 transform: translateY(-10px) scale(0.9);
@@ -402,7 +403,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 height: 0;
                 overflow: hidden;
                 margin-top: 2px;
-                max-height: calc(100vh - 12rem);
+                max-height: calc(100vh - 9rem);
                 overflow-y: auto;
                 padding-right: 2px;
             }
@@ -414,7 +415,9 @@ document.addEventListener('DOMContentLoaded', () => {
                 transform: translateY(0) scale(1);
                 pointer-events: auto;
                 height: auto;
-                overflow: visible;
+                display: grid;
+                overflow-y: auto;
+                max-height: calc(100vh - 9rem);
             }
 
             /* --- 5. LAYER BUTTONS --- */
@@ -438,6 +441,22 @@ document.addEventListener('DOMContentLoaded', () => {
             }
 
             .layer-btn:active { transform: scale(0.95); }
+
+            .chart-btn-row {
+                display: flex;
+                flex-direction: row;
+                gap: min(4px, 1vh);
+                grid-column: 1 / -1;   /* span both grid columns */
+                width: 100%;
+            }
+            /* Each chart button stretches to share the full row width */
+            .chart-btn-row .layer-btn {
+                flex: 1;
+                width: auto !important;
+                min-width: 0;
+                white-space: normal;
+                line-height: 1.1;
+            }
 
             .layer-btn svg { width: 60%; height: 60%; }
 
@@ -476,6 +495,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
 
                 .layer-items {
+                    grid-template-columns: repeat(2, 44px);
                     gap: 10px;
                     margin-top: 4px;
                     max-height: none;
@@ -505,6 +525,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
 
                 .layer-items {
+                    grid-template-columns: repeat(2, 44px);
                     gap: 10px;
                     margin-top: 4px;
                     max-height: none;
@@ -587,6 +608,21 @@ document.addEventListener('DOMContentLoaded', () => {
     /* Radar Active State */
     .radar-active {
         background-color: #3b82f6 !important;
+        color: white !important;
+    }
+
+    .ifrChart-active {
+        background-color: #7c3aed !important;
+        color: white !important;
+    }
+
+    .vfrChart-active {
+        background-color: #16a34a !important;
+        color: white !important;
+    }
+
+    .ifrLoChart-active {
+        background-color: #b45309 !important;
         color: white !important;
     }
 
@@ -1218,6 +1254,18 @@ document.addEventListener('DOMContentLoaded', () => {
                         </svg>
                     </button>
 
+                    <div class="chart-btn-row">
+                        <button id="vfrChartBtn" onclick="toggleVFRChart()" class="layer-btn bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center justify-center">
+                            <span class="font-black tracking-tighter leading-none" style="font-size:0.6rem">VFR</span>
+                        </button>
+                        <button id="ifrLoChartBtn" onclick="toggleIFRLoChart()" class="layer-btn bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center justify-center">
+                            <span class="font-black tracking-tighter leading-none" style="font-size:0.6rem">IFR<br>LO</span>
+                        </button>
+                        <button id="ifrChartBtn" onclick="toggleIFRChart()" class="layer-btn bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center justify-center">
+                            <span class="font-black tracking-tighter leading-none" style="font-size:0.6rem">IFR<br>HI</span>
+                        </button>
+                    </div>
+
                     <button id="freezingBtn" onclick="toggleFreezingLayer()" class="layer-btn bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 text-xl flex items-center justify-center">
                         🧊
                     </button>
@@ -1385,7 +1433,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         <script>
             // --- APP CONFIG ---
-            const CURRENT_VERSION = 'v2.8.3'; // Incremented Version
+            const CURRENT_VERSION = 'v2.8.4'; // Incremented Version
             const GITHUB_REPO = 'Unpiloted0852/AvWx';
 
             // Global Data Storage for Modal Access
@@ -1438,6 +1486,30 @@ document.addEventListener('DOMContentLoaded', () => {
 
             let radarLayer = null; // Radar Layer Global
             let radarRefreshInterval = null; // Store interval ID for radar
+            let ifrChartLayer = null; // SkyVector IFR High chart layer
+            let vfrChartLayer = null; // SkyVector VFR chart layer
+            let ifrLoLayer    = null; // SkyVector IFR Low chart layer
+
+            // Compute the current AIRAC cycle string (e.g. "2602") from known year-start dates.
+            // AIRAC cycles are 28 days each; the first cycle of each year starts on a Thursday
+            // in late January. Covers through 2028 — update yearStarts table annually if needed.
+            function getAIRACCycle() {
+                const CYCLE_MS = 28 * 24 * 60 * 60 * 1000;
+                const yearStarts = {
+                    2024: Date.UTC(2024, 0, 25),
+                    2025: Date.UTC(2025, 0, 23),
+                    2026: Date.UTC(2026, 0, 22),
+                    2027: Date.UTC(2027, 0, 21),
+                    2028: Date.UTC(2028, 0, 20),
+                };
+                const now = Date.now();
+                let bestYear = 2024;
+                for (const [y, start] of Object.entries(yearStarts)) {
+                    if (now >= Number(start)) bestYear = parseInt(y);
+                }
+                const cycleNum = Math.floor((now - yearStarts[bestYear]) / CYCLE_MS) + 1;
+                return String(bestYear).slice(2) + String(cycleNum).padStart(2, '0');
+            }
 
         // Global Hazards Interval
         let hazardsRefreshInterval = null;
@@ -1935,8 +2007,10 @@ document.addEventListener('DOMContentLoaded', () => {
         let _clockTickId = null;
 
         async function syncTime() {
-            // Take several samples and keep the one with the lowest RTT,
-            // which minimises uncertainty about when the server timestamp was generated.
+            // Take several samples and keep the one with the lowest RTT.
+            // We cross-check the JSON body timestamp against the HTTP Date header —
+            // the HTTP Date header is set at the network layer so it's immune to
+            // Android WebView's fetch overhead inflating our RTT estimate.
             const SAMPLES = 5;
             let bestOffset = null, bestRTT = Infinity;
 
@@ -1947,20 +2021,34 @@ document.addEventListener('DOMContentLoaded', () => {
                         "https://worldtimeapi.org/api/timezone/Etc/UTC",
                         { cache: 'no-store' }
                     );
-                    const data = await res.json();
                     const t1 = Date.now();
                     const rtt = t1 - t0;
+                    const data = await res.json();
 
-                    // Server timestamp is assumed to have been generated at t0 + rtt/2
-                    const serverMs = new Date(data.utc_datetime).getTime();
-                    const offset = serverMs - (t0 + rtt / 2);
+                    // Primary: JSON body has millisecond precision
+                    const bodyMs = new Date(data.utc_datetime).getTime();
+                    const bodyOffset = bodyMs - (t0 + rtt / 2);
+
+                    // Cross-check: HTTP Date header is whole-second but set at network layer —
+                    // unaffected by WebView application overhead
+                    const httpDateStr = res.headers.get('Date');
+                    let offset = bodyOffset;
+                    if (httpDateStr) {
+                        const httpMs = new Date(httpDateStr).getTime();
+                        // If the two sources agree within 600ms, trust the body (ms precision).
+                        // If they disagree by more, the body RTT estimate is likely wrong
+                        // (WebView overhead) — use the HTTP header instead.
+                        if (Math.abs(bodyOffset - (httpMs - Date.now())) > 600) {
+                            offset = httpMs - Date.now();
+                            console.log('Zulu: using HTTP Date header (WebView overhead detected)');
+                        }
+                    }
 
                     if (rtt < bestRTT) {
                         bestRTT = rtt;
                         bestOffset = offset;
                     }
 
-                    // Small gap between samples to avoid hammering the API
                     if (i < SAMPLES - 1) await new Promise(r => setTimeout(r, 200));
                 } catch(e) {
                     // individual sample failed, continue
@@ -1978,6 +2066,17 @@ document.addEventListener('DOMContentLoaded', () => {
             // Re-sync every 5 minutes
             setTimeout(syncTime, 5 * 60 * 1000);
         }
+
+        // Re-sync whenever the app comes back to the foreground —
+        // WebView suspends timers when backgrounded so the clock can go stale
+        document.addEventListener('visibilitychange', () => {
+            if (document.visibilityState === 'visible') {
+                syncTime().then(() => {
+                    if (_clockTickId) clearTimeout(_clockTickId);
+                    updateZuluClock();
+                });
+            }
+        });
 
         function _nowAccurate() {
             // Date.now() + NTP offset — simple and works correctly in both
@@ -2526,6 +2625,18 @@ document.addEventListener('DOMContentLoaded', () => {
                 mapInstance.getPane('dayNightPane').style.zIndex = 225;
                 mapInstance.getPane('dayNightPane').style.pointerEvents = 'none';
 
+                mapInstance.createPane('vfrChartPane');
+                mapInstance.getPane('vfrChartPane').style.zIndex = 215;
+                mapInstance.getPane('vfrChartPane').style.pointerEvents = 'none';
+
+                mapInstance.createPane('ifrLoChartPane');
+                mapInstance.getPane('ifrLoChartPane').style.zIndex = 218;
+                mapInstance.getPane('ifrLoChartPane').style.pointerEvents = 'none';
+
+                mapInstance.createPane('ifrChartPane');
+                mapInstance.getPane('ifrChartPane').style.zIndex = 220;
+                mapInstance.getPane('ifrChartPane').style.pointerEvents = 'none';
+
                 mapInstance.createPane('radarPane');
                 mapInstance.getPane('radarPane').style.zIndex = 250;
                 mapInstance.getPane('radarPane').style.pointerEvents = 'none';
@@ -2821,53 +2932,77 @@ document.addEventListener('DOMContentLoaded', () => {
 
 
             // --- RADAR LOGIC ---
-            async function updateRadarLayer() {
+            // ── Radar: NOAA/IEM NEXRAD (US/Canada only) ─────────────────────────────
+
+            function updateRadarLayer() {
                 const timeDisplay = document.getElementById('radarTimeDisplay');
 
-                try {
-                    // 1. Fetch latest timestamp from RainViewer DIRECTLY
-                    const res = await fetch('https://api.rainviewer.com/public/weather-maps.json');
-                    const data = await res.json();
-
-                    if (data && data.radar && data.radar.past && data.radar.past.length > 0) {
-                        const lastFrame = data.radar.past[data.radar.past.length - 1];
-                        const time = lastFrame.time;
-                        const host = data.host;
-
-                        // Reverting to classic method: Remove old, add new.
-                        // This is robust against event listener failures.
-                        if (radarLayer) {
-                            mapInstance.removeLayer(radarLayer);
-                        }
-
-                        radarLayer = L.tileLayer(`${host}/v2/radar/${time}/256/{z}/{x}/{y}/2/1_1.png`, {
-                            pane: 'radarPane',
-                            opacity: 0.8,
-                            maxNativeZoom: 10,
-                            maxZoom: 19,
-                            attribution: '&copy; <a href="https://www.rainviewer.com">RainViewer</a>'
-                        });
-
-                        // Hard-cap z at 10 so RainViewer never receives a request
-                        // for an unsupported zoom level (which returns an error tile image)
-                        radarLayer.getTileUrl = function(coords) {
-                            const cappedCoords = Object.assign({}, coords, { z: Math.min(coords.z, 10) });
-                            return L.TileLayer.prototype.getTileUrl.call(this, cappedCoords);
-                        };
-
-                        radarLayer.addTo(mapInstance);
-
-                        // 3. Update Timestamp
-                        const date = new Date(time * 1000);
-                        const h = String(date.getUTCHours()).padStart(2, '0');
-                        const m = String(date.getUTCMinutes()).padStart(2, '0');
-                        timeDisplay.textContent = `Radar: ${h}:${m}Z`;
-                        timeDisplay.style.display = 'block';
-                    }
-                } catch (err) {
-                    console.error("Radar update failed", err);
-                    timeDisplay.textContent = "Radar Error";
+                if (radarLayer) {
+                    mapInstance.removeLayer(radarLayer);
+                    radarLayer = null;
                 }
+                timeDisplay.style.display = 'none';
+
+                const { lat, lng } = mapInstance.getCenter();
+                const inUSCanada = lat >= 14 && lat <= 84 && lng >= -170 && lng <= -50;
+                if (!inUSCanada) return;
+
+                // NOAA Hi-Res NEXRAD composite via Iowa State IEM — no key, zoom 0-14
+                const ts = Math.floor(Date.now() / 120000);
+                radarLayer = L.tileLayer(
+                    `https://mesonet.agron.iastate.edu/cache/tile.py/1.0.0/nexrad-n0q-900913/{z}/{x}/{y}.png?_=${ts}`,
+                    { pane: 'radarPane', opacity: 0.8, maxNativeZoom: 14, maxZoom: 19,
+                      attribution: '&copy; NOAA / <a href="https://mesonet.agron.iastate.edu">Iowa State IEM</a>' }
+                );
+                radarLayer.addTo(mapInstance);
+            }
+
+            function _clearChartLayers() {
+                if (ifrLoLayer)    { mapInstance.removeLayer(ifrLoLayer);    ifrLoLayer    = null; document.getElementById('ifrLoChartBtn').classList.remove('ifrLoChart-active'); }
+                if (vfrChartLayer) { mapInstance.removeLayer(vfrChartLayer); vfrChartLayer = null; document.getElementById('vfrChartBtn').classList.remove('vfrChart-active'); }
+                if (ifrChartLayer) { mapInstance.removeLayer(ifrChartLayer); ifrChartLayer = null; document.getElementById('ifrChartBtn').classList.remove('ifrChart-active'); }
+            }
+
+            function toggleIFRLoChart() {
+                const wasOn = !!ifrLoLayer;
+                _clearChartLayers();
+                if (!wasOn) {
+                    ifrLoLayer = L.tileLayer(
+                        `https://t.skyvector.com/B7ChdT9SrWMDV8fe/lo/${getAIRACCycle()}/{z}/{x}/{y}.jpg`,
+                        { pane: 'ifrLoChartPane', opacity: 0.9, maxNativeZoom: 11, maxZoom: 19, attribution: '&copy; <a href="https://skyvector.com">SkyVector</a>' }
+                    );
+                    ifrLoLayer.addTo(mapInstance);
+                    document.getElementById('ifrLoChartBtn').classList.add('ifrLoChart-active');
+                }
+                updateLayerActiveState();
+            }
+
+            function toggleVFRChart() {
+                const wasOn = !!vfrChartLayer;
+                _clearChartLayers();
+                if (!wasOn) {
+                    vfrChartLayer = L.tileLayer(
+                        `https://t.skyvector.com/B7ChdT9SrWMDV8fe/vfr/${getAIRACCycle()}/{z}/{x}/{y}.jpg`,
+                        { pane: 'vfrChartPane', opacity: 0.9, maxNativeZoom: 11, maxZoom: 19, attribution: '&copy; <a href="https://skyvector.com">SkyVector</a>' }
+                    );
+                    vfrChartLayer.addTo(mapInstance);
+                    document.getElementById('vfrChartBtn').classList.add('vfrChart-active');
+                }
+                updateLayerActiveState();
+            }
+
+            function toggleIFRChart() {
+                const wasOn = !!ifrChartLayer;
+                _clearChartLayers();
+                if (!wasOn) {
+                    ifrChartLayer = L.tileLayer(
+                        `https://t.skyvector.com/B7ChdT9SrWMDV8fe/hi/${getAIRACCycle()}/{z}/{x}/{y}.jpg`,
+                        { pane: 'ifrChartPane', opacity: 0.9, maxNativeZoom: 11, maxZoom: 19, attribution: '&copy; <a href="https://skyvector.com">SkyVector</a>' }
+                    );
+                    ifrChartLayer.addTo(mapInstance);
+                    document.getElementById('ifrChartBtn').classList.add('ifrChart-active');
+                }
+                updateLayerActiveState();
             }
 
             function toggleRadar() {
@@ -2891,13 +3026,13 @@ document.addEventListener('DOMContentLoaded', () => {
                     timeDisplay.textContent = 'Loading Radar...';
                     timeDisplay.style.display = 'block';
 
-                    // Initial Load
-                    updateRadarLayer();
+                    // Set interval first so updateRadarLayer doesn't guard-return
+                    radarRefreshInterval = setInterval(() => updateRadarLayer(), 300000);
 
-                    // Set Auto-Refresh (every 5 minutes)
-                    radarRefreshInterval = setInterval(updateRadarLayer, 300000);
+                    // Initial load
+                    updateRadarLayer();
                 }
-                updateLayerActiveState(); // New logic
+                updateLayerActiveState();
             }
 
         async function updateHazardsLayer() {
@@ -7008,13 +7143,17 @@ document.addEventListener('DOMContentLoaded', () => {
 
                     <!-- Text Data -->
                     <div class="space-y-4">
+                        <div id="datisSection" class="bg-black/20 p-4 rounded-xl" style="display:none">
+                            <h3 class="text-[10px] font-black uppercase tracking-widest opacity-60 mb-2">D-ATIS</h3>
+                            <div id="datisContent"><p class="italic opacity-40 text-xs">Loading…</p></div>
+                        </div>
                         <div class="bg-black/20 p-4 rounded-xl">
                             <h3 class="text-[10px] font-black uppercase tracking-widest opacity-60 mb-2">METAR</h3>
                             <div class="font-mono text-sm leading-relaxed">
                                 ${station.metar ? formatRawText(station.metar.rawText) : '<p class="italic opacity-40">No data</p>'}
                             </div>
                         </div>
-                        <div class="bg-black/20 p-4 rounded-xl">
+        <div class="bg-black/20 p-4 rounded-xl">
                             <h3 class="text-[10px] font-black uppercase tracking-widest opacity-60 mb-2">TAF (Time Synced)</h3>
                             <div class="space-y-1">
                                 ${station.taf ? formatAnalyzedTaf(station.taf.rawText, targetTime, new Date(targetTime.getTime() + 1800000)) : '<p class="italic opacity-40">No data</p>'}
@@ -7037,7 +7176,87 @@ document.addEventListener('DOMContentLoaded', () => {
             `;
             document.body.style.overflow = 'hidden';
             modal.classList.remove('hidden');
+            fetchDatis(icao);
         }
+
+        // D-ATIS — fetch the full dataset once and cache it locally.
+        // atis.info/api/all returns all active D-ATIS entries in one request,
+        // so we hit the API once on load rather than per airport lookup.
+        let _datisCache = null;
+        let _datisFetchPromise = null;
+
+        async function _loadDatisAll() {
+            if (_datisCache) return _datisCache;
+            if (_datisFetchPromise) return _datisFetchPromise;
+            _datisFetchPromise = fetch('https://atis.info/api/all', { cache: 'no-store' })
+                .then(r => r.ok ? r.json() : null)
+                .then(data => { _datisCache = data; _datisFetchPromise = null; return data; })
+                .catch(() => { _datisFetchPromise = null; return null; });
+            return _datisFetchPromise;
+        }
+
+
+        // Refresh every 5 minutes so ATIS letter changes are picked up
+        setInterval(() => { _datisCache = null; }, 60 * 1000);
+
+        // Pre-fetch on page load so it's ready by the time user taps a station
+        _loadDatisAll();
+
+        async function fetchDatis(icao) {
+            const section = document.getElementById('datisSection');
+            const content = document.getElementById('datisContent');
+            if (!section || !content) return;
+
+            try {
+                const all = await _loadDatisAll();
+                if (!all) { section.style.display = 'none'; return; }
+
+                // all may be an object keyed by ICAO, or an array of entries
+                let entries = [];
+                if (Array.isArray(all)) {
+                    entries = all.filter(e => e && (e.icao || e.station || e.airport || '').toUpperCase() === icao);
+                } else if (all[icao]) {
+                    entries = Array.isArray(all[icao]) ? all[icao] : [all[icao]];
+                } else if (all[icao.substring(1)]) {
+                    // Some sources use FAA 3-letter codes (drop leading K/P/etc.)
+                    const key = icao.substring(1);
+                    entries = Array.isArray(all[key]) ? all[key] : [all[key]];
+                }
+
+                const valid = entries.filter(e => e && !e.error && (e.atis || e.datis || e.text || e.raw));
+                if (valid.length === 0) { section.style.display = 'none'; return; }
+
+                // Use "time" field (HHMM) to compute report age against current UTC
+                let ageParts = '';
+                const first = valid[0];
+                if (first.time && /^\d{4}$/.test(first.time)) {
+                    const now = new Date(_nowAccurate());
+                    const rh = parseInt(first.time.slice(0, 2));
+                    const rm = parseInt(first.time.slice(2, 4));
+                    let diffMin = (now.getUTCHours() * 60 + now.getUTCMinutes()) - (rh * 60 + rm);
+                    if (diffMin < 0) diffMin += 1440; // crossed midnight
+                    const h = Math.floor(diffMin / 60);
+                    const m = diffMin % 60;
+                    const ageStr = h > 0 ? `${h}h ${m}m ago` : `${m}m ago`;
+                    ageParts = `${first.time}Z · ${ageStr}`;
+                }
+                document.querySelector('#datisSection h3').innerHTML =
+                    `D-ATIS${ageParts ? ` <span class="font-normal normal-case tracking-normal opacity-40 text-[9px]">${ageParts}</span>` : ''}`;
+
+                content.innerHTML = valid.map(e => {
+                    const type = e.type
+                        ? `<div class="opacity-60 text-[10px] uppercase tracking-wider mb-1">${e.type}</div>`
+                        : '';
+                    const text = (e.atis || e.datis || e.text || e.raw || '').trim();
+                    return `<div class="mb-3 last:mb-0">${type}<span class="font-mono text-sm leading-relaxed break-words whitespace-pre-wrap">${text}</span></div>`;
+                }).join('');
+
+                section.style.display = 'block';
+            } catch(e) {
+                section.style.display = 'none';
+            }
+        }
+
 
 
         // ── STATION HISTORY ──────────────────────────────────────────────────────────
