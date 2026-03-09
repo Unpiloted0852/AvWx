@@ -626,6 +626,11 @@ document.addEventListener('DOMContentLoaded', () => {
         color: white !important;
     }
 
+    .flightCat-active {
+        background-color: #0e7490 !important; /* cyan-700 */
+        color: white !important;
+    }
+
             /* Freezing Active State */
             .freezing-active {
                 background-color: #06b6d4 !important; /* Cyan-500 */
@@ -1266,6 +1271,10 @@ document.addEventListener('DOMContentLoaded', () => {
                         </button>
                     </div>
 
+                    <button id="flightCatBtn" onclick="toggleFlightCat()" class="layer-btn bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center justify-center">
+                        <span class="font-black tracking-tighter leading-none" style="font-size:0.6rem">FL<br>CAT</span>
+                    </button>
+
                     <button id="freezingBtn" onclick="toggleFreezingLayer()" class="layer-btn bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 text-xl flex items-center justify-center">
                         🧊
                     </button>
@@ -1433,7 +1442,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         <script>
             // --- APP CONFIG ---
-            const CURRENT_VERSION = 'v2.8.4'; // Incremented Version
+            const CURRENT_VERSION = 'v2.8.5'; // Incremented Version
             const GITHUB_REPO = 'Unpiloted0852/AvWx';
 
             // Global Data Storage for Modal Access
@@ -2618,6 +2627,10 @@ document.addEventListener('DOMContentLoaded', () => {
                 }).addTo(mapInstance);
 
                 // --- CUSTOM PANES ---
+                mapInstance.createPane('flightCatPane');
+                mapInstance.getPane('flightCatPane').style.zIndex = 230;
+                mapInstance.getPane('flightCatPane').style.pointerEvents = 'none';
+
                 mapInstance.createPane('heatmapPane');
                 mapInstance.getPane('heatmapPane').style.zIndex = 200;
 
@@ -2932,6 +2945,156 @@ document.addEventListener('DOMContentLoaded', () => {
 
 
             // --- RADAR LOGIC ---
+            // ── Flight CAT interpolation layer ──────────────────────────────────────
+            // Single canvas overlay (not GridLayer) — renders once per moveend/zoomend.
+            // GridLayer spawns hundreds of simultaneous tile computations and crashes.
+
+            let flightCatLayer = null;
+
+            // Use s.metar.category (already correctly computed by analyzeCondition)
+            // rather than re-parsing rawText. Map each category to representative
+            // ceil/vis midpoint values for IDW, then re-classify.
+            const _fcCatNums = {
+                LIFR: [200,  0.5],
+                IFR:  [700,  2.0],
+                MVFR: [2000, 4.0],
+                VFR:  [5000, 8.0],
+            };
+
+            function _fcCat(ceilFt, visSm) {
+                if (ceilFt < 500  || visSm < 1) return 0; // LIFR
+                if (ceilFt < 1000 || visSm < 3) return 1; // IFR
+                if (ceilFt < 3000 || visSm < 5) return 2; // MVFR
+                return 3;                                   // VFR
+            }
+
+            const _fcRGB = [[255,0,255],[220,0,0],[80,80,255],[0,180,0]];
+
+            function toggleFlightCat() {
+                const btn = document.getElementById('flightCatBtn');
+                if (flightCatLayer) {
+                    mapInstance.removeLayer(flightCatLayer);
+                    flightCatLayer = null;
+                    btn.classList.remove('flightCat-active');
+                    return;
+                }
+
+                const pts = [];
+                for (const s of allStationsData) {
+                    if (s.latitude == null || s.longitude == null || !s.metar) continue;
+                    const nums = _fcCatNums[s.metar.category];
+                    if (!nums) continue; // skip NODATA
+                    pts.push([s.latitude, s.longitude, nums[0], nums[1]]);
+                }
+                if (pts.length === 0) return;
+
+                const STRIDE   = 24;  // px per sample cell — coarse but fast
+                const MAX_DEG  = 2.5; // ~250 km in lat/lng degrees
+                const FADE_DEG = 1.5;
+                const K        = 5;   // nearest stations for IDW
+                const PWR      = 2;   // IDW power (applied to d², so effectively d^4)
+                const ALPHA    = 0.42;
+
+                const CanvasOverlay = L.Layer.extend({
+                    onAdd(map) {
+                        this._map = map;
+                        const pane = map.getPane('flightCatPane');
+                        this._canvas = document.createElement('canvas');
+                        this._canvas.style.cssText = 'position:absolute;top:0;left:0;pointer-events:none';
+                        pane.appendChild(this._canvas);
+                        map.on('moveend zoomend', this._draw, this);
+                        this._draw();
+                    },
+                    onRemove(map) {
+                        map.off('moveend zoomend', this._draw, this);
+                        this._canvas.remove();
+                    },
+                    _draw() {
+                        const map    = this._map;
+                        const size   = map.getSize();
+                        const canvas = this._canvas;
+                        canvas.width  = size.x;
+                        canvas.height = size.y;
+                        const ctx    = canvas.getContext('2d');  // was missing — caused silent throw
+                        const topLeft = map.containerPointToLayerPoint([0, 0]);
+                        L.DomUtil.setPosition(canvas, topLeft);
+
+                        // Pre-compute lat/lng bounds once, then interpolate linearly
+                        // per cell — avoids calling containerPointToLatLng in the loop
+                        // which allocates a Leaflet object per iteration.
+                        const nwLL = map.containerPointToLatLng([0, 0]);
+                        const seLL = map.containerPointToLatLng([size.x, size.y]);
+                        const latRange = nwLL.lat - seLL.lat;
+                        const lngRange = seLL.lng - nwLL.lng;
+
+                        const offW = Math.ceil(size.x / STRIDE) + 1;
+                        const offH = Math.ceil(size.y / STRIDE) + 1;
+                        const off  = new OffscreenCanvas(offW, offH);
+                        const octx = off.getContext('2d');
+                        const imgd = octx.createImageData(offW, offH);
+                        const data = imgd.data;
+                        const nPts = pts.length;
+
+                        for (let row = 0; row < offH; row++) {
+                            const lat = nwLL.lat - ((row + 0.5) / offH) * latRange;
+                            for (let col = 0; col < offW; col++) {
+                                const lng = nwLL.lng + ((col + 0.5) / offW) * lngRange;
+
+                                // K-nearest max-heap (squared Euclidean, no trig)
+                                const heap = new Array(K);
+                                let heapSize = 0;
+                                for (let i = 0; i < nPts; i++) {
+                                    const dlat = pts[i][0] - lat;
+                                    const dlng = pts[i][1] - lng;
+                                    const d2   = dlat*dlat + dlng*dlng;
+                                    if (heapSize < K) {
+                                        heap[heapSize++] = [d2, i];
+                                        if (heapSize === K) heap.sort((a,b) => b[0]-a[0]);
+                                    } else if (d2 < heap[0][0]) {
+                                        heap[0] = [d2, i];
+                                        let h = 0;
+                                        while (h < K-1 && heap[h][0] < heap[h+1][0]) {
+                                            const tmp = heap[h]; heap[h] = heap[h+1]; heap[h+1] = tmp; h++;
+                                        }
+                                    }
+                                }
+
+                                const nearest = Math.sqrt(heap[0][0]);
+                                if (nearest > MAX_DEG) continue;
+
+                                let wSum = 0, wCeil = 0, wVis = 0;
+                                for (let h = 0; h < heapSize; h++) {
+                                    const [d2, i] = heap[h];
+                                    const w = d2 < 1e-8 ? 1e9 : 1 / Math.pow(d2, PWR);
+                                    wSum  += w;
+                                    wCeil += w * pts[i][2];
+                                    wVis  += w * pts[i][3];
+                                }
+                                const cat = _fcCat(wCeil / wSum, wVis / wSum);
+                                const [r,g,b] = _fcRGB[cat];
+                                const fade = nearest <= FADE_DEG ? 1
+                                    : 1 - (nearest - FADE_DEG) / (MAX_DEG - FADE_DEG);
+
+                                const idx = (row * offW + col) * 4;
+                                data[idx]   = r;
+                                data[idx+1] = g;
+                                data[idx+2] = b;
+                                data[idx+3] = Math.round(ALPHA * fade * 255);
+                            }
+                        }
+                        octx.putImageData(imgd, 0, 0);
+
+                        ctx.clearRect(0, 0, size.x, size.y);
+                        ctx.filter = `blur(${STRIDE * 0.9}px)`;
+                        ctx.drawImage(off, 0, 0, size.x, size.y);
+                        ctx.filter = 'none';
+                    }
+                });
+
+                flightCatLayer = new CanvasOverlay();
+                flightCatLayer.addTo(mapInstance);
+                btn.classList.add('flightCat-active');
+            }
             // ── Radar: NOAA/IEM NEXRAD (US/Canada only) ─────────────────────────────
 
             function updateRadarLayer() {
