@@ -7380,6 +7380,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         <div class="flex items-center justify-between mb-2 gap-2">
                             <h3 class="text-[10px] font-black uppercase tracking-widest opacity-60 shrink-0">MOS Forecast</h3>
                             <div id="mosModelBtns" class="flex gap-1 flex-wrap"></div>
+                            <button id="mosCompareBtn" onclick="_toggleMosCompare()" style="padding:1px 7px;font-size:10px;border-radius:4px;border:1px solid rgba(255,255,255,0.2);cursor:pointer;color:white;background:rgba(255,255,255,0.05);white-space:nowrap;transition:all 0.15s;">⇌ Compare</button>
                             <button onclick="document.getElementById('mosPanel').classList.add('hidden')" class="text-[10px] opacity-40 hover:opacity-100 transition-opacity shrink-0">✕</button>
                         </div>
                         <div id="mosContent" class="bg-black/20 rounded-xl" style="overflow:hidden">
@@ -7430,7 +7431,13 @@ document.addEventListener('DOMContentLoaded', () => {
             return `${Math.round(c)}°C / ${Math.round(c*9/5+32)}°F`;
         }
 
-        function _mosCat(cigFt, visSm) {
+        function _mosCat(cigFt, visSm, weatherCode, totalCov) {
+            // If ceiling is unknown but sky indicators suggest clear/few, treat as VFR ceiling
+            if (cigFt === null) {
+                const clearCode = weatherCode !== null && weatherCode !== undefined && weatherCode <= 2;
+                const clearCov  = totalCov !== null && totalCov < 38; // below SCT threshold
+                if (clearCode || clearCov) cigFt = 99999; // effectively unlimited ceiling
+            }
             if (cigFt === null && visSm === null) return 'UNKN';
             const c = cigFt ?? 99999, v = visSm ?? 99;
             if (c < 500  || v < 1) return 'LIFR';
@@ -7531,34 +7538,36 @@ document.addEventListener('DOMContentLoaded', () => {
         function _renderMosTimeline(blocks) {
             if (!blocks.length) return '<p class="text-xs italic opacity-40 p-4">No forecast data available.</p>';
             _mosBlocks = blocks;
-            const catBg     = {VFR:'rgba(34,197,94,0.15)',MVFR:'rgba(59,130,246,0.15)',IFR:'rgba(239,68,68,0.15)',LIFR:'rgba(168,85,247,0.15)',UNKN:'rgba(107,114,128,0.1)'};
-            const catBorder = {VFR:'rgba(34,197,94,0.4)', MVFR:'rgba(59,130,246,0.4)', IFR:'rgba(239,68,68,0.4)', LIFR:'rgba(168,85,247,0.4)', UNKN:'rgba(107,114,128,0.2)'};
+
+            const catAccent = {VFR:'#16a34a', MVFR:'#2563eb', IFR:'#dc2626', LIFR:'#9333ea', UNKN:'#4b5563'};
 
             const now = new Date();
             const cards = blocks.map((b, idx) => {
-                const d    = new Date(b.time);
+                const d     = new Date(b.time);
                 const isNow = Math.abs(d - now) < 3600000;
-                const hh   = String(d.getUTCHours()).padStart(2,'0');
-                const mmdd = `${String(d.getUTCMonth()+1).padStart(2,'0')}/${String(d.getUTCDate()).padStart(2,'0')}`;
-                const wnd  = b.windSpd !== null
-                    ? `${String(Math.round(b.windDir||0)).padStart(3,'0')}/${String(Math.round(b.windSpd)).padStart(2,'0')}${b.gust?'G'+Math.round(b.gust):''}kt`
-                    : '---';
-                const pp   = b.precipPct !== null ? `${Math.round(b.precipPct)}%` : '--';
-                const cig  = b.cigFt    !== null ? `${(Math.round(b.cigFt/100)*100).toLocaleString()}'` : '--';
-                const vis  = b.visSm    !== null
+                const hh    = String(d.getUTCHours()).padStart(2,'0');
+                const mmdd  = `${String(d.getUTCMonth()+1).padStart(2,'0')}/${String(d.getUTCDate()).padStart(2,'0')}`;
+                const wndDir = b.windDir !== null ? `${String(Math.round(b.windDir||0)).padStart(3,'0')}°` : '---';
+                const wndSpd = b.windSpd !== null
+                    ? `${Math.round(b.windSpd)}${b.gust ? 'G'+Math.round(b.gust) : ''}kt`
+                    : '';
+                const pp  = b.precipPct !== null ? `${Math.round(b.precipPct)}%` : '--';
+                const cig = b.cigFt     !== null ? `${(Math.round(b.cigFt/100)*100).toLocaleString()}'` : '--';
+                const vis = b.visSm     !== null
                     ? (b.visSm >= 6 ? '6+sm' : b.visSm >= 1 ? `${b.visSm.toFixed(1)}sm` : `${b.visSm.toFixed(2)}sm`)
                     : '--';
-                const tmp  = _mosTempStr(b.tmp);
-                const bg   = catBg[b.cat]   || catBg.UNKN;
-                const bdr  = catBorder[b.cat]|| catBorder.UNKN;
-                return `<div class="mos-card" onclick="_mosShowDetail(${idx})" style="flex-shrink:0;width:66px;padding:6px 4px;border-radius:8px;background:${bg};border:1px solid ${bdr};text-align:center;cursor:pointer;transition:outline 0.1s;${isNow?'outline:2px solid rgba(255,255,255,0.5);':''}">
-                    <div style="font-size:9px;opacity:0.6;font-family:monospace;line-height:1.2;">${hh}Z<br>${mmdd}</div>
-                    <div style="margin:3px 0;font-size:10px;font-weight:900;color:${_catColor(b.cat)};letter-spacing:0.5px;">${b.cat}</div>
-                    <div style="font-size:8px;font-family:monospace;opacity:0.85;line-height:1.5;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${wnd}">${wnd}</div>
-                    <div style="font-size:8px;opacity:0.6;margin-top:2px;">☁ ${cig}</div>
-                    <div style="font-size:8px;opacity:0.6;">👁 ${vis}</div>
-                    <div style="font-size:8px;opacity:0.6;">💧 ${pp}</div>
-                    <div style="font-size:8px;opacity:0.55;margin-top:2px;">${tmp}</div>
+                const tmp    = _mosTempStr(b.tmp);
+                const accent = catAccent[b.cat] || catAccent.UNKN;
+                const selStyle = isNow ? 'box-shadow:0 0 0 2px rgba(255,255,255,0.55);' : '';
+                return `<div class="mos-card" onclick="_mosShowDetail(${idx})" style="flex-shrink:0;width:58px;padding:5px 3px 5px 6px;border-radius:7px;background:rgba(0,0,0,0.45);border:1px solid rgba(255,255,255,0.08);border-left:3px solid ${accent};text-align:left;cursor:pointer;${selStyle}">
+                    <div style="font-size:8px;color:rgba(255,255,255,0.45);font-family:monospace;line-height:1.3;">${hh}Z ${mmdd}</div>
+                    <div style="margin:2px 0 3px;font-size:10px;font-weight:900;color:${accent};letter-spacing:0.3px;">${b.cat}</div>
+                    <div style="font-size:8px;font-family:monospace;color:rgba(255,255,255,0.8);line-height:1.4;">${wndDir}</div>
+                    <div style="font-size:8px;font-family:monospace;color:rgba(255,255,255,0.8);line-height:1.4;margin-bottom:2px;">${wndSpd}</div>
+                    <div style="font-size:8px;color:rgba(255,255,255,0.6);line-height:1.5;">☁ ${cig}</div>
+                    <div style="font-size:8px;color:rgba(255,255,255,0.6);line-height:1.5;">👁 ${vis}</div>
+                    <div style="font-size:8px;color:rgba(255,255,255,0.6);line-height:1.5;">💧 ${pp}</div>
+                    <div style="font-size:8px;color:rgba(255,255,255,0.5);margin-top:2px;">${tmp}</div>
                 </div>`;
             }).join('');
             return `<div style="display:flex;gap:3px;overflow-x:auto;padding:10px 10px 6px;-webkit-overflow-scrolling:touch;">${cards}</div>
@@ -7566,12 +7575,20 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         async function _fetchMosOpenMeteo(lat, lon, model) {
-            const modelParam = {ECMWF:'ecmwf_ifs025',ICON:'icon_seamless',GFS:'gfs_seamless'}[model]||'icon_seamless';
-            const url = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}` +
-                `&hourly=temperature_2m,dewpoint_2m,relative_humidity_2m,wind_speed_10m,wind_direction_10m,` +
-                `wind_gusts_10m,precipitation_probability,precipitation,cloud_cover_low,cloud_cover_mid,` +
-                `cloud_cover_high,cloud_cover,visibility,weather_code,surface_pressure` +
-                `&models=${modelParam}&forecast_days=3&wind_speed_unit=kn&timezone=UTC`;
+            // ECMWF uses its own dedicated endpoint; ICON/GFS use /v1/forecast with models= param
+            const isECMWF = model === 'ECMWF';
+            const baseUrl = isECMWF
+                ? `https://api.open-meteo.com/v1/ecmwf?latitude=${lat}&longitude=${lon}`
+                : `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&models=${{ICON:'icon_seamless',GFS:'gfs_seamless'}[model]||'icon_seamless'}`;
+            // ECMWF does not provide visibility — omit it to avoid null variable errors
+            const vars = isECMWF
+                ? `temperature_2m,dewpoint_2m,relative_humidity_2m,wind_speed_10m,wind_direction_10m,`+
+                  `wind_gusts_10m,precipitation_probability,precipitation,cloud_cover_low,cloud_cover_mid,`+
+                  `cloud_cover_high,cloud_cover,weather_code,surface_pressure`
+                : `temperature_2m,dewpoint_2m,relative_humidity_2m,wind_speed_10m,wind_direction_10m,`+
+                  `wind_gusts_10m,precipitation_probability,precipitation,cloud_cover_low,cloud_cover_mid,`+
+                  `cloud_cover_high,cloud_cover,visibility,weather_code,surface_pressure`;
+            const url = `${baseUrl}&hourly=${vars}&forecast_days=3&wind_speed_unit=kn&timezone=UTC`;
             const resp = await fetch(url);
             if (!resp.ok) throw new Error(`Open-Meteo HTTP ${resp.status}`);
             const json = await resp.json();
@@ -7583,35 +7600,132 @@ document.addEventListener('DOMContentLoaded', () => {
                 const t = new Date(h.time[i] + ':00Z');
                 if (t < new Date(now.getTime() - 3600000)) continue;
                 if (t > new Date(now.getTime() + 48*3600000)) break;
-                const vis_m  = h.visibility?.[i] ?? null;
-                const visSm  = vis_m !== null ? +(vis_m / 1609.34).toFixed(2) : null;
-                const lowCov = h.cloud_cover_low?.[i] ?? null;
-                const cigFt  = lowCov === null ? null
-                             : lowCov >= 88 ? 800
-                             : lowCov >= 63 ? 1800
-                             : lowCov >= 38 ? 3500
-                             : null;
+                const vis_m      = h.visibility?.[i] ?? null;
+                const visSm      = vis_m !== null ? +(vis_m / 1609.34).toFixed(2) : null;
+                const lowCov     = h.cloud_cover_low?.[i]  ?? null;
+                const totalCov   = h.cloud_cover?.[i]       ?? null;
+                const weatherCode= h.weather_code?.[i]      ?? null;
+                const cigFt      = lowCov === null ? null
+                                 : lowCov >= 88 ? 800
+                                 : lowCov >= 63 ? 1800
+                                 : lowCov >= 38 ? 3500
+                                 : null;
                 blocks.push({
                     time:        h.time[i] + ':00Z',
-                    cat:         _mosCat(cigFt, visSm),
-                    windDir:     h.wind_direction_10m?.[i]      ?? null,
-                    windSpd:     h.wind_speed_10m?.[i]          ?? null,
-                    gust:        h.wind_gusts_10m?.[i]          ?? null,
+                    cat:         _mosCat(cigFt, visSm, weatherCode, totalCov),
+                    windDir:     h.wind_direction_10m?.[i]        ?? null,
+                    windSpd:     h.wind_speed_10m?.[i]            ?? null,
+                    gust:        h.wind_gusts_10m?.[i]            ?? null,
                     precipPct:   h.precipitation_probability?.[i] ?? null,
-                    precip:      h.precipitation?.[i]           ?? null,
+                    precip:      h.precipitation?.[i]             ?? null,
                     cigFt, visSm,
                     lowCov,
-                    midCov:      h.cloud_cover_mid?.[i]         ?? null,
-                    highCov:     h.cloud_cover_high?.[i]        ?? null,
-                    totalCov:    h.cloud_cover?.[i]             ?? null,
-                    rh:          h.relative_humidity_2m?.[i]    ?? null,
-                    slp:         h.surface_pressure?.[i]        ?? null,
-                    weatherCode: h.weather_code?.[i]            ?? null,
-                    tmp:         h.temperature_2m?.[i]          ?? null,
-                    dpt:         h.dewpoint_2m?.[i]             ?? null,
+                    midCov:      h.cloud_cover_mid?.[i]           ?? null,
+                    highCov:     h.cloud_cover_high?.[i]          ?? null,
+                    totalCov,
+                    rh:          h.relative_humidity_2m?.[i]      ?? null,
+                    slp:         h.surface_pressure?.[i]          ?? null,
+                    weatherCode,
+                    tmp:         h.temperature_2m?.[i]            ?? null,
+                    dpt:         h.dewpoint_2m?.[i]               ?? null,
                 });
             }
             return blocks;
+        }
+
+        let _mosCompareMode = false;
+
+        function _toggleMosCompare() {
+            _mosCompareMode = !_mosCompareMode;
+            const btn = document.getElementById('mosCompareBtn');
+            const modelBar = document.getElementById('mosModelBtns');
+            if (btn) {
+                btn.style.background   = _mosCompareMode ? 'rgba(255,255,255,0.25)' : 'rgba(255,255,255,0.05)';
+                btn.style.fontWeight   = _mosCompareMode ? 'bold' : 'normal';
+            }
+            if (modelBar) modelBar.style.opacity = _mosCompareMode ? '0.35' : '1';
+            if (_mosCompareMode) {
+                _loadMosCompare(_mosCurrentIcao);
+            } else {
+                _loadMosData(_mosCurrentIcao, _mosCurrentModel);
+            }
+        }
+
+        async function _loadMosCompare(icao) {
+            const content = document.getElementById('mosContent');
+            if (!content) return;
+            content.innerHTML = '<p class="text-xs italic opacity-40 p-4">Loading all models…</p>';
+
+            const stationLookup = new Map(allStationsData.map(s => [s.id, s]));
+            const station = stationLookup.get(icao);
+            const lat = station?.latitude, lon = station?.longitude;
+            if (!lat || !lon) { content.innerHTML = '<p class="text-xs italic opacity-40 p-4">No coordinates.</p>'; return; }
+
+            // Fetch all three models in parallel, failures get empty array
+            const results = await Promise.all(
+                _MOS_MODELS.map(m => _fetchMosOpenMeteo(lat, lon, m).catch(() => []))
+            );
+
+            // Collect union of all timestamps so rows align
+            const allTimes = [...new Set(results.flatMap(blocks => blocks.map(b => b.time)))].sort();
+            if (!allTimes.length) { content.innerHTML = '<p class="text-xs italic opacity-40 p-4">No data.</p>'; return; }
+
+            // Index each model's blocks by time for O(1) lookup
+            const byTime = results.map(blocks => {
+                const m = {};
+                blocks.forEach(b => { m[b.time] = b; });
+                return m;
+            });
+
+            const catAccent = {VFR:'#16a34a', MVFR:'#2563eb', IFR:'#dc2626', LIFR:'#9333ea', UNKN:'#4b5563'};
+
+            function miniCard(b, isNow) {
+                if (!b) return `<div style="flex-shrink:0;width:58px;height:100%;min-height:52px;border-radius:7px;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.06);"></div>`;
+                const accent  = catAccent[b.cat] || catAccent.UNKN;
+                const wndDir  = b.windDir !== null ? `${String(Math.round(b.windDir||0)).padStart(3,'0')}°` : '---';
+                const wndSpd  = b.windSpd !== null ? `${Math.round(b.windSpd)}${b.gust?'G'+Math.round(b.gust):''}kt` : '';
+                const cig     = b.cigFt   !== null ? `${(Math.round(b.cigFt/100)*100).toLocaleString()}'` : '--';
+                const vis     = b.visSm   !== null ? (b.visSm >= 6 ? '6+sm' : b.visSm >= 1 ? `${b.visSm.toFixed(1)}sm` : `${b.visSm.toFixed(2)}sm`) : '--';
+                const sel     = isNow ? 'box-shadow:0 0 0 2px rgba(255,255,255,0.5);' : '';
+                return `<div style="flex-shrink:0;width:58px;padding:4px 3px 4px 6px;border-radius:7px;background:rgba(0,0,0,0.45);border:1px solid rgba(255,255,255,0.07);border-left:3px solid ${accent};${sel}">
+                    <div style="font-size:9px;font-weight:900;color:${accent};">${b.cat}</div>
+                    <div style="font-size:7.5px;font-family:monospace;color:rgba(255,255,255,0.75);line-height:1.4;">${wndDir}</div>
+                    <div style="font-size:7.5px;font-family:monospace;color:rgba(255,255,255,0.75);">${wndSpd}</div>
+                    <div style="font-size:7px;color:rgba(255,255,255,0.55);line-height:1.5;">☁${cig}</div>
+                    <div style="font-size:7px;color:rgba(255,255,255,0.55);">👁${vis}</div>
+                </div>`;
+            }
+
+            // Build time header row
+            const now = new Date();
+            const headerCells = allTimes.map(t => {
+                const d  = new Date(t);
+                const hh = String(d.getUTCHours()).padStart(2,'0');
+                const dd = String(d.getUTCDate()).padStart(2,'0');
+                return `<div style="flex-shrink:0;width:58px;text-align:center;font-size:7.5px;font-family:monospace;color:rgba(255,255,255,0.4);padding-bottom:3px;">${hh}Z<br>${d.getUTCMonth()+1}/${dd}</div>`;
+            }).join('');
+
+            // Build one row per model, sharing the scroll container
+            const rows = _MOS_MODELS.map((model, mi) => {
+                const cells = allTimes.map(t => {
+                    const b = byTime[mi][t] || null;
+                    const isNow = Math.abs(new Date(t) - now) < 1800000;
+                    return miniCard(b, isNow);
+                }).join('');
+                return `<div style="display:flex;align-items:center;gap:2px;margin-bottom:3px;">
+                    <div style="width:42px;flex-shrink:0;font-size:8px;font-weight:700;color:rgba(255,255,255,0.5);text-align:right;padding-right:5px;letter-spacing:0.5px;">${model}</div>
+                    <div class="mos-compare-row" style="display:flex;gap:3px;overflow:hidden;">${cells}</div>
+                </div>`;
+            }).join('');
+
+            // Synchronized horizontal scroll — one scroll container drives all rows
+            content.innerHTML = `
+                <div id="mosCompareScroll" style="overflow-x:auto;-webkit-overflow-scrolling:touch;padding:8px 8px 10px;">
+                    <div style="display:inline-block;min-width:100%;">
+                        <div style="display:flex;gap:3px;padding-left:47px;margin-bottom:2px;">${headerCells}</div>
+                        ${rows}
+                    </div>
+                </div>`;
         }
 
         async function _loadMosData(icao, model) {
@@ -7648,18 +7762,31 @@ document.addEventListener('DOMContentLoaded', () => {
             }
             panel.classList.remove('hidden');
             setTimeout(() => panel.scrollIntoView({behavior:'smooth',block:'nearest'}), 50);
+            // Reset compare mode when opening a new airport
+            if (_mosCurrentIcao !== icao) {
+                _mosCompareMode = false;
+                const cBtn = document.getElementById('mosCompareBtn');
+                if (cBtn) { cBtn.style.background = 'rgba(255,255,255,0.05)'; cBtn.style.fontWeight = 'normal'; }
+                const mBar = document.getElementById('mosModelBtns');
+                if (mBar) mBar.style.opacity = '1';
+            }
             _mosCurrentIcao = icao;
             if (!_mosCurrentModel || !_MOS_MODELS.includes(_mosCurrentModel)) _mosCurrentModel = _MOS_MODELS[0];
             const btnBar = document.getElementById('mosModelBtns');
             if (btnBar) {
                 btnBar.innerHTML = _MOS_MODELS.map(m => {
                     const active = m === _mosCurrentModel;
+                    // Clicking a model pill exits compare mode and loads that single model
                     return `<button id="mosModel_${m}"
-                        onclick="event.stopPropagation();_mosCurrentModel='${m}';document.querySelectorAll('[id^=mosModel_]').forEach(b=>{const a=b.id==='mosModel_${m}';b.style.fontWeight=a?'bold':'normal';b.style.opacity=a?'1':'0.5';b.style.background=a?'rgba(255,255,255,0.25)':'rgba(255,255,255,0.05)'});_loadMosData('${icao}','${m}')"
+                        onclick="event.stopPropagation();_mosCompareMode=false;const cb=document.getElementById('mosCompareBtn');if(cb){cb.style.background='rgba(255,255,255,0.05)';cb.style.fontWeight='normal';}const mb=document.getElementById('mosModelBtns');if(mb)mb.style.opacity='1';_mosCurrentModel='${m}';document.querySelectorAll('[id^=mosModel_]').forEach(b=>{const a=b.id==='mosModel_${m}';b.style.fontWeight=a?'bold':'normal';b.style.opacity=a?'1':'0.5';b.style.background=a?'rgba(255,255,255,0.25)':'rgba(255,255,255,0.05)'});_loadMosData('${icao}','${m}')"
                         style="padding:1px 7px;font-size:10px;border-radius:4px;border:1px solid rgba(255,255,255,0.2);cursor:pointer;color:white;opacity:${active?1:0.5};font-weight:${active?'bold':'normal'};background:${active?'rgba(255,255,255,0.25)':'rgba(255,255,255,0.05)'}">${m}</button>`;
                 }).join('');
             }
-            _loadMosData(icao, _mosCurrentModel);
+            if (_mosCompareMode) {
+                _loadMosCompare(icao);
+            } else {
+                _loadMosData(icao, _mosCurrentModel);
+            }
         }
 
         // D-ATIS — fetch the full dataset once and cache it locally.
