@@ -7459,19 +7459,20 @@ document.addEventListener('DOMContentLoaded', () => {
             }
             // Canadian (CY...), European (EG...), etc. → keep full ICAO
 
-            const now   = new Date();
-            const start = monthOnly
-                ? new Date(now.getUTCFullYear() - 10, now.getUTCMonth(), 1)  // 10 years back, same month
-                : new Date(now.getTime() - days * 86400000);
+            const now        = new Date();
+            const utcMonth   = now.getUTCMonth() + 1;   // 1-based, always UTC
+            const utcYear    = now.getUTCFullYear();
+            const utcDay     = now.getUTCDate();
+            const start      = monthOnly ? null : new Date(now.getTime() - days * 86400000);
 
             const params = [
                 'station='  + encodeURIComponent(iemStation),
-                'year1='    + start.getUTCFullYear(),
-                'month1='   + (start.getUTCMonth() + 1),
+                'year1='    + (monthOnly ? utcYear - 10 : start.getUTCFullYear()),
+                'month1='   + (monthOnly ? utcMonth     : (start.getUTCMonth() + 1)),
                 'day1=1',
-                'year2='    + now.getUTCFullYear(),
-                'month2='   + (now.getUTCMonth() + 1),
-                'day2='     + now.getUTCDate(),
+                'year2='    + utcYear,
+                'month2='   + utcMonth,
+                'day2='     + utcDay,
                 'units=kts',
                 'fmt=png',
                 'nsector=16',
