@@ -1442,7 +1442,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         <script>
             // --- APP CONFIG ---
-            const CURRENT_VERSION = 'v2.8.6'; // Incremented Version
+            const CURRENT_VERSION = 'v2.8.7'; // Incremented Version
             const GITHUB_REPO = 'Unpiloted0852/AvWx';
 
             // Global Data Storage for Modal Access
@@ -1493,7 +1493,8 @@ document.addEventListener('DOMContentLoaded', () => {
             let currentStationsData = [];
             let allStationsData = [];
 
-            let radarLayer = null; // Radar Layer Global
+            let radarLayer = null; // Radar Layer Global (IEM NEXRAD)
+            let radarLayerEU = null; // BrightSky DWD radar layer (Europe)
             let radarRefreshInterval = null; // Store interval ID for radar
             let ifrChartLayer = null; // SkyVector IFR High chart layer
             let vfrChartLayer = null; // SkyVector VFR chart layer
@@ -3095,29 +3096,47 @@ document.addEventListener('DOMContentLoaded', () => {
                 flightCatLayer.addTo(mapInstance);
                 btn.classList.add('flightCat-active');
             }
-            // ── Radar: NOAA/IEM NEXRAD (US/Canada only) ─────────────────────────────
+            // ── Radar: NOAA/IEM NEXRAD (US/Canada) + DWD GeoServer WMS (Europe) ────────
+
+            async function _updateRainViewerRadar() {
+                if (radarLayer)   { mapInstance.removeLayer(radarLayer);   radarLayer   = null; }
+                if (radarLayerEU) { mapInstance.removeLayer(radarLayerEU); radarLayerEU = null; }
+
+                try {
+                    const resp = await fetch('https://api.rainviewer.com/public/weather-maps.json');
+                    if (!resp.ok) return;
+                    const json = await resp.json();
+                    const frames = json.radar?.past;
+                    if (!frames || !frames.length) return;
+                    const frame = frames[frames.length - 1]; // most recent
+                    const host  = json.host || 'https://tilecache.rainviewer.com';
+
+                    // Correct URL: host + path + /tileSize/{z}/{x}/{y}/colorScheme/smooth_snow.ext
+                    // maxNativeZoom is 7 per RainViewer API docs
+                    radarLayerEU = L.tileLayer(
+                        `${host}${frame.path}/256/{z}/{x}/{y}/2/1_1.png`,
+                        { pane: 'radarPane', opacity: 0.7, maxNativeZoom: 7, maxZoom: 19,
+                          attribution: '&copy; <a href="https://rainviewer.com">RainViewer</a>' }
+                    );
+                    radarLayerEU.addTo(mapInstance);
+
+                    const timeDisplay = document.getElementById('radarTimeDisplay');
+                    if (timeDisplay) {
+                        const ts = new Date(frame.time * 1000);
+                        const hh = String(ts.getUTCHours()).padStart(2,'0');
+                        const mm = String(ts.getUTCMinutes()).padStart(2,'0');
+                        timeDisplay.textContent = `Radar Valid: ${hh}:${mm}z`;
+                        timeDisplay.style.display = '';
+                    }
+                } catch(e) { /* silent */ }
+            }
 
             function updateRadarLayer() {
                 const timeDisplay = document.getElementById('radarTimeDisplay');
-
-                if (radarLayer) {
-                    mapInstance.removeLayer(radarLayer);
-                    radarLayer = null;
-                }
+                if (radarLayer)   { mapInstance.removeLayer(radarLayer);   radarLayer   = null; }
+                if (radarLayerEU) { mapInstance.removeLayer(radarLayerEU); radarLayerEU = null; }
                 timeDisplay.style.display = 'none';
-
-                const { lat, lng } = mapInstance.getCenter();
-                const inUSCanada = lat >= 14 && lat <= 84 && lng >= -170 && lng <= -50;
-                if (!inUSCanada) return;
-
-                // NOAA Hi-Res NEXRAD composite via Iowa State IEM — no key, zoom 0-14
-                const ts = Math.floor(Date.now() / 120000);
-                radarLayer = L.tileLayer(
-                    `https://mesonet.agron.iastate.edu/cache/tile.py/1.0.0/nexrad-n0q-900913/{z}/{x}/{y}.png?_=${ts}`,
-                    { pane: 'radarPane', opacity: 0.8, maxNativeZoom: 14, maxZoom: 19,
-                      attribution: '&copy; NOAA / <a href="https://mesonet.agron.iastate.edu">Iowa State IEM</a>' }
-                );
-                radarLayer.addTo(mapInstance);
+                _updateRainViewerRadar();
             }
 
             function _clearChartLayers() {
@@ -3177,10 +3196,8 @@ document.addEventListener('DOMContentLoaded', () => {
                     clearInterval(radarRefreshInterval);
                     radarRefreshInterval = null;
 
-                    if (radarLayer) {
-                        mapInstance.removeLayer(radarLayer);
-                        radarLayer = null;
-                    }
+                    if (radarLayer)   { mapInstance.removeLayer(radarLayer);   radarLayer   = null; }
+                    if (radarLayerEU) { mapInstance.removeLayer(radarLayerEU); radarLayerEU = null; }
                     btn.classList.remove('radar-active');
                     timeDisplay.style.display = 'none';
                 } else {
@@ -7265,6 +7282,11 @@ document.addEventListener('DOMContentLoaded', () => {
                                     <circle cx="12" cy="8" r="2" fill="currentColor" stroke="none"/>
                                 </svg>
                             </button>
+                            <button onclick="loadMos('${icao}')" class="p-2.5 bg-indigo-700 hover:bg-indigo-600 rounded-full transition-colors shadow-lg z-50 text-white" title="MOS Forecast">
+                                <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                    <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/>
+                                </svg>
+                            </button>
                             <button onclick="loadStationHistory('${icao}')" class="p-2.5 bg-amber-600 hover:bg-amber-500 rounded-full transition-colors shadow-lg z-50 text-white" title="72hr History">
                                 <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
@@ -7291,9 +7313,11 @@ document.addEventListener('DOMContentLoaded', () => {
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
                         <!-- Runway Visualizer Card -->
                         <div class="bg-black/30 rounded-3xl p-8 flex flex-col items-center border border-white/20 shadow-inner relative overflow-visible min-h-[300px] justify-center">
-                            <div id="_rwyDiagramSlot">${generateRunwaySVG(icao, windDir, windSpeed, gustSpeed, isExpired, 180)}</div>
+                            <div id="_rwyDiagramSlot" style="pointer-events:none;">${generateRunwaySVG(icao, windDir, windSpeed, gustSpeed, isExpired, 180)}</div>
                             <div id="_rwySelectorSlot">${runwaySelectorHtml}</div>
-                            <button id="windRoseOverlayBtnInline" onclick="_toggleWindRoseOverlay()" style="display:${_wrOverlayActive?'block':'none'};position:absolute;top:10px;right:10px;padding:2px 8px;font-size:9px;border-radius:4px;border:1px solid rgba(255,255,255,0.3);cursor:pointer;color:white;background:rgba(255,255,255,0.2);font-weight:bold;">⊕ Rose ✓</button>
+                            <div id="_rwyOverlayControl" style="position:absolute;left:8px;top:50%;transform:translateY(-50%);display:flex;flex-direction:row;align-items:center;gap:4px;z-index:50;pointer-events:auto;">
+                                ${_rwyOverlayControlHtml()}
+                            </div>
                         </div>
 
                         <!-- Stats Column -->
@@ -7351,6 +7375,18 @@ document.addEventListener('DOMContentLoaded', () => {
                         </div>
                     </div>
 
+                    <!-- MOS Forecast Panel (hidden by default) -->
+                    <div id="mosPanel" class="hidden mt-4">
+                        <div class="flex items-center justify-between mb-2 gap-2">
+                            <h3 class="text-[10px] font-black uppercase tracking-widest opacity-60 shrink-0">MOS Forecast</h3>
+                            <div id="mosModelBtns" class="flex gap-1 flex-wrap"></div>
+                            <button onclick="document.getElementById('mosPanel').classList.add('hidden')" class="text-[10px] opacity-40 hover:opacity-100 transition-opacity shrink-0">✕</button>
+                        </div>
+                        <div id="mosContent" class="bg-black/20 rounded-xl" style="overflow:hidden">
+                            <p class="text-xs italic opacity-40 p-4">Loading…</p>
+                        </div>
+                    </div>
+
                     <!-- History Panel (hidden by default, loaded on demand) -->
                     <div id="historyPanel" class="hidden mt-4">
                         <div class="flex items-center justify-between mb-2 gap-2">
@@ -7375,6 +7411,255 @@ document.addEventListener('DOMContentLoaded', () => {
                 _removeWindRoseGroup();
                 _syncOverlayButtons();
             }
+        }
+
+        // ── MOS FORECAST ─────────────────────────────────────────────────────────────
+
+        const _MOS_MODELS    = ['ECMWF','ICON','GFS'];
+        let _mosCurrentIcao  = null;
+        let _mosCurrentModel = null;
+        let _mosBlocks       = [];  // cached for detail panel
+
+        function _mosTempStr(c) {
+            if (c === null || c === undefined) return '--';
+            try { if (localStorage.getItem('useCelsius') === 'true') return `${Math.round(c)}°C`; } catch(e){}
+            return `${Math.round(c * 9/5 + 32)}°F`;
+        }
+        function _mosTempStrC(c) { // always show both in detail
+            if (c === null || c === undefined) return '--';
+            return `${Math.round(c)}°C / ${Math.round(c*9/5+32)}°F`;
+        }
+
+        function _mosCat(cigFt, visSm) {
+            if (cigFt === null && visSm === null) return 'UNKN';
+            const c = cigFt ?? 99999, v = visSm ?? 99;
+            if (c < 500  || v < 1) return 'LIFR';
+            if (c < 1000 || v < 3) return 'IFR';
+            if (c < 3000 || v < 5) return 'MVFR';
+            return 'VFR';
+        }
+        function _catColor(cat) {
+            return {VFR:'#22c55e',MVFR:'#3b82f6',IFR:'#ef4444',LIFR:'#a855f7',UNKN:'#6b7280'}[cat]||'#6b7280';
+        }
+
+        // WMO weather code → description
+        function _wmoDesc(code) {
+            if (code === null || code === undefined) return null;
+            const c = parseInt(code);
+            if (c === 0)  return 'Clear sky';
+            if (c === 1)  return 'Mainly clear';
+            if (c === 2)  return 'Partly cloudy';
+            if (c === 3)  return 'Overcast';
+            if (c === 45 || c === 48) return 'Fog';
+            if (c >= 51 && c <= 55) return 'Drizzle';
+            if (c >= 56 && c <= 57) return 'Freezing drizzle';
+            if (c >= 61 && c <= 65) return 'Rain';
+            if (c >= 66 && c <= 67) return 'Freezing rain';
+            if (c >= 71 && c <= 75) return 'Snow';
+            if (c === 77) return 'Snow grains';
+            if (c >= 80 && c <= 82) return 'Rain showers';
+            if (c >= 85 && c <= 86) return 'Snow showers';
+            if (c === 95) return 'Thunderstorm';
+            if (c >= 96 && c <= 99) return 'Thunderstorm w/ hail';
+            return `WX ${c}`;
+        }
+
+        function _mosShowDetail(idx) {
+            const b = _mosBlocks[idx];
+            if (!b) return;
+            // Deselect all cards
+            document.querySelectorAll('.mos-card').forEach((el, i) => {
+                el.style.outline = i === idx ? '2px solid rgba(255,255,255,0.6)' : 'none';
+            });
+            const detail = document.getElementById('mosDetail');
+            if (!detail) return;
+            const d = new Date(b.time);
+            const timeStr = `${String(d.getUTCHours()).padStart(2,'0')}:00Z  ${d.getUTCMonth()+1}/${d.getUTCDate()}/${d.getUTCFullYear()}`;
+            const wnd = b.windSpd !== null
+                ? `${String(Math.round(b.windDir||0)).padStart(3,'0')}° @ ${Math.round(b.windSpd)} kt${b.gust ? ', gusts ' + Math.round(b.gust) + ' kt' : ''}`
+                : 'No data';
+            const vis = b.visSm !== null
+                ? (b.visSm >= 6 ? '6+ SM' : b.visSm >= 1 ? `${b.visSm.toFixed(1)} SM` : `${b.visSm.toFixed(2)} SM`)
+                : '--';
+            const cig = b.cigFt !== null ? `${(Math.round(b.cigFt/100)*100).toLocaleString()} ft AGL` : '--';
+            const rh  = b.rh    !== null ? `${Math.round(b.rh)}%` : '--';
+            const slp = b.slp   !== null ? `${b.slp.toFixed(1)} hPa` : '--';
+            const wx  = _wmoDesc(b.weatherCode);
+            const lowCovStr  = b.lowCov   !== null ? `${Math.round(b.lowCov)}%`  : '--';
+            const midCovStr  = b.midCov   !== null ? `${Math.round(b.midCov)}%`  : '--';
+            const highCovStr = b.highCov  !== null ? `${Math.round(b.highCov)}%` : '--';
+            const totalCovStr= b.totalCov !== null ? `${Math.round(b.totalCov)}%`: '--';
+            const pp = b.precipPct !== null ? `${Math.round(b.precipPct)}%` : '--';
+            const pr = b.precip    !== null ? `${b.precip.toFixed(2)} mm` : '--';
+
+            const row = (label, val) => val && val !== '--'
+                ? `<div style="display:flex;justify-content:space-between;padding:3px 0;border-bottom:1px solid rgba(255,255,255,0.07);">
+                     <span style="opacity:0.55;font-size:10px;">${label}</span>
+                     <span style="font-size:11px;font-weight:600;">${val}</span>
+                   </div>` : '';
+
+            detail.innerHTML = `
+                <div style="padding:10px 12px;">
+                    <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">
+                        <span style="font-size:13px;font-weight:900;color:${_catColor(b.cat)};">${b.cat}</span>
+                        <span style="font-size:10px;opacity:0.6;font-family:monospace;">${timeStr}</span>
+                        ${wx ? `<span style="font-size:10px;opacity:0.75;margin-left:auto;">${wx}</span>` : ''}
+                    </div>
+                    <div style="display:grid;grid-template-columns:1fr 1fr;gap:0 16px;">
+                        <div>
+                            ${row('Temperature', _mosTempStrC(b.tmp))}
+                            ${row('Dewpoint', _mosTempStrC(b.dpt))}
+                            ${row('Rel. Humidity', rh)}
+                            ${row('Wind', wnd)}
+                            ${row('Visibility', vis)}
+                            ${row('Ceiling', cig)}
+                        </div>
+                        <div>
+                            ${row('Precip Probability', pp)}
+                            ${row('Precip Amount', pr)}
+                            ${row('Low Cloud Cover', lowCovStr)}
+                            ${row('Mid Cloud Cover', midCovStr)}
+                            ${row('High Cloud Cover', highCovStr)}
+                            ${row('Total Cloud Cover', totalCovStr)}
+                            ${row('Sea Level Pressure', slp)}
+                        </div>
+                    </div>
+                </div>`;
+            detail.style.display = '';
+        }
+
+        function _renderMosTimeline(blocks) {
+            if (!blocks.length) return '<p class="text-xs italic opacity-40 p-4">No forecast data available.</p>';
+            _mosBlocks = blocks;
+            const catBg     = {VFR:'rgba(34,197,94,0.15)',MVFR:'rgba(59,130,246,0.15)',IFR:'rgba(239,68,68,0.15)',LIFR:'rgba(168,85,247,0.15)',UNKN:'rgba(107,114,128,0.1)'};
+            const catBorder = {VFR:'rgba(34,197,94,0.4)', MVFR:'rgba(59,130,246,0.4)', IFR:'rgba(239,68,68,0.4)', LIFR:'rgba(168,85,247,0.4)', UNKN:'rgba(107,114,128,0.2)'};
+
+            const now = new Date();
+            const cards = blocks.map((b, idx) => {
+                const d    = new Date(b.time);
+                const isNow = Math.abs(d - now) < 3600000;
+                const hh   = String(d.getUTCHours()).padStart(2,'0');
+                const mmdd = `${String(d.getUTCMonth()+1).padStart(2,'0')}/${String(d.getUTCDate()).padStart(2,'0')}`;
+                const wnd  = b.windSpd !== null
+                    ? `${String(Math.round(b.windDir||0)).padStart(3,'0')}/${String(Math.round(b.windSpd)).padStart(2,'0')}${b.gust?'G'+Math.round(b.gust):''}kt`
+                    : '---';
+                const pp   = b.precipPct !== null ? `${Math.round(b.precipPct)}%` : '--';
+                const cig  = b.cigFt    !== null ? `${(Math.round(b.cigFt/100)*100).toLocaleString()}'` : '--';
+                const vis  = b.visSm    !== null
+                    ? (b.visSm >= 6 ? '6+sm' : b.visSm >= 1 ? `${b.visSm.toFixed(1)}sm` : `${b.visSm.toFixed(2)}sm`)
+                    : '--';
+                const tmp  = _mosTempStr(b.tmp);
+                const bg   = catBg[b.cat]   || catBg.UNKN;
+                const bdr  = catBorder[b.cat]|| catBorder.UNKN;
+                return `<div class="mos-card" onclick="_mosShowDetail(${idx})" style="flex-shrink:0;width:66px;padding:6px 4px;border-radius:8px;background:${bg};border:1px solid ${bdr};text-align:center;cursor:pointer;transition:outline 0.1s;${isNow?'outline:2px solid rgba(255,255,255,0.5);':''}">
+                    <div style="font-size:9px;opacity:0.6;font-family:monospace;line-height:1.2;">${hh}Z<br>${mmdd}</div>
+                    <div style="margin:3px 0;font-size:10px;font-weight:900;color:${_catColor(b.cat)};letter-spacing:0.5px;">${b.cat}</div>
+                    <div style="font-size:8px;font-family:monospace;opacity:0.85;line-height:1.5;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${wnd}">${wnd}</div>
+                    <div style="font-size:8px;opacity:0.6;margin-top:2px;">☁ ${cig}</div>
+                    <div style="font-size:8px;opacity:0.6;">👁 ${vis}</div>
+                    <div style="font-size:8px;opacity:0.6;">💧 ${pp}</div>
+                    <div style="font-size:8px;opacity:0.55;margin-top:2px;">${tmp}</div>
+                </div>`;
+            }).join('');
+            return `<div style="display:flex;gap:3px;overflow-x:auto;padding:10px 10px 6px;-webkit-overflow-scrolling:touch;">${cards}</div>
+                    <div id="mosDetail" style="display:none;border-top:1px solid rgba(255,255,255,0.1);"></div>`;
+        }
+
+        async function _fetchMosOpenMeteo(lat, lon, model) {
+            const modelParam = {ECMWF:'ecmwf_ifs025',ICON:'icon_seamless',GFS:'gfs_seamless'}[model]||'icon_seamless';
+            const url = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}` +
+                `&hourly=temperature_2m,dewpoint_2m,relative_humidity_2m,wind_speed_10m,wind_direction_10m,` +
+                `wind_gusts_10m,precipitation_probability,precipitation,cloud_cover_low,cloud_cover_mid,` +
+                `cloud_cover_high,cloud_cover,visibility,weather_code,surface_pressure` +
+                `&models=${modelParam}&forecast_days=3&wind_speed_unit=kn&timezone=UTC`;
+            const resp = await fetch(url);
+            if (!resp.ok) throw new Error(`Open-Meteo HTTP ${resp.status}`);
+            const json = await resp.json();
+            if (json.error) throw new Error(json.reason || 'Open-Meteo error');
+            const h   = json.hourly;
+            const now = new Date();
+            const blocks = [];
+            for (let i = 0; i < h.time.length; i++) {
+                const t = new Date(h.time[i] + ':00Z');
+                if (t < new Date(now.getTime() - 3600000)) continue;
+                if (t > new Date(now.getTime() + 48*3600000)) break;
+                const vis_m  = h.visibility?.[i] ?? null;
+                const visSm  = vis_m !== null ? +(vis_m / 1609.34).toFixed(2) : null;
+                const lowCov = h.cloud_cover_low?.[i] ?? null;
+                const cigFt  = lowCov === null ? null
+                             : lowCov >= 88 ? 800
+                             : lowCov >= 63 ? 1800
+                             : lowCov >= 38 ? 3500
+                             : null;
+                blocks.push({
+                    time:        h.time[i] + ':00Z',
+                    cat:         _mosCat(cigFt, visSm),
+                    windDir:     h.wind_direction_10m?.[i]      ?? null,
+                    windSpd:     h.wind_speed_10m?.[i]          ?? null,
+                    gust:        h.wind_gusts_10m?.[i]          ?? null,
+                    precipPct:   h.precipitation_probability?.[i] ?? null,
+                    precip:      h.precipitation?.[i]           ?? null,
+                    cigFt, visSm,
+                    lowCov,
+                    midCov:      h.cloud_cover_mid?.[i]         ?? null,
+                    highCov:     h.cloud_cover_high?.[i]        ?? null,
+                    totalCov:    h.cloud_cover?.[i]             ?? null,
+                    rh:          h.relative_humidity_2m?.[i]    ?? null,
+                    slp:         h.surface_pressure?.[i]        ?? null,
+                    weatherCode: h.weather_code?.[i]            ?? null,
+                    tmp:         h.temperature_2m?.[i]          ?? null,
+                    dpt:         h.dewpoint_2m?.[i]             ?? null,
+                });
+            }
+            return blocks;
+        }
+
+        async function _loadMosData(icao, model) {
+            const content = document.getElementById('mosContent');
+            if (!content) return;
+            content.innerHTML = '<p class="text-xs italic opacity-40 p-4">Loading\u2026</p>';
+            try {
+                const stationLookup = new Map(allStationsData.map(s => [s.id, s]));
+                const station = stationLookup.get(icao);
+                const lat = station?.latitude, lon = station?.longitude;
+                if (!lat || !lon) { content.innerHTML = '<p class="text-xs italic opacity-40 p-4">No coordinates for this station.</p>'; return; }
+                const blocks = await _fetchMosOpenMeteo(lat, lon, model);
+                content.innerHTML = _renderMosTimeline(blocks);
+                // Auto-select current hour
+                const nowIdx = blocks.findIndex(b => new Date(b.time) >= new Date(Date.now() - 1800000));
+                if (nowIdx >= 0) {
+                    _mosShowDetail(nowIdx);
+                    // Scroll timeline to current card
+                    setTimeout(() => {
+                        const cards = document.querySelectorAll('.mos-card');
+                        if (cards[nowIdx]) cards[nowIdx].scrollIntoView({behavior:'smooth', block:'nearest', inline:'center'});
+                    }, 50);
+                }
+            } catch(e) {
+                content.innerHTML = `<p class="text-xs italic opacity-40 p-4">Forecast unavailable. (${e.message})</p>`;
+            }
+        }
+
+        function loadMos(icao) {
+            const panel = document.getElementById('mosPanel');
+            if (!panel) return;
+            if (!panel.classList.contains('hidden') && _mosCurrentIcao === icao) {
+                panel.classList.add('hidden'); return;
+            }
+            panel.classList.remove('hidden');
+            setTimeout(() => panel.scrollIntoView({behavior:'smooth',block:'nearest'}), 50);
+            _mosCurrentIcao = icao;
+            if (!_mosCurrentModel || !_MOS_MODELS.includes(_mosCurrentModel)) _mosCurrentModel = _MOS_MODELS[0];
+            const btnBar = document.getElementById('mosModelBtns');
+            if (btnBar) {
+                btnBar.innerHTML = _MOS_MODELS.map(m => {
+                    const active = m === _mosCurrentModel;
+                    return `<button id="mosModel_${m}"
+                        onclick="event.stopPropagation();_mosCurrentModel='${m}';document.querySelectorAll('[id^=mosModel_]').forEach(b=>{const a=b.id==='mosModel_${m}';b.style.fontWeight=a?'bold':'normal';b.style.opacity=a?'1':'0.5';b.style.background=a?'rgba(255,255,255,0.25)':'rgba(255,255,255,0.05)'});_loadMosData('${icao}','${m}')"
+                        style="padding:1px 7px;font-size:10px;border-radius:4px;border:1px solid rgba(255,255,255,0.2);cursor:pointer;color:white;opacity:${active?1:0.5};font-weight:${active?'bold':'normal'};background:${active?'rgba(255,255,255,0.25)':'rgba(255,255,255,0.05)'}">${m}</button>`;
+                }).join('');
+            }
+            _loadMosData(icao, _mosCurrentModel);
         }
 
         // D-ATIS — fetch the full dataset once and cache it locally.
@@ -7459,6 +7744,63 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // ── WIND ROSE ─────────────────────────────────────────────────────────────────
         let _wrCurrentIcao = null, _wrCurrentDays = 365, _wrCurrentMonthOnly = false, _wrOverlayActive = false, _wrCachedData = null;
+
+        const _WR_PERIODS = [
+            { label: '30d',  days: 30,   month: false },
+            { label: '90d',  days: 90,   month: false },
+            { label: '1yr',  days: 365,  month: false },
+            { label: '5yr',  days: 1825, month: false },
+            { label: () => new Date().toLocaleString('default',{month:'long'}), days: null, month: true }
+        ];
+
+        function _rwyOverlayControlHtml() {
+            const active = _wrOverlayActive;
+            const sockSvg = `<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="display:block;flex-shrink:0">
+                <line x1="5" y1="4" x2="5" y2="21"/>
+                <path d="M5 5 Q14 4 19 7 Q14 10 5 10 Z" fill="currentColor" stroke="none" opacity="0.85"/>
+                <path d="M5 5 Q14 4 19 7 Q14 10 5 10" fill="none" stroke="currentColor" stroke-width="1.4"/>
+                <line x1="9" y1="5.3" x2="9" y2="9.7" stroke-width="1" opacity="0.5"/>
+                <line x1="13" y1="4.6" x2="13" y2="9.9" stroke-width="1" opacity="0.5"/>
+            </svg>`;
+
+            const toggleStyle = `display:flex;align-items:center;justify-content:center;width:22px;height:22px;border-radius:4px;border:1px solid rgba(255,255,255,${active?'0.5':'0.25'});cursor:pointer;color:white;background:${active?'rgba(99,102,241,0.7)':'rgba(0,0,0,0.5)'};flex-shrink:0;pointer-events:auto;`;
+            const toggleBtn = `<button id="windRoseOverlayBtnInline" onclick="event.stopPropagation();_toggleWindRoseOverlay()" title="Wind Rose Overlay" style="${toggleStyle}">${sockSvg}</button>`;
+
+            if (!active) return toggleBtn;
+
+            const monthLabel = typeof _WR_PERIODS[4].label === 'function' ? _WR_PERIODS[4].label() : _WR_PERIODS[4].label;
+            const pills = _WR_PERIODS.map((p, i) => {
+                const label    = i === 4 ? monthLabel : p.label;
+                const isActive = p.month ? _wrCurrentMonthOnly : (!_wrCurrentMonthOnly && p.days === _wrCurrentDays);
+                return `<button onclick="event.stopPropagation();_setWrPeriod(${p.days},${p.month})"
+                    style="display:block;width:100%;text-align:center;padding:1px 5px;font-size:9px;border-radius:3px;border:1px solid rgba(255,255,255,${isActive?'0.5':'0.15'});cursor:pointer;color:white;background:${isActive?'rgba(99,102,241,0.7)':'rgba(0,0,0,0.5)'};font-weight:${isActive?'bold':'normal'};white-space:nowrap;pointer-events:auto;">${label}</button>`;
+            }).join('');
+
+            return `${toggleBtn}<div style="display:flex;flex-direction:column;gap:2px;pointer-events:auto;">${pills}</div>`;
+        }
+
+        function _setWrPeriod(days, monthOnly) {
+            const changed = days !== _wrCurrentDays || monthOnly !== _wrCurrentMonthOnly;
+            _wrCurrentDays      = days;
+            _wrCurrentMonthOnly = monthOnly;
+            if (changed) _wrCachedData = null;
+            // Re-render inline control so active pill updates immediately
+            _syncOverlayButtons();
+            // Sync panel pills if panel is open
+            document.querySelectorAll('[id^="wrPeriod_"]').forEach(btn => {
+                const isActive = monthOnly ? btn.id === 'wrPeriod_month' : btn.id === 'wrPeriod_' + days;
+                btn.style.opacity    = isActive ? '1'    : '0.5';
+                btn.style.fontWeight = isActive ? 'bold' : 'normal';
+                btn.style.background = isActive ? 'rgba(255,255,255,0.25)' : 'rgba(255,255,255,0.05)';
+            });
+            // Update panel image if panel is visible
+            const panel = document.getElementById('windRosePanel');
+            if (panel && !panel.classList.contains('hidden') && _wrCurrentIcao) {
+                _renderWindRoseImg(_wrCurrentIcao, days, monthOnly);
+            }
+            // Refresh overlay
+            _refreshWindRoseOverlay();
+        }
 
         function _iemStationId(icao) {
             if (/^K[A-Z0-9]{3}$/.test(icao)) return icao.substring(1);
@@ -7659,18 +8001,25 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         function _syncOverlayButtons() {
-            const btn       = document.getElementById('windRoseOverlayBtn');
-            const btnInline = document.getElementById('windRoseOverlayBtnInline');
+            // Sync wind rose panel header button
+            const btn = document.getElementById('windRoseOverlayBtn');
             if (btn) {
                 btn.style.background = _wrOverlayActive ? 'rgba(255,255,255,0.3)' : 'rgba(255,255,255,0.05)';
                 btn.style.fontWeight = _wrOverlayActive ? 'bold' : 'normal';
-                btn.textContent      = _wrOverlayActive ? '⊕ Overlay ✓' : '⊕ Overlay';
+                btn.textContent      = _wrOverlayActive ? '\u2295 Overlay \u2713' : '\u2295 Overlay';
             }
-            if (btnInline) btnInline.style.display = _wrOverlayActive ? 'block' : 'none';
+            // Re-render the entire inline control (toggle + pills)
+            const ctrl = document.getElementById('_rwyOverlayControl');
+            if (ctrl) ctrl.innerHTML = _rwyOverlayControlHtml();
         }
 
         function _toggleWindRoseOverlay() {
             _wrOverlayActive = !_wrOverlayActive;
+            // Resolve ICAO from modal header if panel was never opened
+            if (_wrOverlayActive && !_wrCurrentIcao) {
+                const h2 = document.querySelector('#tileModal h2');
+                if (h2) _wrCurrentIcao = h2.textContent.trim();
+            }
             _syncOverlayButtons();
             if (!_wrOverlayActive) { _removeWindRoseGroup(); return; }
             _refreshWindRoseOverlay();
@@ -7696,29 +8045,21 @@ document.addEventListener('DOMContentLoaded', () => {
             panel.classList.remove('hidden');
             setTimeout(() => panel.scrollIntoView({ behavior: 'smooth', block: 'nearest' }), 50);
 
-            const defaultDays = days || 365;
+            const defaultDays = days || _wrCurrentDays || 365;
             const btnBar      = document.getElementById('windRosePeriodBtns');
-            const now         = new Date();
-            const monthName   = now.toLocaleString('default', { month: 'long' });
-            const periods     = [
-                { label: '30d',      days: 30,   month: false },
-                { label: '90d',      days: 90,   month: false },
-                { label: '1yr',      days: 365,  month: false },
-                { label: '5yr',      days: 1825, month: false },
-                { label: monthName,  days: null, month: true  }
-            ];
             if (btnBar) {
-                btnBar.innerHTML = periods.map(p => {
+                btnBar.innerHTML = _WR_PERIODS.map((p, i) => {
+                    const label    = i === 4 ? (typeof p.label === 'function' ? p.label() : p.label) : p.label;
                     const id       = p.month ? 'wrPeriod_month' : 'wrPeriod_' + p.days;
-                    const isActive = !p.month && p.days === defaultDays;
+                    const isActive = p.month ? _wrCurrentMonthOnly : (!_wrCurrentMonthOnly && p.days === defaultDays);
                     return `<button id="${id}"
                         onclick="event.stopPropagation(); _renderWindRoseImg('${icao}', ${p.days}, ${p.month})"
                         style="padding:1px 7px;font-size:10px;border-radius:4px;border:1px solid rgba(255,255,255,0.2);cursor:pointer;color:white;transition:all 0.15s;opacity:${isActive?1:0.5};font-weight:${isActive?'bold':'normal'};background:${isActive?'rgba(255,255,255,0.25)':'rgba(255,255,255,0.05)'}">
-                        ${p.label}
+                        ${label}
                     </button>`;
                 }).join('');
             }
-            _renderWindRoseImg(icao, defaultDays, false);
+            _renderWindRoseImg(icao, defaultDays, _wrCurrentMonthOnly);
         }
 
         // ── STATION HISTORY ──────────────────────────────────────────────────────────
@@ -8742,7 +9083,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
             return `
                 <div class="relative flex flex-col items-center justify-center bg-transparent" style="width: ${size}px; height: ${size}px;">
-                    <svg id="_runwaySvg" viewBox="0 0 100 100" class="w-full h-full overflow-visible drop-shadow-xl" style="background: transparent;">
+                    <svg id="_runwaySvg" viewBox="0 0 100 100" class="w-full h-full overflow-visible drop-shadow-xl" style="background: transparent; pointer-events: none;">
                         <text x="50" y="4" font-size="5" fill="#64748b" text-anchor="middle" font-family="monospace" opacity="0.7">N</text>
                         ${runwaysHtml}
                         ${windHtml}
