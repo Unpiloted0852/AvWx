@@ -1442,7 +1442,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         <script>
             // --- APP CONFIG ---
-            const CURRENT_VERSION = 'v2.8.5'; // Incremented Version
+            const CURRENT_VERSION = 'v2.8.6'; // Incremented Version
             const GITHUB_REPO = 'Unpiloted0852/AvWx';
 
             // Global Data Storage for Modal Access
@@ -7260,13 +7260,26 @@ document.addEventListener('DOMContentLoaded', () => {
                         </div>
                         <div class="flex gap-1.5 shrink-0">
                             <button onclick="jumpToMapFromModal('${icao}')" class="p-2.5 bg-blue-600 hover:bg-blue-500 rounded-full transition-colors shadow-lg z-50 text-white" title="View on Map">
-                                 <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 7m0 13V7" />
+                                <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                    <path d="M12 2C8.686 2 6 4.686 6 8c0 4.418 6 12 6 12s6-7.582 6-12c0-3.314-2.686-6-6-6z"/>
+                                    <circle cx="12" cy="8" r="2" fill="currentColor" stroke="none"/>
                                 </svg>
                             </button>
                             <button onclick="loadStationHistory('${icao}')" class="p-2.5 bg-amber-600 hover:bg-amber-500 rounded-full transition-colors shadow-lg z-50 text-white" title="72hr History">
                                 <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                </svg>
+                            </button>
+                            <button onclick="loadWindRose('${icao}')" class="p-2.5 bg-teal-700 hover:bg-teal-600 rounded-full transition-colors shadow-lg z-50 text-white" title="Wind Rose">
+                                <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                                    <!-- pole -->
+                                    <line x1="5" y1="4" x2="5" y2="21"/>
+                                    <!-- sock body: tapers from wide at mast to narrow tip -->
+                                    <path d="M5 5 Q14 4 19 7 Q14 10 5 10 Z" fill="currentColor" stroke="none" opacity="0.85"/>
+                                    <path d="M5 5 Q14 4 19 7 Q14 10 5 10" fill="none" stroke="currentColor" stroke-width="1.4"/>
+                                    <!-- bands -->
+                                    <line x1="9"  y1="5.3" x2="9"  y2="9.7" stroke-width="1" opacity="0.5"/>
+                                    <line x1="13" y1="4.6" x2="13" y2="9.9" stroke-width="1" opacity="0.5"/>
                                 </svg>
                             </button>
                             <button onclick="closeTileModal()" class="p-2.5 bg-black/20 hover:bg-black/40 rounded-full transition-colors z-50">
@@ -7321,6 +7334,18 @@ document.addEventListener('DOMContentLoaded', () => {
                             <div class="space-y-1">
                                 ${station.taf ? formatAnalyzedTaf(station.taf.rawText, targetTime, new Date(targetTime.getTime() + 1800000)) : '<p class="italic opacity-40">No data</p>'}
                             </div>
+                        </div>
+                    </div>
+
+                    <!-- Wind Rose Panel (hidden by default, loaded on demand) -->
+                    <div id="windRosePanel" class="hidden mt-4">
+                        <div class="flex items-center justify-between mb-2 gap-2">
+                            <h3 class="text-[10px] font-black uppercase tracking-widest opacity-60 shrink-0">Wind Rose</h3>
+                            <div id="windRosePeriodBtns" class="flex gap-1 flex-wrap"></div>
+                            <button onclick="document.getElementById('windRosePanel').classList.add('hidden')" class="text-[10px] opacity-40 hover:opacity-100 transition-opacity shrink-0">✕</button>
+                        </div>
+                        <div id="windRoseContent" class="bg-black/20 rounded-xl flex items-center justify-center" style="min-height:200px">
+                            <p class="text-xs italic opacity-40 p-4">Loading\u2026</p>
                         </div>
                     </div>
 
@@ -7421,6 +7446,103 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
 
+
+        // ── WIND ROSE ─────────────────────────────────────────────────────────────────
+        function _buildWindRoseUrl(icao, days, monthOnly) {
+            // IEM uses 3-letter FAA IDs for continental US (K-prefix) and Alaska (PA/PF/etc).
+            // All other stations (international, Canadian, etc.) use the full ICAO.
+            let iemStation = icao;
+            if (/^K[A-Z0-9]{3}$/.test(icao)) {
+                iemStation = icao.substring(1);          // KORD  → ORD
+            } else if (/^P[A-Z]{3}$/.test(icao)) {
+                iemStation = icao.substring(1);          // PANC  → ANC
+            }
+            // Canadian (CY...), European (EG...), etc. → keep full ICAO
+
+            const now   = new Date();
+            const start = monthOnly
+                ? new Date(now.getUTCFullYear() - 10, now.getUTCMonth(), 1)  // 10 years back, same month
+                : new Date(now.getTime() - days * 86400000);
+
+            const params = [
+                'station='  + encodeURIComponent(iemStation),
+                'year1='    + start.getUTCFullYear(),
+                'month1='   + (start.getUTCMonth() + 1),
+                'day1=1',
+                'year2='    + now.getUTCFullYear(),
+                'month2='   + (now.getUTCMonth() + 1),
+                'day2='     + now.getUTCDate(),
+                'units=kts',
+                'fmt=png',
+                'nsector=16',
+                'dpi=90'
+            ];
+            if (monthOnly) params.push('monthlimit=true');
+
+            return 'https://mesonet.agron.iastate.edu/cgi-bin/mywindrose.py?' + params.join('&');
+        }
+
+        function _renderWindRoseImg(icao, days, monthOnly) {
+            const content = document.getElementById('windRoseContent');
+            if (!content) return;
+            content.innerHTML = '<p class="text-xs italic opacity-40 p-4">Loading\u2026</p>';
+
+            // Update period pill active states
+            document.querySelectorAll('[id^="wrPeriod_"]').forEach(btn => {
+                const isActive = monthOnly ? btn.id === 'wrPeriod_month' : btn.id === 'wrPeriod_' + days;
+                btn.style.opacity = isActive ? '1' : '0.5';
+                btn.style.fontWeight = isActive ? 'bold' : 'normal';
+                btn.style.background = isActive ? 'rgba(255,255,255,0.25)' : 'rgba(255,255,255,0.05)';
+            });
+
+            const img = new Image();
+            img.style.cssText = 'width:100%;border-radius:0.75rem;display:block;';
+            img.onload  = () => { content.innerHTML = ''; content.appendChild(img); };
+            img.onerror = () => { content.innerHTML = '<p class="text-xs italic opacity-40 p-4">No wind rose data available for this station.</p>'; };
+            img.src = _buildWindRoseUrl(icao, days, monthOnly);
+        }
+
+        function loadWindRose(icao, days) {
+            const panel = document.getElementById('windRosePanel');
+            if (!panel) return;
+
+            // Toggle off if already visible
+            if (!panel.classList.contains('hidden')) {
+                panel.classList.add('hidden');
+                return;
+            }
+
+            const defaultDays = days || 365;
+            panel.classList.remove('hidden');
+
+            // Scroll the panel into view
+            setTimeout(() => panel.scrollIntoView({ behavior: 'smooth', block: 'nearest' }), 50);
+
+            // Build period pills
+            const btnBar  = document.getElementById('windRosePeriodBtns');
+            const now = new Date();
+            const monthName = now.toLocaleString('default', { month: 'long' });
+            const periods = [
+                { label: '30d',  days: 30,   month: false },
+                { label: '90d',  days: 90,   month: false },
+                { label: '1yr',  days: 365,  month: false },
+                { label: '5yr',  days: 1825, month: false },
+                { label: monthName, days: null, month: true }
+            ];
+            if (btnBar) {
+                btnBar.innerHTML = periods.map(p => {
+                    const id = p.month ? 'wrPeriod_month' : 'wrPeriod_' + p.days;
+                    const isActive = !p.month && p.days === defaultDays;
+                    return `<button id="${id}"
+                        onclick="event.stopPropagation(); _renderWindRoseImg('${icao}', ${p.days}, ${p.month})"
+                        style="padding:1px 7px;font-size:10px;border-radius:4px;border:1px solid rgba(255,255,255,0.2);cursor:pointer;color:white;transition:all 0.15s;opacity:${isActive?1:0.5};font-weight:${isActive?'bold':'normal'};background:${isActive?'rgba(255,255,255,0.25)':'rgba(255,255,255,0.05)'}">
+                        ${p.label}
+                    </button>`;
+                }).join('');
+            }
+
+            _renderWindRoseImg(icao, defaultDays, false);
+        }
 
         // ── STATION HISTORY ──────────────────────────────────────────────────────────
         async function loadStationHistory(icao) {
