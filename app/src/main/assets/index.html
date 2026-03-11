@@ -7291,8 +7291,9 @@ document.addEventListener('DOMContentLoaded', () => {
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
                         <!-- Runway Visualizer Card -->
                         <div class="bg-black/30 rounded-3xl p-8 flex flex-col items-center border border-white/20 shadow-inner relative overflow-visible min-h-[300px] justify-center">
-                            ${generateRunwaySVG(icao, windDir, windSpeed, gustSpeed, isExpired, 180)}
-                            ${runwaySelectorHtml}
+                            <div id="_rwyDiagramSlot">${generateRunwaySVG(icao, windDir, windSpeed, gustSpeed, isExpired, 180)}</div>
+                            <div id="_rwySelectorSlot">${runwaySelectorHtml}</div>
+                            <button id="windRoseOverlayBtnInline" onclick="_toggleWindRoseOverlay()" style="display:${_wrOverlayActive?'block':'none'};position:absolute;top:10px;right:10px;padding:2px 8px;font-size:9px;border-radius:4px;border:1px solid rgba(255,255,255,0.3);cursor:pointer;color:white;background:rgba(255,255,255,0.2);font-weight:bold;">⊕ Rose ✓</button>
                         </div>
 
                         <!-- Stats Column -->
@@ -7342,10 +7343,11 @@ document.addEventListener('DOMContentLoaded', () => {
                         <div class="flex items-center justify-between mb-2 gap-2">
                             <h3 class="text-[10px] font-black uppercase tracking-widest opacity-60 shrink-0">Wind Rose</h3>
                             <div id="windRosePeriodBtns" class="flex gap-1 flex-wrap"></div>
-                            <button onclick="document.getElementById('windRosePanel').classList.add('hidden')" class="text-[10px] opacity-40 hover:opacity-100 transition-opacity shrink-0">✕</button>
+                            <button id="windRoseOverlayBtn" onclick="_toggleWindRoseOverlay()" style="padding:1px 7px;font-size:10px;border-radius:4px;border:1px solid rgba(255,255,255,0.3);cursor:pointer;color:white;background:rgba(255,255,255,0.05);white-space:nowrap;transition:all 0.15s">⊕ Overlay</button>
+                            <button onclick="_wrOverlayActive=false;_wrCachedData=null;_removeWindRoseGroup();_syncOverlayButtons();document.getElementById('windRosePanel').classList.add('hidden')" class="text-[10px] opacity-40 hover:opacity-100 transition-opacity shrink-0">✕</button>
                         </div>
                         <div id="windRoseContent" class="bg-black/20 rounded-xl flex items-center justify-center" style="min-height:200px">
-                            <p class="text-xs italic opacity-40 p-4">Loading\u2026</p>
+                            <p class="text-xs italic opacity-40 p-4">Loading…</p>
                         </div>
                     </div>
 
@@ -7365,6 +7367,14 @@ document.addEventListener('DOMContentLoaded', () => {
             document.body.style.overflow = 'hidden';
             modal.classList.remove('hidden');
             fetchDatis(icao);
+
+            // Opening a different airport — reset overlay state entirely
+            if (_wrCurrentIcao !== icao) {
+                _wrOverlayActive = false;
+                _wrCachedData = null;
+                _removeWindRoseGroup();
+                _syncOverlayButtons();
+            }
         }
 
         // D-ATIS — fetch the full dataset once and cache it locally.
@@ -7448,50 +7458,164 @@ document.addEventListener('DOMContentLoaded', () => {
 
 
         // ── WIND ROSE ─────────────────────────────────────────────────────────────────
+        let _wrCurrentIcao = null, _wrCurrentDays = 365, _wrCurrentMonthOnly = false, _wrOverlayActive = false, _wrCachedData = null;
+
+        function _iemStationId(icao) {
+            if (/^K[A-Z0-9]{3}$/.test(icao)) return icao.substring(1);
+            if (/^P[A-Z]{3}$/.test(icao))    return icao.substring(1);
+            return icao;
+        }
+
+        function _wrDateParams(days, monthOnly) {
+            const now      = new Date();
+            const utcMonth = now.getUTCMonth() + 1;
+            const utcYear  = now.getUTCFullYear();
+            const utcDay   = now.getUTCDate();
+            const start    = monthOnly ? null : new Date(now.getTime() - days * 86400000);
+            return {
+                year1:  monthOnly ? utcYear - 10 : start.getUTCFullYear(),
+                month1: monthOnly ? utcMonth     : (start.getUTCMonth() + 1),
+                year2: utcYear, month2: utcMonth, day2: utcDay
+            };
+        }
+
         function _buildWindRoseUrl(icao, days, monthOnly) {
-            // IEM uses 3-letter FAA IDs for continental US (K-prefix) and Alaska (PA/PF/etc).
-            // All other stations (international, Canadian, etc.) use the full ICAO.
-            let iemStation = icao;
-            if (/^K[A-Z0-9]{3}$/.test(icao)) {
-                iemStation = icao.substring(1);          // KORD  → ORD
-            } else if (/^P[A-Z]{3}$/.test(icao)) {
-                iemStation = icao.substring(1);          // PANC  → ANC
-            }
-            // Canadian (CY...), European (EG...), etc. → keep full ICAO
-
-            const now        = new Date();
-            const utcMonth   = now.getUTCMonth() + 1;   // 1-based, always UTC
-            const utcYear    = now.getUTCFullYear();
-            const utcDay     = now.getUTCDate();
-            const start      = monthOnly ? null : new Date(now.getTime() - days * 86400000);
-
+            const p = _wrDateParams(days, monthOnly);
             const params = [
-                'station='  + encodeURIComponent(iemStation),
-                'year1='    + (monthOnly ? utcYear - 10 : start.getUTCFullYear()),
-                'month1='   + (monthOnly ? utcMonth     : (start.getUTCMonth() + 1)),
-                'day1=1',
-                'year2='    + utcYear,
-                'month2='   + utcMonth,
-                'day2='     + utcDay,
-                'units=kts',
-                'fmt=png',
-                'nsector=16',
-                'dpi=90'
+                'station='  + encodeURIComponent(_iemStationId(icao)),
+                'year1=' + p.year1, 'month1=' + p.month1, 'day1=1',
+                'year2=' + p.year2, 'month2=' + p.month2, 'day2=' + p.day2,
+                'units=kts', 'fmt=png', 'nsector=16', 'dpi=90'
             ];
             if (monthOnly) params.push('monthlimit=true');
-
             return 'https://mesonet.agron.iastate.edu/cgi-bin/mywindrose.py?' + params.join('&');
         }
 
+        function _buildWindRoseDataUrl(icao, days, monthOnly) {
+            const p = _wrDateParams(days, monthOnly);
+            const params = [
+                'station='  + encodeURIComponent(_iemStationId(icao)),
+                'year1=' + p.year1, 'month1=' + p.month1, 'day1=1',
+                'year2=' + p.year2, 'month2=' + p.month2, 'day2=' + p.day2,
+                'units=kts', 'nsector=16', 'justdata=true'
+            ];
+            if (monthOnly) params.push('monthlimit=true');
+            return 'https://mesonet.agron.iastate.edu/cgi-bin/mywindrose.py?' + params.join('&');
+        }
+
+        function _parseWindRoseData(text) {
+            const lines = text.split('\n').filter(l => l && !l.startsWith('#'));
+            if (lines.length < 2) return null;
+            // lines[0] = header (Direction,Calm,...), lines[1..] = data rows
+            let calm = 0;
+            const sectors = [];
+            for (let i = 1; i < lines.length; i++) {
+                const parts = lines[i].split(',').map(s => s.trim());
+                if (parts.length < 8) continue;
+                if (i === 1) calm = parseFloat(parts[1]) || 0;
+                sectors.push({ bins: parts.slice(2).map(v => parseFloat(v) || 0) }); // 6 bins
+            }
+            return sectors.length ? { calm, sectors } : null;
+        }
+
+        function _polarArcPath(cx, cy, r1, r2, startMet, endMet) {
+            const toXY = (r, a) => [
+                cx + r * Math.sin(a * Math.PI / 180),
+                cy - r * Math.cos(a * Math.PI / 180)
+            ];
+            const [x1, y1] = toXY(r1, startMet);
+            const [x2, y2] = toXY(r2, startMet);
+            const [x3, y3] = toXY(r2, endMet);
+            const [x4, y4] = toXY(r1, endMet);
+            const lg = (endMet - startMet) > 180 ? 1 : 0;
+            return `M${x1.toFixed(2)},${y1.toFixed(2)} L${x2.toFixed(2)},${y2.toFixed(2)} A${r2},${r2} 0 ${lg},1 ${x3.toFixed(2)},${y3.toFixed(2)} L${x4.toFixed(2)},${y4.toFixed(2)} A${r1},${r1} 0 ${lg},0 ${x1.toFixed(2)},${y1.toFixed(2)}Z`;
+        }
+
+        function _buildWindRoseGroup(data) {
+            const cx = 50, cy = 50, maxR = 48, minR = 5;
+            const BIN_COLORS = ['#60a5fa','#34d399','#fbbf24','#f97316','#ef4444','#a855f7'];
+            const nSectors   = data.sectors.length;
+            const sectorSpan = 360 / nSectors;
+            const totals     = data.sectors.map(s => s.bins.reduce((a, b) => a + b, 0));
+            const maxFreq    = Math.max(...totals, 0.001);
+
+            const ns = 'http://www.w3.org/2000/svg';
+            const g  = document.createElementNS(ns, 'g');
+            g.setAttribute('id', '_windRoseGroup');
+            g.setAttribute('pointer-events', 'none');
+
+            const toXY = (r, a) => [
+                cx + r * Math.sin(a * Math.PI / 180),
+                cy - r * Math.cos(a * Math.PI / 180)
+            ];
+            const arcPath = (r1, r2, a0, a1) => {
+                const [x1,y1]=toXY(r1,a0), [x2,y2]=toXY(r2,a0);
+                const [x3,y3]=toXY(r2,a1), [x4,y4]=toXY(r1,a1);
+                const lg=(a1-a0)>180?1:0;
+                return `M${x1.toFixed(2)},${y1.toFixed(2)} L${x2.toFixed(2)},${y2.toFixed(2)} A${r2},${r2} 0 ${lg},1 ${x3.toFixed(2)},${y3.toFixed(2)} L${x4.toFixed(2)},${y4.toFixed(2)} A${r1},${r1} 0 ${lg},0 ${x1.toFixed(2)},${y1.toFixed(2)}Z`;
+            };
+            const mk = (tag, attrs) => {
+                const el = document.createElementNS(ns, tag);
+                Object.entries(attrs).forEach(([k,v]) => el.setAttribute(k,v));
+                return el;
+            };
+
+            // Reference rings
+            [0.33, 0.66, 1.0].forEach(frac => g.appendChild(mk('circle', {
+                cx, cy, r: minR + frac*(maxR-minR),
+                fill:'none', stroke:'rgba(255,255,255,0.15)',
+                'stroke-width':'0.4', 'stroke-dasharray':'2,2'
+            })));
+
+            // Petals
+            data.sectors.forEach((sector, i) => {
+                const a0 = i*sectorSpan - sectorSpan/2;
+                const a1 = i*sectorSpan + sectorSpan/2;
+                const total = totals[i];
+                if (total === 0) return;
+                const totalR = minR + (total/maxFreq)*(maxR-minR);
+                let innerR = minR;
+                sector.bins.forEach((freq, bi) => {
+                    if (freq <= 0) return;
+                    const outerR = innerR + (freq/total)*(totalR-minR);
+                    g.appendChild(mk('path', {
+                        d: arcPath(innerR, outerR, a0, a1),
+                        fill: BIN_COLORS[bi], 'fill-opacity':'0.75',
+                        stroke:'rgba(0,0,0,0.3)', 'stroke-width':'0.25'
+                    }));
+                    innerR = outerR;
+                });
+            });
+
+            // Calm dot at center
+            const calmR = data.calm > 0 ? Math.max(1.2, (data.calm/maxFreq)*minR*0.9) : 0;
+            if (calmR > 0) g.appendChild(mk('circle', {
+                cx, cy, r: calmR,
+                fill:'rgba(255,255,255,0.55)', stroke:'rgba(255,255,255,0.7)', 'stroke-width':'0.4'
+            }));
+
+            return g;
+        }
+
+        function _removeWindRoseGroup() {
+            const g = document.getElementById('_windRoseGroup');
+            if (g) g.parentNode.removeChild(g);
+        }
+
         function _renderWindRoseImg(icao, days, monthOnly) {
+            const changed = icao !== _wrCurrentIcao || days !== _wrCurrentDays || monthOnly !== _wrCurrentMonthOnly;
+            _wrCurrentIcao = icao;
+            _wrCurrentDays = days;
+            _wrCurrentMonthOnly = monthOnly;
+            if (changed) _wrCachedData = null;  // force fresh fetch for new period/station
+
             const content = document.getElementById('windRoseContent');
             if (!content) return;
-            content.innerHTML = '<p class="text-xs italic opacity-40 p-4">Loading\u2026</p>';
+            content.innerHTML = '<p class="text-xs italic opacity-40 p-4">Loading…</p>';
 
-            // Update period pill active states
             document.querySelectorAll('[id^="wrPeriod_"]').forEach(btn => {
                 const isActive = monthOnly ? btn.id === 'wrPeriod_month' : btn.id === 'wrPeriod_' + days;
-                btn.style.opacity = isActive ? '1' : '0.5';
+                btn.style.opacity    = isActive ? '1'    : '0.5';
                 btn.style.fontWeight = isActive ? 'bold' : 'normal';
                 btn.style.background = isActive ? 'rgba(255,255,255,0.25)' : 'rgba(255,255,255,0.05)';
             });
@@ -7501,38 +7625,91 @@ document.addEventListener('DOMContentLoaded', () => {
             img.onload  = () => { content.innerHTML = ''; content.appendChild(img); };
             img.onerror = () => { content.innerHTML = '<p class="text-xs italic opacity-40 p-4">No wind rose data available for this station.</p>'; };
             img.src = _buildWindRoseUrl(icao, days, monthOnly);
+
+            if (_wrOverlayActive) _refreshWindRoseOverlay();
+        }
+
+        function _injectCachedWindRose() {
+            // Synchronously inject from cache — no flicker on runway switch
+            _removeWindRoseGroup();
+            if (!_wrCachedData) return;
+            const rwysvg = document.getElementById('_runwaySvg');
+            if (!rwysvg) return;
+            const roseGroup = _buildWindRoseGroup(_wrCachedData);
+            const arrowG = rwysvg.querySelector('g[transform^="rotate"]');
+            if (arrowG) rwysvg.insertBefore(roseGroup, arrowG);
+            else        rwysvg.appendChild(roseGroup);
+        }
+
+        async function _refreshWindRoseOverlay() {
+            if (!_wrCurrentIcao) return;
+            // If we already have cached data, inject immediately (no flicker) while fetch runs
+            if (_wrCachedData) _injectCachedWindRose();
+            else _removeWindRoseGroup();
+            try {
+                const url  = _buildWindRoseDataUrl(_wrCurrentIcao, _wrCurrentDays, _wrCurrentMonthOnly);
+                const resp = await fetch(url);
+                if (!resp.ok) throw new Error('fetch failed');
+                const text = await resp.text();
+                const data = _parseWindRoseData(text);
+                if (!data) throw new Error('parse failed');
+                _wrCachedData = data;
+                _injectCachedWindRose();
+            } catch (e) { /* silent */ }
+        }
+
+        function _syncOverlayButtons() {
+            const btn       = document.getElementById('windRoseOverlayBtn');
+            const btnInline = document.getElementById('windRoseOverlayBtnInline');
+            if (btn) {
+                btn.style.background = _wrOverlayActive ? 'rgba(255,255,255,0.3)' : 'rgba(255,255,255,0.05)';
+                btn.style.fontWeight = _wrOverlayActive ? 'bold' : 'normal';
+                btn.textContent      = _wrOverlayActive ? '⊕ Overlay ✓' : '⊕ Overlay';
+            }
+            if (btnInline) btnInline.style.display = _wrOverlayActive ? 'block' : 'none';
+        }
+
+        function _toggleWindRoseOverlay() {
+            _wrOverlayActive = !_wrOverlayActive;
+            _syncOverlayButtons();
+            if (!_wrOverlayActive) { _removeWindRoseGroup(); return; }
+            _refreshWindRoseOverlay();
         }
 
         function loadWindRose(icao, days) {
             const panel = document.getElementById('windRosePanel');
             if (!panel) return;
 
-            // Toggle off if already visible
             if (!panel.classList.contains('hidden')) {
+                // Toggle off — also clear overlay
+                _wrOverlayActive = false;
+                _removeWindRoseGroup();
                 panel.classList.add('hidden');
                 return;
             }
 
-            const defaultDays = days || 365;
-            panel.classList.remove('hidden');
+            // Reset overlay state on fresh open
+            _wrOverlayActive = false;
+            _removeWindRoseGroup();
+            _syncOverlayButtons();
 
-            // Scroll the panel into view
+            panel.classList.remove('hidden');
             setTimeout(() => panel.scrollIntoView({ behavior: 'smooth', block: 'nearest' }), 50);
 
-            // Build period pills
-            const btnBar  = document.getElementById('windRosePeriodBtns');
-            const now = new Date();
-            const monthName = now.toLocaleString('default', { month: 'long' });
-            const periods = [
-                { label: '30d',  days: 30,   month: false },
-                { label: '90d',  days: 90,   month: false },
-                { label: '1yr',  days: 365,  month: false },
-                { label: '5yr',  days: 1825, month: false },
-                { label: monthName, days: null, month: true }
+            const defaultDays = days || 365;
+            const btnBar      = document.getElementById('windRosePeriodBtns');
+            const now         = new Date();
+            const monthName   = now.toLocaleString('default', { month: 'long' });
+            const periods     = [
+                { label: '30d',      days: 30,   month: false },
+                { label: '90d',      days: 90,   month: false },
+                { label: '1yr',      days: 365,  month: false },
+                { label: '5yr',      days: 1825, month: false },
+                { label: monthName,  days: null, month: true  }
             ];
             if (btnBar) {
                 btnBar.innerHTML = periods.map(p => {
-                    const id = p.month ? 'wrPeriod_month' : 'wrPeriod_' + p.days;
+                    const id       = p.month ? 'wrPeriod_month' : 'wrPeriod_' + p.days;
                     const isActive = !p.month && p.days === defaultDays;
                     return `<button id="${id}"
                         onclick="event.stopPropagation(); _renderWindRoseImg('${icao}', ${p.days}, ${p.month})"
@@ -7541,7 +7718,6 @@ document.addEventListener('DOMContentLoaded', () => {
                     </button>`;
                 }).join('');
             }
-
             _renderWindRoseImg(icao, defaultDays, false);
         }
 
@@ -8364,15 +8540,59 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         function selectDashRunway(icao, index, forceLive = false) {
-            // 1. Save the selection to state
+            // 1. Save selection
             if (!dashboardState.selectedRunways) dashboardState.selectedRunways = {};
             dashboardState.selectedRunways[icao] = index;
             saveDashboardState();
 
-            // 2. Refresh the modal view immediately, PRESERVING the selection we just made
-            openDashDetail(icao, forceLive, true);
+            // 2. Surgical DOM update — only replace the runway diagram and selector,
+            //    leaving wind rose panel, history, METAR, TAF, D-ATIS untouched.
+            const diagramSlot  = document.getElementById('_rwyDiagramSlot');
+            const selectorSlot = document.getElementById('_rwySelectorSlot');
+            if (diagramSlot && selectorSlot) {
+                // Recompute wind from current METAR
+                const stationLookup = new Map(allStationsData.map(s => [s.id, s]));
+                const station = stationLookup.get(icao) || { id: icao, metar: null };
+                let windDir = 0, windSpeed = 0, gustSpeed = 0, isExpired = false;
+                const effectiveOffset = forceLive ? 0 : dashboardTimeOffset;
+                if (effectiveOffset > 0 && station.taf) {
+                    const targetTime = new Date(new Date().getTime() + effectiveOffset * 3600000);
+                    const condition  = getConditionsAtTime(station.taf.rawText, targetTime);
+                    const m = (condition.rawText||'').match(/(\d{3}|VRB)(\d{2,3})(?:G(\d{2,3}))?KT/);
+                    if (m) { windDir = parseInt(m[1])||0; windSpeed = parseInt(m[2]); gustSpeed = m[3]?parseInt(m[3]):0; }
+                    if (station.taf.validTo && targetTime > station.taf.validTo) isExpired = true;
+                } else if (station.metar) {
+                    const m = station.metar.rawText.match(/(\d{3}|VRB)(\d{2,3})(?:G(\d{2,3}))?KT/);
+                    if (m) { windDir = m[1]==='VRB'?0:parseInt(m[1]); windSpeed = parseInt(m[2]); gustSpeed = m[3]?parseInt(m[3]):0; }
+                }
 
-            // 3. Refresh background
+                // Rebuild selector buttons
+                let runwaySelectorHtml = '';
+                if (cachedRunwayMap && cachedRunwayMap.has(icao)) {
+                    const rwyData = cachedRunwayMap.get(icao);
+                    runwaySelectorHtml = `<div class="flex flex-wrap gap-2 justify-center mt-6 relative z-30 pointer-events-auto">`;
+                    rwyData.runways.forEach((r, idx) => {
+                        const isActive = (idx === index);
+                        const btnClass = isActive
+                            ? "bg-indigo-600 text-white border-indigo-400 shadow-lg scale-105"
+                            : "bg-white/10 text-gray-400 border-transparent hover:bg-white/20";
+                        runwaySelectorHtml += `<button onclick="event.stopPropagation(); selectDashRunway('${icao}', ${idx}, ${forceLive})"
+                            class="px-4 py-1.5 rounded-full text-xs font-bold font-mono border transition-all cursor-pointer ${btnClass}">${r.id}</button>`;
+                    });
+                    runwaySelectorHtml += `</div>`;
+                }
+
+                diagramSlot.innerHTML  = generateRunwaySVG(icao, windDir, windSpeed, gustSpeed, isExpired, 180);
+                selectorSlot.innerHTML = runwaySelectorHtml;
+
+                // Re-inject wind rose overlay if active (synchronous, no fetch)
+                if (_wrOverlayActive && _wrCachedData) _injectCachedWindRose();
+            } else {
+                // Fallback: full rebuild only if slots don't exist
+                openDashDetail(icao, forceLive, true);
+            }
+
+            // 3. Refresh background dashboard tile and map
             renderDashboard();
             if (typeof showRunwaysOnMap !== 'undefined' && showRunwaysOnMap) {
                 renderMap(currentStationsData);
@@ -8522,7 +8742,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
             return `
                 <div class="relative flex flex-col items-center justify-center bg-transparent" style="width: ${size}px; height: ${size}px;">
-                    <svg viewBox="0 0 100 100" class="w-full h-full overflow-visible drop-shadow-xl" style="background: transparent;">
+                    <svg id="_runwaySvg" viewBox="0 0 100 100" class="w-full h-full overflow-visible drop-shadow-xl" style="background: transparent;">
                         <text x="50" y="4" font-size="5" fill="#64748b" text-anchor="middle" font-family="monospace" opacity="0.7">N</text>
                         ${runwaysHtml}
                         ${windHtml}
