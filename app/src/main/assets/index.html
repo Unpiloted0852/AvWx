@@ -853,9 +853,472 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         }
     </script>
+
+    <!-- ═══════════════════════════════════════════════════
+         DESIGN POLISH LAYER — overrides on top of Tailwind
+         ═══════════════════════════════════════════════════ -->
+    <style>
+        /* ── Design tokens ─────────────────────────────────── */
+        :root {
+          --bg:          #f1f5f9;
+          --bg-card:     #ffffff;
+          --bg-input:    #f8fafc;
+          --border:      #e2e8f0;
+          --border-soft: #f1f5f9;
+          --text-1:      #0f172a;
+          --text-2:      #475569;
+          --text-3:      #94a3b8;
+          --blue:        #2563eb;
+          --blue-dk:     #1d4ed8;
+          --radius-card: 14px;
+          --radius-btn:  10px;
+          --shadow-card: 0 1px 3px rgba(0,0,0,.06), 0 4px 16px rgba(0,0,0,.06);
+          --shadow-btn:  0 1px 3px rgba(0,0,0,.12);
+          --transition:  0.18s cubic-bezier(.4,0,.2,1);
+        }
+        .dark {
+          --bg:          #060d1a;
+          --bg-card:     #0f1929;
+          --bg-input:    #0a1120;
+          --border:      #1e2d45;
+          --border-soft: #131f30;
+          --text-1:      #f1f5f9;
+          --text-2:      #94a3b8;
+          --text-3:      #475569;
+          --shadow-card: 0 1px 3px rgba(0,0,0,.4), 0 4px 16px rgba(0,0,0,.35);
+          --shadow-btn:  0 1px 4px rgba(0,0,0,.4);
+        }
+
+        /* ── Base ───────────────────────────────────────────── */
+        body {
+          background-color: var(--bg) !important;
+          color: var(--text-1) !important;
+        }
+        /* Override tailwind dark:bg-black on body */
+        .dark body, body.dark { background-color: var(--bg) !important; }
+        html.dark body { background-color: var(--bg) !important; }
+
+        /* ── Header ─────────────────────────────────────────── */
+        header h1 {
+          font-size: 1.5rem !important;
+          letter-spacing: -0.03em !important;
+          font-weight: 800 !important;
+        }
+        @media (min-width: 768px) {
+          header h1 { font-size: 1.85rem !important; }
+        }
+        header p {
+          color: var(--text-2) !important;
+          font-size: 0.82rem !important;
+        }
+
+        /* ── Main input card ─────────────────────────────────── */
+        .w-full.px-3 > .bg-white,
+        .w-full.px-3 > .bg-white.dark\:bg-black,
+        div.bg-white.dark\:bg-black.border.border-transparent {
+          background-color: var(--bg-card) !important;
+          border: 1px solid var(--border) !important;
+          border-radius: var(--radius-card) !important;
+          box-shadow: var(--shadow-card) !important;
+        }
+        html.dark div.bg-white.dark\:bg-black.border {
+          background-color: var(--bg-card) !important;
+          border-color: var(--border) !important;
+        }
+
+        /* Sub-panels inside input card */
+        .p-3.bg-gray-50,
+        div.p-3.bg-gray-50.dark\:bg-gray-900 {
+          background-color: var(--bg-input) !important;
+          border: 1px solid var(--border) !important;
+          border-radius: 10px !important;
+        }
+        html.dark .p-3.bg-gray-50,
+        html.dark div.p-3.dark\:bg-gray-900 {
+          background-color: var(--bg-input) !important;
+          border-color: var(--border) !important;
+        }
+
+        /* ── Inputs ──────────────────────────────────────────── */
+        input[type="text"],
+        input[type="number"] {
+          background-color: var(--bg-card) !important;
+          border-color: var(--border) !important;
+          color: var(--text-1) !important;
+          border-radius: 8px !important;
+          transition: border-color var(--transition), box-shadow var(--transition) !important;
+        }
+        input[type="text"]:focus,
+        input[type="number"]:focus {
+          border-color: var(--blue) !important;
+          box-shadow: 0 0 0 3px rgba(37,99,235,.15) !important;
+          outline: none !important;
+        }
+        /* Rounded left corners for combo inputs */
+        #icaoInput { border-radius: 8px 0 0 8px !important; }
+
+        /* ── Buttons ─────────────────────────────────────────── */
+        #generateButton {
+          border-radius: var(--radius-btn) !important;
+          font-size: 0.92rem !important;
+          letter-spacing: 0.01em !important;
+          padding-top: 0.65rem !important;
+          padding-bottom: 0.65rem !important;
+          box-shadow: 0 2px 8px rgba(37,99,235,.35) !important;
+          transition: box-shadow var(--transition), transform var(--transition) !important;
+        }
+        #generateButton:hover {
+          box-shadow: 0 4px 16px rgba(37,99,235,.45) !important;
+        }
+
+        #toggleAdvanced {
+          border-radius: var(--radius-btn) !important;
+          padding-top: 0.65rem !important;
+          padding-bottom: 0.65rem !important;
+          box-shadow: 0 2px 8px rgba(234,179,8,.3) !important;
+          font-size: 0.85rem !important;
+          transition: box-shadow var(--transition), transform var(--transition) !important;
+        }
+
+        /* Top-right icon buttons */
+        #dashboardBtn, #themeToggleBtn, button[onclick="showRecords()"] {
+          border-radius: var(--radius-btn) !important;
+          box-shadow: var(--shadow-btn) !important;
+        }
+        #pressureUnitToggleBtn, #unitToggleBtn {
+          border-radius: var(--radius-btn) !important;
+          box-shadow: var(--shadow-btn) !important;
+          background-color: var(--bg-card) !important;
+          border: 1px solid var(--border) !important;
+          color: var(--text-1) !important;
+        }
+        html.dark #pressureUnitToggleBtn,
+        html.dark #unitToggleBtn {
+          background-color: var(--bg-card) !important;
+          border-color: var(--border) !important;
+        }
+        #themeToggleBtn {
+          background-color: var(--bg-card) !important;
+          border: 1px solid var(--border) !important;
+          color: var(--text-2) !important;
+        }
+        html.dark #themeToggleBtn {
+          background-color: var(--bg-card) !important;
+          border-color: var(--border) !important;
+        }
+
+        /* ── Legend dropdown ─────────────────────────────────── */
+        #legendDropdownMenu {
+          background-color: var(--bg-card) !important;
+          border: 1px solid var(--border) !important;
+          border-radius: 12px !important;
+          box-shadow: 0 8px 32px rgba(0,0,0,.15) !important;
+        }
+        button[onclick="toggleLegendDropdown()"] {
+          background-color: var(--bg-card) !important;
+          border: 1px solid var(--border) !important;
+          border-radius: 999px !important;
+          color: var(--text-1) !important;
+          font-size: 0.7rem !important;
+        }
+
+        /* ── Results container ───────────────────────────────── */
+        #resultsContainer {
+          background-color: var(--bg-card) !important;
+          border: 1px solid var(--border) !important;
+          border-radius: var(--radius-card) !important;
+          box-shadow: var(--shadow-card) !important;
+        }
+        html.dark #resultsContainer {
+          background-color: var(--bg-card) !important;
+          border-color: var(--border) !important;
+        }
+
+        /* ── Tab bar ─────────────────────────────────────────── */
+        .flex.p-1.space-x-1.bg-gray-200 {
+          background-color: var(--bg-input) !important;
+          border: 1px solid var(--border) !important;
+          border-radius: 12px !important;
+          padding: 4px !important;
+        }
+        html.dark .flex.p-1.space-x-1.dark\:bg-gray-900 {
+          background-color: var(--bg-input) !important;
+          border-color: var(--border) !important;
+        }
+        .tab-button {
+          border-radius: 9px !important;
+          font-size: 0.8rem !important;
+          font-weight: 600 !important;
+          transition: background var(--transition), color var(--transition), box-shadow var(--transition) !important;
+        }
+        .tab-button.bg-blue-600 {
+          background-color: var(--blue) !important;
+          box-shadow: 0 1px 6px rgba(37,99,235,.35) !important;
+        }
+        .tab-button:not(.bg-blue-600) {
+          color: var(--text-2) !important;
+        }
+
+        /* ── PDF button ──────────────────────────────────────── */
+        #downloadPdfBtn {
+          border-radius: var(--radius-btn) !important;
+          font-size: 0.78rem !important;
+          box-shadow: 0 2px 6px rgba(22,163,74,.3) !important;
+        }
+
+        /* ── Map overlays: frosted glass ─────────────────────── */
+        .fullscreen-trigger,
+        .gps-trigger {
+          background-color: rgba(255,255,255,.92) !important;
+          border: 1px solid rgba(0,0,0,.08) !important;
+          backdrop-filter: blur(8px) !important;
+          -webkit-backdrop-filter: blur(8px) !important;
+          border-radius: 10px !important;
+          box-shadow: 0 2px 8px rgba(0,0,0,.12) !important;
+          color: #1e293b !important;
+        }
+        html.dark .fullscreen-trigger,
+        html.dark .gps-trigger {
+          background-color: rgba(15,25,41,.88) !important;
+          border-color: rgba(255,255,255,.08) !important;
+          color: #e2e8f0 !important;
+        }
+
+        .layer-btn {
+          background-color: rgba(255,255,255,.92) !important;
+          border: 1px solid rgba(0,0,0,.08) !important;
+          backdrop-filter: blur(8px) !important;
+          -webkit-backdrop-filter: blur(8px) !important;
+          border-radius: 10px !important;
+          box-shadow: 0 2px 8px rgba(0,0,0,.12) !important;
+          color: #1e293b !important;
+          transition: background var(--transition), box-shadow var(--transition), transform var(--transition) !important;
+        }
+        .layer-btn:hover {
+          background-color: rgba(255,255,255,1) !important;
+          box-shadow: 0 4px 14px rgba(0,0,0,.18) !important;
+        }
+        html.dark .layer-btn {
+          background-color: rgba(15,25,41,.88) !important;
+          border-color: rgba(255,255,255,.08) !important;
+          color: #e2e8f0 !important;
+        }
+        html.dark .layer-btn:hover {
+          background-color: rgba(20,35,60,.95) !important;
+        }
+        /* Main toggle stays blue */
+        #mainLayerToggle {
+          background-color: var(--blue) !important;
+          border-color: var(--blue-dk) !important;
+          color: white !important;
+          box-shadow: 0 2px 10px rgba(37,99,235,.45) !important;
+        }
+
+        /* ── Active layer button states (must override frosted-glass layer-btn) ── */
+        html .layer-btn.runway-active  { background-color: #8b5cf6 !important; border-color: #7c3aed !important; color: #fff !important; box-shadow: 0 2px 10px rgba(139,92,246,.5) !important; }
+        html .layer-btn.radar-active   { background-color: #3b82f6 !important; border-color: #2563eb !important; color: #fff !important; box-shadow: 0 2px 10px rgba(59,130,246,.5) !important; }
+        html .layer-btn.ifrChart-active{ background-color: #7c3aed !important; border-color: #6d28d9 !important; color: #fff !important; box-shadow: 0 2px 10px rgba(124,58,237,.5) !important; }
+        html .layer-btn.vfrChart-active{ background-color: #16a34a !important; border-color: #15803d !important; color: #fff !important; box-shadow: 0 2px 10px rgba(22,163,74,.5)  !important; }
+        html .layer-btn.ifrLoChart-active{ background-color: #b45309 !important; border-color: #92400e !important; color: #fff !important; box-shadow: 0 2px 10px rgba(180,83,9,.5)  !important; }
+        html .layer-btn.flightCat-active { background-color: #0e7490 !important; border-color: #0c6073 !important; color: #fff !important; box-shadow: 0 2px 10px rgba(14,116,144,.5) !important; }
+        html .layer-btn.freezing-active{ background-color: #06b6d4 !important; border-color: #0891b2 !important; color: #fff !important; box-shadow: 0 2px 10px rgba(6,182,212,.5)  !important; }
+        html .layer-btn.pirep-active   { background-color: #f59e0b !important; border-color: #d97706 !important; color: #fff !important; box-shadow: 0 2px 10px rgba(245,158,11,.5) !important; }
+        html .layer-btn.hazard-active  { background-color: #ef4444 !important; border-color: #dc2626 !important; color: #fff !important; box-shadow: 0 2px 10px rgba(239,68,68,.5)  !important; }
+        html .layer-btn.daynight-active{ background-color: #4b5563 !important; border-color: #374151 !important; color: #fbbf24 !important; box-shadow: 0 2px 10px rgba(75,85,99,.5)   !important; }
+        html .layer-btn.traffic-active { background-color: #10b981 !important; border-color: #059669 !important; color: #fff !important; box-shadow: 0 2px 10px rgba(16,185,129,.5) !important; }
+
+        /* Zulu clock */
+        #zuluClock {
+          font-size: 0.72rem !important;
+          border-radius: 8px !important;
+          backdrop-filter: blur(10px) !important;
+          -webkit-backdrop-filter: blur(10px) !important;
+          background: rgba(255,255,255,.88) !important;
+          border: 1px solid rgba(0,0,0,.08) !important;
+          color: #b45309 !important;
+          font-weight: 700 !important;
+          letter-spacing: 0.03em !important;
+        }
+        html.dark #zuluClock {
+          background: rgba(6,13,26,.88) !important;
+          border-color: rgba(255,255,255,.08) !important;
+          color: #fbbf24 !important;
+        }
+
+        /* Radar timestamp */
+        #radarTimeDisplay {
+          border-radius: 8px !important;
+          backdrop-filter: blur(8px) !important;
+          background: rgba(255,255,255,.88) !important;
+          border: 1px solid rgba(0,0,0,.08) !important;
+        }
+        html.dark #radarTimeDisplay {
+          background: rgba(6,13,26,.88) !important;
+          border-color: rgba(255,255,255,.08) !important;
+        }
+
+        /* ── Modals ──────────────────────────────────────────── */
+        /* NOTE: #tileModal uses flight-category tile colors (vfr-tile, mvfr-tile etc.)
+           applied via JS — do NOT override its background-color */
+        #recordsModal > div {
+          border-radius: 18px !important;
+          border: 1px solid var(--border) !important;
+          background-color: var(--bg-card) !important;
+          box-shadow: 0 24px 80px rgba(0,0,0,.25) !important;
+        }
+        #tileModal > div {
+          border-radius: 18px !important;
+          box-shadow: 0 24px 80px rgba(0,0,0,.35) !important;
+          /* background intentionally left to tile class */
+        }
+        html.dark #recordsModal > div {
+          background-color: var(--bg-card) !important;
+          border-color: var(--border) !important;
+        }
+        #recordsModal .border-b {
+          border-color: var(--border) !important;
+        }
+        #recordsModal .bg-gray-50 {
+          background-color: var(--bg-input) !important;
+        }
+        html.dark #recordsModal .dark\:bg-black\/20 {
+          background-color: var(--bg-input) !important;
+        }
+
+        /* ── Floating pill (fullscreen back button) ──────────── */
+        .floating-pill {
+          background: rgba(255,255,255,.92) !important;
+          border: 1px solid rgba(0,0,0,.08) !important;
+          backdrop-filter: blur(10px) !important;
+          border-radius: 999px !important;
+          box-shadow: 0 4px 16px rgba(0,0,0,.15) !important;
+          font-weight: 600 !important;
+          color: var(--text-1) !important;
+        }
+        html.dark .floating-pill {
+          background: rgba(15,25,41,.9) !important;
+          border-color: rgba(255,255,255,.1) !important;
+          color: var(--text-1) !important;
+        }
+
+        /* ── Dashboard header bar ────────────────────────────── */
+        #customDashboardView .sticky {
+          background-color: rgba(241,245,249,.96) !important;
+          border-color: var(--border) !important;
+          backdrop-filter: blur(12px) !important;
+          -webkit-backdrop-filter: blur(12px) !important;
+        }
+        html.dark #customDashboardView .sticky {
+          background-color: rgba(6,13,26,.96) !important;
+          border-color: var(--border) !important;
+        }
+
+        /* Dashboard time slider panel */
+        #customDashboardView .bg-white\/50 {
+          background-color: rgba(255,255,255,.6) !important;
+          border: 1px solid var(--border) !important;
+          border-radius: 10px !important;
+        }
+        html.dark #customDashboardView .dark\:bg-black\/50 {
+          background-color: rgba(10,17,32,.6) !important;
+          border-color: var(--border) !important;
+        }
+
+        /* ── Heatmap legend ──────────────────────────────────── */
+        #heatmapLegend {
+          background: rgba(255,255,255,.9) !important;
+          border: 1px solid rgba(0,0,0,.08) !important;
+          border-radius: 10px !important;
+          backdrop-filter: blur(8px) !important;
+        }
+        html.dark #heatmapLegend {
+          background: rgba(15,25,41,.9) !important;
+          border-color: rgba(255,255,255,.08) !important;
+        }
+
+        /* ── Status/details messages ─────────────────────────── */
+        #status {
+          border-radius: 10px !important;
+          font-size: 0.88rem !important;
+        }
+
+        /* ── Advanced inputs divider ─────────────────────────── */
+        #advancedInputs {
+          border-color: var(--border) !important;
+        }
+        #advancedInputs h3 {
+          font-size: 0.95rem !important;
+          font-weight: 700 !important;
+          letter-spacing: -0.01em !important;
+        }
+
+        /* ── Consistent label sizing ─────────────────────────── */
+        label.block.text-xs {
+          font-size: 0.7rem !important;
+          font-weight: 600 !important;
+          letter-spacing: 0.04em !important;
+          text-transform: uppercase !important;
+          color: var(--text-2) !important;
+        }
+
+        /* ── GPS home button ─────────────────────────────────── */
+        #gpsHomeBtn {
+          border-radius: 0 8px 8px 0 !important;
+          font-size: 0.72rem !important;
+          font-weight: 700 !important;
+          letter-spacing: 0.05em !important;
+        }
+
+        /* ── Leaflet popup refinement ────────────────────────── */
+        .leaflet-popup-content-wrapper {
+          border-radius: 12px !important;
+          border: 1px solid var(--border) !important;
+          box-shadow: 0 8px 32px rgba(0,0,0,.18) !important;
+          background-color: var(--bg-card) !important;
+          color: var(--text-1) !important;
+        }
+        html.dark .leaflet-popup-content-wrapper,
+        html.dark .leaflet-popup-tip {
+          background-color: var(--bg-card) !important;
+          border-color: var(--border) !important;
+        }
+
+        /* ── Dash card hover refinement ──────────────────────── */
+        .dash-card {
+          border-radius: var(--radius-card) !important;
+          box-shadow: var(--shadow-card) !important;
+          transition: box-shadow var(--transition), transform var(--transition) !important;
+        }
+        .dash-card:hover {
+          box-shadow: 0 8px 28px rgba(0,0,0,.14) !important;
+          transform: translateY(-2px) !important;
+        }
+
+        /* ── Scrollbar polish (webkit) ───────────────────────── */
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb {
+          background: var(--border);
+          border-radius: 99px;
+        }
+        ::-webkit-scrollbar-thumb:hover { background: var(--text-3); }
+
+        /* ── Confirm clear modal ─────────────────────────────── */
+        #confirmClearModal > div {
+          background-color: var(--bg-card) !important;
+          border: 1px solid var(--border) !important;
+          border-radius: 18px !important;
+          box-shadow: 0 24px 80px rgba(0,0,0,.25) !important;
+        }
+
+        /* ── Update banner ───────────────────────────────────── */
+        #updateBanner {
+          border-radius: 0 !important;
+        }
+    </style>
 </head>
 
-<body class="bg-gray-100 dark:bg-black text-gray-900 dark:text-gray-100 min-h-full antialiased transition-colors duration-300 overflow-x-hidden">
+<body class="min-h-full antialiased transition-colors duration-300 overflow-x-hidden" style="background-color:var(--bg);color:var(--text-1)">
 
 <div id="zuluClock">00:00:00Z</div>
 
@@ -973,9 +1436,10 @@ document.addEventListener('DOMContentLoaded', () => {
         <p class="text-sm md:text-base text-gray-600 dark:text-gray-400 mt-2 px-4">
             Generates a report of current METARs and TAFs. Warning: this app should be considered experimental--use at your own risk!
         </p>
-        <p class="text-[10px] md:text-xs text-gray-400 dark:text-gray-500 mt-2 px-4 max-w-2xl mx-auto leading-tight">
-            <strong>Notice of Non-Affiliation:</strong> This application is an independent project. It is <strong>strictly NOT</strong> affiliated, associated, authorized, endorsed by, or in any way connected with the AVWX REST API or its creators.
+        <p class="text-[9px] text-gray-400 dark:text-gray-600 mt-1 px-4 max-w-2xl mx-auto leading-tight opacity-70">
+            <strong>Non-Affiliation Notice:</strong> Independent project, not affiliated with the AVWX REST API or its creators.
         </p>
+
         <!-- Dropdown Legend Container -->
         <div class="relative inline-block text-left mt-4" id="legendDropdownContainer">
             <button type="button" onclick="toggleLegendDropdown()" class="inline-flex justify-center items-center rounded-full border border-gray-300 dark:border-gray-700 shadow-sm px-4 py-1.5 bg-white dark:bg-gray-800 text-xs font-bold text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 focus:outline-none transition-colors">
@@ -1045,7 +1509,7 @@ document.addEventListener('DOMContentLoaded', () => {
         <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
 
             <div class="md:col-span-1 flex flex-col justify-end">
-                <div class="grid grid-cols-2 gap-3">
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <div class="p-3 bg-gray-50 dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-800">
                         <label for="icaoInput" class="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">
                             Home Airport
@@ -1337,33 +1801,33 @@ document.addEventListener('DOMContentLoaded', () => {
             <div class="sticky top-0 z-[500] bg-gray-100/95 dark:bg-gray-900/95 backdrop-blur-md border-b border-gray-200 dark:border-gray-800 shadow-md transition-all duration-300">
                 <div class="max-w-7xl mx-auto flex flex-col gap-3 p-3">
 
-                    <div class="flex items-center justify-between gap-3">
-                        <!-- Close Button -->
-                        <button onclick="exitDashboard()" class="p-2 bg-gray-200 dark:bg-gray-800 rounded-lg text-gray-600 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-700 transition-colors">
-                            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"/></svg>
-                        </button>
+                    <div class="flex flex-col gap-2">
+                        <!-- Row 1: Back + Input + Clear -->
+                        <div class="flex items-center gap-2">
+                            <!-- Close Button -->
+                            <button onclick="exitDashboard()" class="flex-none p-2 bg-gray-200 dark:bg-gray-800 rounded-lg text-gray-600 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-700 transition-colors">
+                                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"/></svg>
+                            </button>
 
-                        <!-- Input Field Group -->
-                        <div class="flex-1 flex gap-2">
+                            <!-- Input Field -->
                             <div class="flex-1 flex shadow-sm">
-                                <!-- Updated Placeholder -->
-                                <input type="text" id="dashInput" placeholder="e.g. KJFK" maxlength="4"
-                                       class="uppercase w-full p-2 border border-gray-300 dark:border-gray-700 rounded-l-xl bg-white dark:bg-black dark:text-white font-mono focus:ring-2 focus:ring-indigo-500 outline-none text-sm min-w-[60px]">
-                                <button onclick="addDashboardStation()" class="bg-indigo-600 hover:bg-indigo-700 text-white px-3 sm:px-4 rounded-r-xl font-bold text-xs shadow-sm">
+                                <input type="text" id="dashInput" placeholder="KJFK" maxlength="4"
+                                       class="uppercase w-full p-2 border border-gray-300 dark:border-gray-700 rounded-l-xl bg-white dark:bg-black dark:text-white font-mono focus:ring-2 focus:ring-indigo-500 outline-none text-sm">
+                                <button onclick="addDashboardStation()" class="flex-none bg-indigo-600 hover:bg-indigo-700 text-white px-4 rounded-r-xl font-bold text-xs shadow-sm">
                                     ADD
                                 </button>
                             </div>
 
-                            <!-- Advanced Search Button (Updated Label) -->
-                            <button onclick="openDashSearchModal()" class="bg-blue-500 hover:bg-blue-600 text-white px-3 rounded-xl font-bold text-xs shadow-sm whitespace-nowrap flex items-center gap-1">
-                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
-                                <span class="hidden sm:inline">Advanced</span>
+                            <!-- Clear All Button -->
+                            <button onclick="clearDashboard()" class="flex-none p-2 bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400 rounded-lg hover:bg-red-200 dark:hover:bg-red-900/50 transition-colors" title="Clear All Tiles">
+                                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
                             </button>
                         </div>
 
-                        <!-- Clear All Button -->
-                        <button onclick="clearDashboard()" class="p-2 bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400 rounded-lg hover:bg-red-200 dark:hover:bg-red-900/50 transition-colors" title="Clear All Tiles">
-                            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+                        <!-- Row 2: Bulk Add (full width on mobile, auto on desktop) -->
+                        <button onclick="openDashSearchModal()" class="w-full sm:w-auto self-start bg-blue-500 hover:bg-blue-600 text-white px-4 py-1.5 rounded-xl font-bold text-xs shadow-sm whitespace-nowrap flex items-center justify-center gap-1.5">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
+                            Bulk Add
                         </button>
                     </div>
 
@@ -1442,7 +1906,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         <script>
             // --- APP CONFIG ---
-            const CURRENT_VERSION = 'v2.8.7'; // Incremented Version
+            const CURRENT_VERSION = 'v2.8.8'; // Incremented Version
             const GITHUB_REPO = 'Unpiloted0852/AvWx';
 
             // Global Data Storage for Modal Access
@@ -2352,6 +2816,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
                         const labels = [];
 
+                        // ── Pass 1: collect all marching-squares segments per level ──
+                        const segsByLevel = new Map();
+
                         for (let y = 0; y < rows; y++) {
                             for (let x = 0; x < cols; x++) {
                                 const vTL = grid[y][x];
@@ -2367,48 +2834,108 @@ document.addEventListener('DOMContentLoaded', () => {
                                 steps.forEach(level => {
                                     const minV = Math.min(vTL, vTR, vBR, vBL);
                                     const maxV = Math.max(vTL, vTR, vBR, vBL);
+                                    if (level <= minV || level > maxV) return;
 
-                                    if (level > minV && level <= maxV) {
-                                        const points = [];
-                                        if ((vTL < level && vTR >= level) || (vTL >= level && vTR < level)) {
-                                            points.push({x: lerp(level, vTL, vTR, x0, x0 + RES), y: y0});
-                                        }
-                                        if ((vTR < level && vBR >= level) || (vTR >= level && vBR < level)) {
-                                            points.push({x: x0 + RES, y: lerp(level, vTR, vBR, y0, y0 + RES)});
-                                        }
-                                        if ((vBR < level && vBL >= level) || (vBR >= level && vBL < level)) {
-                                            points.push({x: x0 + RES, y: lerp(level, vBR, vBL, x0 + RES, x0), y: y0 + RES});
-                                        }
-                                        if ((vBL < level && vTL >= level) || (vBL >= level && vTL < level)) {
-                                            points.push({x: x0, y: lerp(level, vBL, vTL, y0 + RES, y0)});
-                                        }
+                                    const pts = [];
+                                    // Top edge
+                                    if ((vTL < level) !== (vTR < level))
+                                        pts.push({x: lerp(level, vTL, vTR, x0, x0 + RES), y: y0});
+                                    // Right edge
+                                    if ((vTR < level) !== (vBR < level))
+                                        pts.push({x: x0 + RES, y: lerp(level, vTR, vBR, y0, y0 + RES)});
+                                    // Bottom edge (fixed: x is interpolated, not hardcoded)
+                                    if ((vBR < level) !== (vBL < level))
+                                        pts.push({x: lerp(level, vBR, vBL, x0 + RES, x0), y: y0 + RES});
+                                    // Left edge
+                                    if ((vBL < level) !== (vTL < level))
+                                        pts.push({x: x0, y: lerp(level, vBL, vTL, y0 + RES, y0)});
 
-                                        if (points.length === 2) {
-                                            ctx.strokeStyle = getIsoColor(level, this.mode);
-                                            ctx.beginPath();
-                                            ctx.moveTo(points[0].x, points[0].y);
-                                            ctx.lineTo(points[1].x, points[1].y);
-                                            ctx.stroke();
-
-                                            if (x % 10 === 0 && y % 10 === 0) {
-                                                let displayText = "";
-                                                if (this.mode === 'temp') {
-                                                    displayText = useCelsius ? Math.round(level).toString() : Math.round(level * 1.8 + 32).toString();
-                                                } else {
-                                                    displayText = useHpa ? Math.round(level * 33.8639).toString() : level.toFixed(2);
-                                                }
-
-                                                labels.push({
-                                                    x: (points[0].x + points[1].x)/2,
-                                                    y: (points[0].y + points[1].y)/2,
-                                                    text: displayText
-                                                });
-                                            }
-                                        }
+                                    if (pts.length === 2) {
+                                        if (!segsByLevel.has(level)) segsByLevel.set(level, []);
+                                        segsByLevel.get(level).push([pts[0], pts[1]]);
                                     }
                                 });
                             }
                         }
+
+                        // ── Pass 2: chain segments into continuous polylines ──
+                        const EPS2 = 1.0; // squared pixel distance to consider endpoints connected
+
+                        function dist2(a, b) {
+                            const dx = a.x - b.x, dy = a.y - b.y;
+                            return dx*dx + dy*dy;
+                        }
+
+                        function chainSegments(segs) {
+                            const used = new Uint8Array(segs.length);
+                            const chains = [];
+                            for (let i = 0; i < segs.length; i++) {
+                                if (used[i]) continue;
+                                used[i] = 1;
+                                const chain = [segs[i][0], segs[i][1]];
+                                let extended = true;
+                                while (extended) {
+                                    extended = false;
+                                    const head = chain[0];
+                                    const tail = chain[chain.length - 1];
+                                    for (let j = 0; j < segs.length; j++) {
+                                        if (used[j]) continue;
+                                        const [a, b] = segs[j];
+                                        if (dist2(tail, a) < EPS2) {
+                                            chain.push(b); used[j] = 1; extended = true; break;
+                                        } else if (dist2(tail, b) < EPS2) {
+                                            chain.push(a); used[j] = 1; extended = true; break;
+                                        } else if (dist2(head, b) < EPS2) {
+                                            chain.unshift(a); used[j] = 1; extended = true; break;
+                                        } else if (dist2(head, a) < EPS2) {
+                                            chain.unshift(b); used[j] = 1; extended = true; break;
+                                        }
+                                    }
+                                }
+                                if (chain.length >= 2) chains.push(chain);
+                            }
+                            return chains;
+                        }
+
+                        // ── Pass 3: draw each chain as a smooth Catmull-Rom bezier ──
+                        function drawSmooth(ctx, pts) {
+                            if (pts.length < 2) return;
+                            ctx.beginPath();
+                            ctx.moveTo(pts[0].x, pts[0].y);
+                            if (pts.length === 2) {
+                                ctx.lineTo(pts[1].x, pts[1].y);
+                            } else {
+                                for (let i = 0; i < pts.length - 1; i++) {
+                                    const p0 = pts[Math.max(0, i - 1)];
+                                    const p1 = pts[i];
+                                    const p2 = pts[i + 1];
+                                    const p3 = pts[Math.min(pts.length - 1, i + 2)];
+                                    const cp1x = p1.x + (p2.x - p0.x) / 6;
+                                    const cp1y = p1.y + (p2.y - p0.y) / 6;
+                                    const cp2x = p2.x - (p3.x - p1.x) / 6;
+                                    const cp2y = p2.y - (p3.y - p1.y) / 6;
+                                    ctx.bezierCurveTo(cp1x, cp1y, cp2x, cp2y, p2.x, p2.y);
+                                }
+                            }
+                            ctx.stroke();
+                        }
+
+                        segsByLevel.forEach((segs, level) => {
+                            ctx.strokeStyle = getIsoColor(level, this.mode);
+                            const chains = chainSegments(segs);
+                            chains.forEach(chain => {
+                                drawSmooth(ctx, chain);
+                                // Label at chain midpoint (one label per chain)
+                                const mid = chain[Math.floor(chain.length / 2)];
+                                let displayText = "";
+                                if (this.mode === 'temp') {
+                                    displayText = useCelsius ? Math.round(level).toString() : Math.round(level * 1.8 + 32).toString();
+                                } else {
+                                    displayText = useHpa ? Math.round(level * 33.8639).toString() : level.toFixed(2);
+                                }
+                                labels.push({ x: mid.x, y: mid.y, text: displayText });
+                            });
+                        });
 
                         ctx.font = 'bold 11px sans-serif';
                         ctx.textAlign = 'center';
@@ -2564,7 +3091,7 @@ document.addEventListener('DOMContentLoaded', () => {
             if (!settings) {
                 settings = {
                     radar: true,      // Default ON
-                    daynight: true,   // Default ON
+                    daynight: false,  // Default OFF
                     runways: true,    // Default ON
                     traffic: false,
                     freezing: false,
@@ -2693,8 +3220,12 @@ document.addEventListener('DOMContentLoaded', () => {
                 });
 
                 mapInstance.on('click', () => {
-            clearFlightPath();
-        });
+                    clearFlightPath();
+                    trafficMarkers.forEach(m => {
+                        const el = m.getElement();
+                        if (el) el.style.filter = '';
+                    });
+                });
 
                 mapInstance.on('zoomend', () => {
                    updateMapLabels();
@@ -3485,31 +4016,46 @@ document.addEventListener('DOMContentLoaded', () => {
             }
 
         // --- TRAFFIC (ADS-B) LOGIC ---
-        // UPDATED: Accepts 'altText' string instead of raw number
-        function getTrafficIcon(track, flight, altText, gs, vs) {
-            const spd = (gs !== undefined && gs !== null) ? Math.round(gs) : '...';
+        function getTrafficIcon(track, flight, altText, gs, vs, altBaro) {
+            const spd = (gs !== undefined && gs !== null) ? Math.round(gs) : '···';
 
             let trend = '';
-            if (vs > 500) trend = '▲';
-            else if (vs < -500) trend = '▼';
+            if (vs > 300) trend = '↑';
+            else if (vs < -300) trend = '↓';
 
-            // HTML now uses the passed 'altText' directly (e.g., "FL350" or "4500ft")
-            // REPLACE the existing iconHtml line in getTrafficIcon with this:
+            // Color-code by altitude
+            let color;
+            if (altBaro === 'ground') color = '#facc15';       // yellow — on ground
+            else if (typeof altBaro !== 'number') color = '#94a3b8'; // gray — unknown
+            else if (altBaro >= 28000) color = '#e2e8f0';      // white — high
+            else if (altBaro >= 18000) color = '#67e8f9';      // cyan — upper
+            else if (altBaro >= 10000) color = '#6ee7b7';      // teal — mid
+            else if (altBaro >= 3000)  color = '#86efac';      // green — low
+            else                       color = '#fca5a5';      // red — very low / approach
 
-        const iconHtml = `
+            // SVG airplane silhouette, rotated to track
+            const iconHtml = `
         <div class="atc-container">
-            <!-- The Chevron SVG -->
-            <svg style="transform: rotate(${track}deg); width: 20px; height: 20px; margin-top: -4px; margin-left: -4px; filter: drop-shadow(0 1px 2px rgba(0,0,0,0.5));" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                <path d="M12 2L22 22L12 18L2 22L12 2Z" fill="#10b981" stroke="white" stroke-width="1.5" stroke-linejoin="round"/>
+            <svg style="transform:rotate(${track}deg);width:18px;height:18px;overflow:visible;filter:drop-shadow(0 1px 3px rgba(0,0,0,.7));"
+                 viewBox="0 0 24 24" fill="${color}" xmlns="http://www.w3.org/2000/svg">
+                <!-- fuselage -->
+                <ellipse cx="12" cy="12" rx="1.6" ry="8" fill="${color}"/>
+                <!-- main wings -->
+                <path d="M12 10 L2 17 L4 18 L12 13 L20 18 L22 17 Z" fill="${color}"/>
+                <!-- tail -->
+                <path d="M12 19 L8 22 L9 22.5 L12 21 L15 22.5 L16 22 Z" fill="${color}"/>
+                <!-- stroke -->
+                <ellipse cx="12" cy="12" rx="1.6" ry="8" fill="none" stroke="rgba(0,0,0,.5)" stroke-width="0.4"/>
+                <path d="M12 10 L2 17 L4 18 L12 13 L20 18 L22 17 Z" fill="none" stroke="rgba(0,0,0,.5)" stroke-width="0.4"/>
             </svg>
-            <div class="atc-label" style="left: 14px; top: -2px;">${flight}<span>${altText}${trend} ${spd}</span></div>
+            <div class="atc-label" style="left:16px;top:-2px;color:${color};">${flight}<span>${altText}${trend} ${spd}</span></div>
         </div>`;
 
             return L.divIcon({
                 className: 'bg-transparent',
                 html: iconHtml,
-                iconSize: [12, 12],
-                iconAnchor: [6, 6]
+                iconSize: [18, 18],
+                iconAnchor: [9, 9]
             });
         }
 
@@ -3673,12 +4219,18 @@ document.addEventListener('DOMContentLoaded', () => {
                         detailsHtml += `<div class="flex justify-between gap-4"><span class="text-gray-400 text-[10px]">SQ</span><span class="font-bold font-mono">${squawk}</span></div>`;
                     }
 
-                    const icon = getTrafficIcon(track || 0, flight, tagAlt, gs, vs);
+                    const icon = getTrafficIcon(track || 0, flight, tagAlt, gs, vs, alt);
 
+                    const reg = ac.r || '';
+                    const category = ac.category || '';
                     const popupContent = `
-                        <div class="font-mono text-xs leading-none">
-                            <div class="font-bold bg-blue-600 text-white px-2 py-1 rounded-t mb-0.5">${flight}</div>
-                            <div class="px-2 pb-1 space-y-1 text-gray-700 dark:text-gray-200">
+                        <div class="font-mono text-xs leading-none min-w-[160px]">
+                            <div class="bg-slate-800 text-white px-2 py-1.5 rounded-t flex items-center justify-between gap-3">
+                                <span class="font-black tracking-wide text-sm">${flight}</span>
+                                ${reg ? `<span class="text-slate-300 text-[10px]">${reg}</span>` : ''}
+                            </div>
+                            ${(type || category) ? `<div class="bg-slate-700 text-slate-300 px-2 py-0.5 text-[10px] flex gap-2">${type ? `<span class="font-bold text-white">${type}</span>` : ''}${category ? `<span>${category}</span>` : ''}</div>` : ''}
+                            <div class="px-2 py-1.5 space-y-1 text-gray-700 dark:text-gray-200 bg-white dark:bg-slate-900">
                                 ${detailsHtml}
                             </div>
                         </div>
@@ -3704,7 +4256,13 @@ document.addEventListener('DOMContentLoaded', () => {
                         });
 
                         // --- CLICK LISTENER ---
-                        marker.on('click', () => {
+                        marker.on('click', (e) => {
+                            L.DomEvent.stopPropagation(e);
+                            // Highlight selected marker
+                            trafficMarkers.forEach((m, h) => {
+                                const el = m.getElement();
+                                if (el) el.style.filter = h === hex ? 'drop-shadow(0 0 6px white)' : '';
+                            });
                             fetchAndDrawTrace(hex);
                         });
 
@@ -3761,8 +4319,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 // Initial update
                 updateTrafficLayer();
 
-                // 5 second polling
-                trafficRefreshInterval = setInterval(updateTrafficLayer, 5000);
+                // 3 second polling (adsb.lol is unlimited)
+                trafficRefreshInterval = setInterval(updateTrafficLayer, 3000);
             }
             updateLayerActiveState();
         }
@@ -4968,13 +5526,27 @@ document.addEventListener('DOMContentLoaded', () => {
 
             try {
                 const lastTwo = hex.slice(-2);
-                const targetUrl = `https://globe.airplanes.live/data/traces/${lastTwo}/trace_full_${hex.toLowerCase()}.json`;
-                const proxyUrl = `https://corsproxy.io/?${encodeURIComponent(targetUrl)}`;
+                // Try adsb.lol globe first (freshest), then airplanes.live, then proxied fallbacks
+                const directAdsbLol   = `https://globe.adsb.lol/data/traces/${lastTwo}/trace_full_${hex.toLowerCase()}.json`;
+                const directAirplanes = `https://globe.airplanes.live/data/traces/${lastTwo}/trace_full_${hex.toLowerCase()}.json`;
+                const urls = [
+                    directAdsbLol,
+                    directAirplanes,
+                    `https://corsproxy.io/?${encodeURIComponent(directAdsbLol)}`,
+                    `https://api.allorigins.win/get?url=${encodeURIComponent(directAdsbLol)}`
+                ];
+                let res = null;
+                for (const url of urls) {
+                    try {
+                        res = await fetch(url, { signal: AbortSignal.timeout(5000) });
+                        if (res.ok) break;
+                    } catch(e) { continue; }
+                }
+                if (!res || !res.ok) return;
 
-                const res = await fetch(proxyUrl);
-                if (!res.ok) return;
-
-                const data = await res.json();
+                let data = await res.json();
+                // allorigins wraps response in { contents: "..." }
+                if (data.contents) data = JSON.parse(data.contents);
                 if (!data.trace || data.trace.length === 0) return;
 
                 const trace = data.trace;
