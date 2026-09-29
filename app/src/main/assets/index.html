@@ -12,11 +12,17 @@
 
     <script>
         // Map Tile URLs
-        const MAP_DARK_URL = 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png';
-        const MAP_LIGHT_URL = 'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png';
+        // Esri Canvas basemaps (keyless). Base + separate label (reference) layer.
+        // Note: Esri tile URLs use {z}/{y}/{x} order.
+        const ESRI_CANVAS = 'https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/';
+        const MAP_DARK_URL = ESRI_CANVAS + 'World_Dark_Gray_Base/MapServer/tile/{z}/{y}/{x}';
+        const MAP_LIGHT_URL = ESRI_CANVAS + 'World_Light_Gray_Base/MapServer/tile/{z}/{y}/{x}';
+        const MAP_DARK_LABELS_URL = ESRI_CANVAS + 'World_Dark_Gray_Reference/MapServer/tile/{z}/{y}/{x}';
+        const MAP_LIGHT_LABELS_URL = ESRI_CANVAS + 'World_Light_Gray_Reference/MapServer/tile/{z}/{y}/{x}';
 
         // Global reference to tile layer for updating
         let tileLayer = null;
+        let labelLayer = null;
         let showRunwaysOnMap = true;
 
         // Check local storage or system preference
@@ -48,6 +54,9 @@
             // Toggle Map Tiles if map exists
             if (tileLayer) {
                 tileLayer.setUrl(theme === 'dark' ? MAP_DARK_URL : MAP_LIGHT_URL);
+            }
+            if (labelLayer) {
+                labelLayer.setUrl(theme === 'dark' ? MAP_DARK_LABELS_URL : MAP_LIGHT_LABELS_URL);
             }
         }
 
@@ -91,7 +100,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Public+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
     <style>
 
         /* ADS-B Active State */
@@ -157,7 +166,7 @@ document.addEventListener('DOMContentLoaded', () => {
         left: 10px; /* Hugs the right side of the blip */
         top: -3px;  /* Aligned with top of blip */
 
-        font-family: 'JetBrains Mono', 'Courier New', monospace;
+        font-family: 'IBM Plex Mono', 'Courier New', monospace;
         font-size: 9px;
         font-weight: 700;
         line-height: 1.0;
@@ -211,8 +220,8 @@ document.addEventListener('DOMContentLoaded', () => {
             /* CRITICAL FIX: Ensure padding is included in width calculations */
             *, ::before, ::after { box-sizing: border-box; border-width: 0; border-style: solid; border-color: #e5e7eb; }
 
-            body { font-family: 'Inter', sans-serif; -webkit-tap-highlight-color: transparent; }
-            .font-mono { font-family: 'JetBrains Mono', 'Courier New', monospace; }
+            body { font-family: 'Public Sans', sans-serif; -webkit-tap-highlight-color: transparent; }
+            .font-mono { font-family: 'IBM Plex Mono', 'Courier New', monospace; }
 
             /* Custom styles for the colored legend dots */
             .weather-dot {
@@ -237,10 +246,10 @@ document.addEventListener('DOMContentLoaded', () => {
             .lifr-tile { background-color: rgb(255, 20, 147); }
             .nodata-tile { background-color: rgb(150, 150, 150); }
 
-            .flatpickr-calendar { font-family: 'Inter', sans-serif; }
+            .flatpickr-calendar { font-family: 'Public Sans', sans-serif; }
 
             /* Leaflet Dark Theme Overrides */
-            .leaflet-container { font-family: 'Inter', sans-serif; background: #e5e7eb; }
+            .leaflet-container { font-family: 'Public Sans', sans-serif; background: #e5e7eb; }
             .dark .leaflet-container { background: #111; }
 
            /* Ensure interactivity for vectors */
@@ -685,7 +694,7 @@ document.addEventListener('DOMContentLoaded', () => {
             }
 
             .map-icao-label {
-                font-family: 'JetBrains Mono', monospace;
+                font-family: 'IBM Plex Mono', monospace;
                 font-weight: 700;
                 font-size: 11px;
                 text-align: center;
@@ -705,12 +714,12 @@ document.addEventListener('DOMContentLoaded', () => {
             .label-nodata { color: rgb(150, 150, 150); }
 
             /* Zulu Clock Overlay */
-            #zuluClock {
+            #zuluClock, .zulu-clock {
                 position: absolute;
                 top: 1rem;
                 left: 1rem;
                 z-index: 1100; /* High z-index to stay above maps */
-                font-family: 'JetBrains Mono', monospace;
+                font-family: 'IBM Plex Mono', monospace;
                 font-weight: 700;
                 background: rgba(255, 255, 255, 0.8);
                 color: #d97706; /* Amber-600 for light mode visibility */
@@ -723,7 +732,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 box-shadow: 0 2px 4px rgba(0,0,0,0.1);
             }
 
-            .dark #zuluClock {
+            .dark #zuluClock, .dark .zulu-clock {
                 background: rgba(0, 0, 0, 0.6);
                 color: #fbbf24; /* Amber-400 */
                 border-color: rgba(255, 255, 255, 0.1);
@@ -736,7 +745,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 top: 3.5rem;
                 left: 1rem;
                 z-index: 1100;
-                font-family: 'JetBrains Mono', monospace;
+                font-family: 'IBM Plex Mono', monospace;
                 font-weight: 700;
                 background: rgba(255, 255, 255, 0.8);
                 color: #2563eb;
@@ -780,7 +789,7 @@ document.addEventListener('DOMContentLoaded', () => {
         top: 0.75rem;
         left: 0.75rem;
         z-index: 110000; /* Higher than dashboard fullscreen */
-        font-family: 'JetBrains Mono', monospace;
+        font-family: 'IBM Plex Mono', monospace;
         font-weight: 700;
         background: rgba(255, 255, 255, 0.9);
         color: #d97706;
@@ -846,8 +855,8 @@ document.addEventListener('DOMContentLoaded', () => {
             theme: {
                 extend: {
                     fontFamily: {
-                        sans: ['Inter', 'sans-serif'],
-                        mono: ['JetBrains Mono', 'monospace'],
+                        sans: ['Public Sans', 'sans-serif'],
+                        mono: ['IBM Plex Mono', 'monospace'],
                     }
                 }
             }
@@ -860,33 +869,41 @@ document.addEventListener('DOMContentLoaded', () => {
     <style>
         /* ── Design tokens ─────────────────────────────────── */
         :root {
-          --bg:          #f1f5f9;
+          --bg:          #eef2f7;
           --bg-card:     #ffffff;
-          --bg-input:    #f8fafc;
-          --border:      #e2e8f0;
-          --border-soft: #f1f5f9;
-          --text-1:      #0f172a;
-          --text-2:      #475569;
-          --text-3:      #94a3b8;
+          --bg-input:    #f5f8fc;
+          --border:      #dde5ef;
+          --border-soft: #eef2f7;
+          --text-1:      #0b1626;
+          --text-2:      #44566e;
+          --text-3:      #8493a8;
           --blue:        #2563eb;
           --blue-dk:     #1d4ed8;
+          --accent:      #0e8fd6;   /* HUD cyan-blue */
+          --accent-ink:  #0e7490;
+          --amber:       #c2820a;
+          --grid:        rgba(11,22,38,.055);
           --radius-card: 14px;
           --radius-btn:  10px;
-          --shadow-card: 0 1px 3px rgba(0,0,0,.06), 0 4px 16px rgba(0,0,0,.06);
+          --shadow-card: 0 1px 3px rgba(13,38,76,.06), 0 8px 28px rgba(13,38,76,.07);
           --shadow-btn:  0 1px 3px rgba(0,0,0,.12);
           --transition:  0.18s cubic-bezier(.4,0,.2,1);
         }
         .dark {
-          --bg:          #060d1a;
-          --bg-card:     #0f1929;
-          --bg-input:    #0a1120;
-          --border:      #1e2d45;
-          --border-soft: #131f30;
-          --text-1:      #f1f5f9;
-          --text-2:      #94a3b8;
-          --text-3:      #475569;
-          --shadow-card: 0 1px 3px rgba(0,0,0,.4), 0 4px 16px rgba(0,0,0,.35);
-          --shadow-btn:  0 1px 4px rgba(0,0,0,.4);
+          --bg:          #050a13;
+          --bg-card:     #0b1422;
+          --bg-input:    #070e1a;
+          --border:      #1a2940;
+          --border-soft: #111d30;
+          --text-1:      #eaf2fb;
+          --text-2:      #8da3bf;
+          --text-3:      #546880;
+          --accent:      #38bdf8;   /* HUD cyan */
+          --accent-ink:  #67d3ff;
+          --amber:       #fbbf24;
+          --grid:        rgba(56,189,248,.07);
+          --shadow-card: 0 1px 3px rgba(0,0,0,.5), 0 10px 34px rgba(0,0,0,.45);
+          --shadow-btn:  0 1px 4px rgba(0,0,0,.5);
         }
 
         /* ── Base ───────────────────────────────────────────── */
@@ -980,31 +997,34 @@ document.addEventListener('DOMContentLoaded', () => {
           transition: box-shadow var(--transition), transform var(--transition) !important;
         }
 
-        /* Top-right icon buttons */
-        #dashboardBtn, #themeToggleBtn, button[onclick="showRecords()"] {
-          border-radius: var(--radius-btn) !important;
-          box-shadow: var(--shadow-btn) !important;
+        /* Top-right instrument cluster */
+        .bc-cluster {
+          background: var(--bg-card);
+          border: 1px solid var(--border);
+          border-radius: 999px;
+          padding: .3rem;
+          gap: .15rem;
+          box-shadow: var(--shadow-btn);
         }
-        #pressureUnitToggleBtn, #unitToggleBtn {
-          border-radius: var(--radius-btn) !important;
-          box-shadow: var(--shadow-btn) !important;
-          background-color: var(--bg-card) !important;
-          border: 1px solid var(--border) !important;
-          color: var(--text-1) !important;
-        }
-        html.dark #pressureUnitToggleBtn,
-        html.dark #unitToggleBtn {
-          background-color: var(--bg-card) !important;
-          border-color: var(--border) !important;
-        }
-        #themeToggleBtn {
-          background-color: var(--bg-card) !important;
-          border: 1px solid var(--border) !important;
+        .bc-cluster > button {
+          border-radius: 999px !important;
+          box-shadow: none !important;
+          background: transparent !important;
           color: var(--text-2) !important;
+          width: 2.4rem !important; height: 2.4rem !important; padding: 0 !important;
+          transition: background var(--transition), color var(--transition) !important;
+          transform: none !important;
         }
-        html.dark #themeToggleBtn {
-          background-color: var(--bg-card) !important;
-          border-color: var(--border) !important;
+        .bc-cluster > button:hover {
+          background: var(--bg-input) !important;
+          color: var(--text-1) !important;
+          transform: none !important;
+        }
+        .bc-cluster > button svg { height: 1.15rem !important; width: 1.15rem !important; }
+        #pressureUnitToggleBtn { width: 3.1rem !important; }
+        #pressureUnitToggleBtn, #unitToggleBtn {
+          font: 700 .68rem/1 'IBM Plex Mono', monospace !important;
+          letter-spacing: .02em;
         }
 
         /* ── Legend dropdown ─────────────────────────────────── */
@@ -1315,13 +1335,346 @@ document.addEventListener('DOMContentLoaded', () => {
         #updateBanner {
           border-radius: 0 !important;
         }
+
+        /* ════════════════════════════════════════════════════════
+           BRIEFING CONSOLE — landing / hero overhaul
+           ════════════════════════════════════════════════════════ */
+        .bc-hero { position: relative; padding-top: 3.25rem; margin-bottom: 1.75rem; }
+        body { overflow-x: clip; }
+        @media (min-width: 768px){ .bc-hero { padding-top: 4rem; } }
+
+        /* faint nav-grid backdrop behind the hero */
+        .bc-hero-grid {
+          position: absolute; left: 0; right: 0; top: -2.5rem; height: 130%;
+          pointer-events: none; z-index: 0;
+          background-image:
+            linear-gradient(var(--grid) 1px, transparent 1px),
+            linear-gradient(90deg, var(--grid) 1px, transparent 1px);
+          background-size: 44px 44px;
+          -webkit-mask-image: radial-gradient(ellipse 56% 78% at 50% 26%, #000 0%, transparent 72%);
+                  mask-image: radial-gradient(ellipse 56% 78% at 50% 26%, #000 0%, transparent 72%);
+        }
+        .bc-hero-inner { position: relative; z-index: 1; text-align: center; }
+
+        .bc-kicker { display: inline-flex; align-items: center; gap: .55rem; flex-wrap: wrap; justify-content: center; margin-bottom: 1.1rem; }
+        .bc-kicker-text { font: 700 .6rem/1 'IBM Plex Mono', monospace; letter-spacing: .2em; color: var(--text-3); white-space: nowrap; }
+
+        /* title + sub */
+        .bc-title {
+          font-size: clamp(2.05rem, 5.2vw, 3.15rem) !important;
+          font-weight: 800 !important; letter-spacing: -.035em !important;
+          line-height: 1.02 !important; color: var(--text-1) !important;
+          margin: 0 !important; display: block !important;
+        }
+        .bc-title .bc-version { font: 600 .7rem/1 'IBM Plex Mono', monospace; letter-spacing: .04em; color: var(--text-3); vertical-align: middle; margin-left: .5rem; }
+        .bc-sub { color: var(--text-2) !important; font-size: .9rem !important; max-width: 38rem; margin: .8rem auto 0 !important; line-height: 1.5; }
+        .bc-notice { color: var(--text-3) !important; font-size: .68rem !important; max-width: 34rem; margin: .5rem auto 0 !important; line-height: 1.4; opacity: .85; }
+
+        /* legend pill */
+        .bc-hero button[onclick="toggleLegendDropdown()"] {
+          margin-top: 1.25rem !important; padding: .45rem 1rem !important;
+          font: 700 .68rem/1 'IBM Plex Mono', monospace !important; letter-spacing: .08em !important;
+          text-transform: uppercase !important;
+        }
+
+        /* ── Command console (input card) ─────────────────────── */
+        .bc-console {
+          position: relative; max-width: 56rem; margin: 0 auto 1.5rem !important;
+          background: var(--bg-card) !important; border: 1px solid var(--border) !important;
+          border-radius: 18px !important; box-shadow: var(--shadow-card) !important;
+        }
+        .bc-console::before {
+          content: ""; position: absolute; top: 0; left: 0; right: 0; height: 2px;
+          background: linear-gradient(90deg, transparent, var(--accent), transparent); opacity: .55;
+          border-radius: 18px 18px 0 0;
+        }
+        .bc-console-body { padding: 1.4rem 1.25rem; }
+
+        .bc-row { display: grid; grid-template-columns: 1fr; gap: 1rem; }
+        .bc-row > .bc-field { min-width: 0; }
+        @media (min-width: 640px){ .bc-row { grid-template-columns: 1fr 11rem; align-items: end; } }
+
+        .bc-field label {
+          display: block; font: 600 .64rem/1 'IBM Plex Mono', monospace; letter-spacing: .12em;
+          text-transform: uppercase; color: var(--text-3); margin-bottom: .5rem;
+        }
+        .bc-icao-row {
+          display: flex; align-items: stretch; height: 3.4rem; border-radius: 12px; overflow: hidden;
+          border: 1px solid var(--border); background: var(--bg-input);
+          transition: border-color var(--transition), box-shadow var(--transition);
+        }
+        .bc-icao-row:focus-within { border-color: var(--accent); box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 22%, transparent); }
+        #icaoInput {
+          flex: 1; min-width: 0; border: 0 !important; background: transparent !important;
+          border-radius: 0 !important; box-shadow: none !important;
+          font: 700 1.5rem/1 'IBM Plex Mono', monospace !important; letter-spacing: .2em !important;
+          padding: 0 1.1rem !important; color: var(--text-1) !important;
+        }
+        #icaoInput:focus { box-shadow: none !important; border: 0 !important; }
+        #icaoInput::placeholder { color: var(--text-3); opacity: .5; }
+        .bc-or {
+          display: flex; align-items: center; padding: 0 .7rem;
+          font: 700 .58rem/1 'IBM Plex Mono', monospace; letter-spacing: .1em; color: var(--text-3);
+          border-left: 1px solid var(--border); border-right: 1px solid var(--border);
+        }
+        #gpsHomeBtn {
+          display: flex; align-items: center; padding: 0 1.25rem; border: 0 !important;
+          font: 800 .74rem/1 'IBM Plex Mono', monospace; letter-spacing: .08em;
+          color: #fff; background: var(--blue); border-radius: 0 !important; cursor: pointer;
+          transition: background var(--transition); white-space: nowrap;
+        }
+        #gpsHomeBtn:hover { background: var(--blue-dk); }
+
+        input.bc-num {
+          height: 3.4rem; width: 100%; border-radius: 12px !important;
+          border: 1px solid var(--border) !important; background: var(--bg-input) !important;
+          font: 700 1.15rem/1 'IBM Plex Mono', monospace !important; letter-spacing: .04em !important;
+          padding: 0 1rem !important; color: var(--text-1) !important;
+        }
+
+        .bc-actions {
+          display: flex; flex-direction: column-reverse; gap: .85rem; margin-top: 1.25rem;
+          padding-top: 1.25rem; border-top: 1px solid var(--border);
+        }
+        @media (min-width: 640px){ .bc-actions { flex-direction: row; align-items: center; justify-content: space-between; } }
+
+        /* secondary: alternate planner ghost toggle */
+        #toggleAdvanced {
+          width: auto !important; display: inline-flex !important; align-items: center; gap: .5rem;
+          background: transparent !important; color: var(--text-2) !important;
+          border: 1px solid var(--border) !important; border-radius: 999px !important;
+          box-shadow: none !important; padding: .6rem 1.1rem !important;
+          font: 700 .72rem/1 'IBM Plex Mono', monospace !important; letter-spacing: .04em !important;
+          transition: border-color var(--transition), color var(--transition), background var(--transition) !important;
+        }
+        #toggleAdvanced:hover { border-color: var(--amber) !important; color: var(--amber) !important; background: color-mix(in srgb, var(--amber) 9%, transparent) !important; }
+
+        /* primary CTA */
+        #generateButton {
+          width: 100% !important; border-radius: 12px !important;
+          background: linear-gradient(180deg, var(--blue), var(--blue-dk)) !important;
+          font: 800 .9rem/1 'Public Sans', sans-serif !important; letter-spacing: .04em !important;
+          padding: 1rem 2.5rem !important; box-shadow: 0 4px 18px rgba(37,99,235,.4) !important;
+          display: inline-flex !important; align-items: center; justify-content: center; gap: .6rem;
+        }
+        @media (min-width: 640px){ #generateButton { width: auto !important; min-width: 9rem; } }
+        #generateButton:hover { box-shadow: 0 8px 26px rgba(37,99,235,.5) !important; transform: translateY(-1px); }
+
+        /* advanced (alternate planner) panel inside console */
+        #advancedInputs h3 { font: 700 .92rem/1 'Public Sans', sans-serif !important; letter-spacing: -.01em; }
+
+        /* ── Results chrome ──────────────────────────────────── */
+        #resultsContainer {
+          border-radius: 18px !important;
+          border: 1px solid var(--border) !important;
+          box-shadow: var(--shadow-card) !important;
+        }
+        #resultsContainer div:has(> #tabMap) {
+          background: var(--bg-input) !important;
+          border: 1px solid var(--border);
+          border-radius: 999px !important;
+          padding: .28rem !important;
+        }
+        #resultsContainer .tab-button {
+          border-radius: 999px !important;
+          font: 700 .72rem/1.4 'IBM Plex Mono', monospace !important;
+          letter-spacing: .08em; text-transform: uppercase;
+        }
+        #downloadPdfBtn {
+          border-radius: 999px !important;
+          font: 700 .72rem/1.4 'IBM Plex Mono', monospace !important;
+          letter-spacing: .06em;
+        }
+    </style>
+    <style id="pro-theme">
+        /* ════════════════════════════════════════════════════════════
+           PROFESSIONAL THEME — visual overrides only. Loaded last so it
+           wins over the earlier layers. No IDs, classes or JS hooks change.
+           ════════════════════════════════════════════════════════════ */
+        :root {
+          --bg: #eceef1;
+          --bg-card: #ffffff;
+          --bg-raised: #f6f7f9;
+          --bg-input: #f6f7f9;
+          --border: #d3d8df;
+          --border-soft: #e4e7eb;
+          --text-1: #1b2230;
+          --text-2: #4b5566;
+          --text-3: #7a8394;
+          --blue: #1f5f99;
+          --blue-dk: #184b7a;
+          --accent: #1f5f99;
+          --accent-ink: #1f5f99;
+          --amber: #9a6205;
+          --grid: transparent;
+          --radius-card: 8px;
+          --radius-btn: 6px;
+          --shadow-card: 0 1px 2px rgba(20,28,40,.06);
+          --shadow-btn: none;
+          --transition: .12s ease;
+        }
+        .dark {
+          --bg: #15181c;
+          --bg-card: #1c2026;
+          --bg-raised: #242931;
+          --bg-input: #15181c;
+          --border: #2f353e;
+          --border-soft: #262b33;
+          --text-1: #e3e6ea;
+          --text-2: #a2aab6;
+          --text-3: #737c89;
+          --blue: #2d6aa8;
+          --blue-dk: #245a90;
+          --accent: #7fb0de;
+          --accent-ink: #7fb0de;
+          --amber: #e0a93a;
+          --shadow-card: none;
+        }
+
+        /* ── Type ─────────────────────────────────────────────── */
+        body, .leaflet-container, .flatpickr-calendar { font-family: 'Public Sans', system-ui, -apple-system, 'Segoe UI', sans-serif !important; }
+        .font-mono, code, pre { font-family: 'IBM Plex Mono', ui-monospace, Menlo, Consolas, monospace !important; }
+        .font-black { font-weight: 700 !important; }
+        .tracking-wider, .tracking-widest { letter-spacing: .02em !important; }
+
+        /* ── No decorative blur or hover lift anywhere ────────── */
+        *, *::before, *::after { -webkit-backdrop-filter: none !important; backdrop-filter: none !important; }
+        .dash-card:hover, #generateButton:hover,
+        .hover\:scale-105:hover, .hover\:scale-110:hover,
+        .hover\:scale-\[1\.05\]:hover, .hover\:scale-\[1\.02\]:hover { transform: none !important; }
+        .hover\:scale-\[1\.05\]:hover, .hover\:scale-\[1\.02\]:hover { box-shadow: 0 0 0 2px var(--text-2) !important; }
+        .hover\:shadow-xl:hover, .hover\:shadow-lg:hover { box-shadow: 0 0 0 1px var(--text-3) !important; }
+
+        /* ── Radius and shadow scale (by hierarchy) ───────────── */
+        .rounded-3xl { border-radius: 12px !important; }
+        .rounded-2xl { border-radius: 10px !important; }
+        .rounded-xl  { border-radius: 8px !important; }
+        .rounded-lg  { border-radius: 6px !important; }
+        .shadow-2xl  { box-shadow: 0 12px 32px rgba(0,0,0,.22) !important; }
+        .shadow-xl, .shadow-lg { box-shadow: 0 4px 14px rgba(0,0,0,.12) !important; }
+        .shadow-md   { box-shadow: 0 1px 3px rgba(0,0,0,.10) !important; }
+
+        /* ── Tailwind surface colors → theme tokens ──────────── */
+        .bg-gray-50  { background-color: var(--bg-raised) !important; }
+        .border-gray-200, .border-gray-300 { border-color: var(--border) !important; }
+        html.dark .dark\:bg-black      { background-color: var(--bg-card) !important; }
+        html.dark .dark\:bg-gray-900   { background-color: var(--bg-card) !important; }
+        html.dark .dark\:bg-gray-800   { background-color: var(--bg-raised) !important; }
+        html.dark .dark\:border-gray-800,
+        html.dark .dark\:border-gray-700 { border-color: var(--border) !important; }
+
+        /* ── Header: a plain page title, left aligned ─────────── */
+        .bc-hero { padding-top: 3.5rem !important; margin-bottom: 1.25rem !important; }
+        .bc-hero-grid, .bc-kicker { display: none !important; }
+        .bc-hero-inner { text-align: left !important; max-width: 56rem; margin: 0 auto; }
+        .bc-title {
+          font-size: clamp(1.45rem, 3vw, 1.85rem) !important;
+          font-weight: 700 !important; letter-spacing: -.01em !important; line-height: 1.2 !important;
+        }
+        .bc-title .bc-version { font: 500 .75rem/1 'IBM Plex Mono', monospace !important; letter-spacing: 0 !important; }
+        .bc-sub { margin: .4rem 0 0 !important; max-width: 40rem; font-size: .92rem !important; }
+        .bc-notice { margin: .25rem 0 0 !important; max-width: 40rem; font-size: .75rem !important; opacity: 1 !important; }
+        .bc-hero button[onclick="toggleLegendDropdown()"] {
+          margin-top: .9rem !important; padding: .4rem .8rem !important;
+          font: 600 .8rem/1 'Public Sans', sans-serif !important; letter-spacing: 0 !important; text-transform: none !important;
+          border-radius: var(--radius-btn) !important; box-shadow: none !important;
+          background: var(--bg-card) !important; border-color: var(--border) !important; color: var(--text-1) !important;
+        }
+        #legendDropdownMenu { left: 0 !important; transform: none !important; background: var(--bg-card) !important; border-color: var(--border) !important; }
+        .weather-dot { box-shadow: none !important; }
+
+        /* ── Input panel ──────────────────────────────────────── */
+        .bc-console { border-radius: var(--radius-card) !important; box-shadow: var(--shadow-card) !important; }
+        .bc-console::before { display: none !important; }
+        .bc-field label, label.block.text-xs, label.block.text-sm {
+          font: 600 .8rem/1.2 'Public Sans', sans-serif !important;
+          letter-spacing: 0 !important; text-transform: none !important; color: var(--text-2) !important;
+        }
+        .bc-icao-row, input.bc-num { border-radius: var(--radius-btn) !important; height: 3rem !important; }
+        .bc-icao-row:focus-within, input[type="text"]:focus, input[type="number"]:focus {
+          border-color: var(--blue) !important; box-shadow: 0 0 0 2px color-mix(in srgb, var(--blue) 25%, transparent) !important;
+        }
+        #icaoInput { font: 600 1.25rem/1 'IBM Plex Mono', monospace !important; letter-spacing: .06em !important; }
+        input.bc-num { font: 500 1.05rem/1 'IBM Plex Mono', monospace !important; letter-spacing: 0 !important; }
+        .bc-or { font: 500 .78rem/1 'Public Sans', sans-serif !important; letter-spacing: 0 !important; text-transform: lowercase; }
+        #gpsHomeBtn { font: 600 .8rem/1 'Public Sans', sans-serif !important; letter-spacing: .02em !important; border-radius: 0 !important; }
+        input[type="text"], input[type="number"] { border-radius: var(--radius-btn) !important; }
+        #icaoInput { border-radius: 0 !important; }
+        #advancedInputs h3 { color: var(--text-1) !important; font: 600 1rem/1.3 'Public Sans', sans-serif !important; }
+
+        /* Buttons: one solid primary, quiet secondaries */
+        #generateButton {
+          background: var(--blue) !important; box-shadow: none !important;
+          border-radius: var(--radius-btn) !important; padding: .8rem 2rem !important;
+          font: 600 .9rem/1 'Public Sans', sans-serif !important; letter-spacing: 0 !important;
+        }
+        #generateButton:hover { background: var(--blue-dk) !important; box-shadow: none !important; }
+        #toggleAdvanced {
+          border-radius: var(--radius-btn) !important;
+          font: 600 .82rem/1 'Public Sans', sans-serif !important; letter-spacing: 0 !important;
+        }
+        #toggleAdvanced:hover { border-color: var(--text-2) !important; color: var(--text-1) !important; background: var(--bg-raised) !important; }
+        :focus-visible { outline: 2px solid var(--blue) !important; outline-offset: 2px; }
+
+        /* ── Top-right toolbar ────────────────────────────────── */
+        .bc-cluster { border-radius: var(--radius-card) !important; box-shadow: none !important; padding: .25rem !important; background: var(--bg-card) !important; border-color: var(--border) !important; }
+        .bc-cluster > button {
+          border-radius: var(--radius-btn) !important; box-shadow: none !important; transform: none !important;
+          background: transparent !important; color: var(--text-2) !important;
+        }
+        .bc-cluster > button:hover { background: var(--bg-raised) !important; color: var(--text-1) !important; }
+        #recordsModal h2 .text-amber-500 { display: none !important; }
+
+        /* ── Results: tabs and PDF ────────────────────────────── */
+        #resultsContainer { border-radius: var(--radius-card) !important; box-shadow: var(--shadow-card) !important; }
+        #resultsContainer div:has(> #tabMap) { border-radius: var(--radius-btn) !important; padding: 3px !important; }
+        #resultsContainer .tab-button {
+          border-radius: 4px !important; box-shadow: none !important;
+          font: 600 .82rem/1.4 'Public Sans', sans-serif !important; letter-spacing: 0 !important; text-transform: none !important;
+        }
+        .tab-button.bg-blue-600 { background-color: var(--blue) !important; box-shadow: none !important; }
+        #downloadPdfBtn {
+          border-radius: var(--radius-btn) !important; box-shadow: none !important;
+          font: 600 .82rem/1.4 'Public Sans', sans-serif !important; letter-spacing: 0 !important;
+          background: var(--bg-card) !important; color: var(--text-1) !important; border: 1px solid var(--border) !important;
+        }
+        #downloadPdfBtn:not(:disabled):hover { background: var(--bg-raised) !important; }
+
+        /* ── Map controls: solid, flat ────────────────────────── */
+        .fullscreen-trigger, .gps-trigger, .layer-btn, .floating-pill,
+        #zuluClock, #radarTimeDisplay, #heatmapLegend {
+          background: var(--bg-card) !important; border: 1px solid var(--border) !important;
+          box-shadow: 0 1px 3px rgba(0,0,0,.15) !important; color: var(--text-1) !important;
+        }
+        .fullscreen-trigger, .gps-trigger, .layer-btn { border-radius: var(--radius-btn) !important; }
+        .layer-btn:hover { background: var(--bg-raised) !important; box-shadow: 0 1px 3px rgba(0,0,0,.15) !important; }
+        .floating-pill { border-radius: var(--radius-btn) !important; }
+        #mainLayerToggle { background: var(--blue) !important; border-color: var(--blue-dk) !important; color: #fff !important; box-shadow: 0 1px 3px rgba(0,0,0,.15) !important; }
+        html .layer-btn[class*="-active"] { box-shadow: 0 1px 3px rgba(0,0,0,.15) !important; }
+        #zuluClock { border-radius: var(--radius-btn) !important; font: 500 .74rem/1.2 'IBM Plex Mono', monospace !important; letter-spacing: 0 !important; }
+        #radarTimeDisplay { border-radius: var(--radius-btn) !important; color: var(--accent-ink) !important; }
+        #heatmapLegend { border-radius: var(--radius-btn) !important; }
+
+        /* Popups and modals */
+        .leaflet-popup-content-wrapper { border-radius: 8px !important; box-shadow: 0 4px 16px rgba(0,0,0,.18) !important; }
+        #recordsModal > div, #confirmClearModal > div { border-radius: 10px !important; box-shadow: 0 12px 32px rgba(0,0,0,.25) !important; }
+        #tileModal > div { border-radius: 12px !important; box-shadow: 0 12px 32px rgba(0,0,0,.3) !important; }
+
+        /* Dashboard header + slider panel: solid instead of frosted */
+        #customDashboardView .sticky { background-color: var(--bg) !important; }
+        #customDashboardView .bg-white\/50 { background-color: var(--bg-card) !important; }
+        html.dark #customDashboardView .dark\:bg-black\/50 { background-color: var(--bg-card) !important; }
+
+        @media (prefers-reduced-motion: reduce) {
+          *, *::before, *::after { transition-duration: 0s !important; animation-duration: 0s !important; }
+        }
     </style>
 </head>
 
 <body class="min-h-full antialiased transition-colors duration-300 overflow-x-hidden" style="background-color:var(--bg);color:var(--text-1)">
 
-<div id="zuluClock">00:00:00Z</div>
-
+<!-- Zulu clock (page overlay) -->
+<div class="zulu-clock" id="zuluClock">00:00:00Z</div>
 
 <!-- Update Banner -->
 
@@ -1393,7 +1746,7 @@ document.addEventListener('DOMContentLoaded', () => {
 <div class="w-full px-3 md:px-8 pt-4 mt-2 pb-8">
 
     <!-- TOP-RIGHT CONTROL ROW (Prevents overlapping) -->
-    <div class="z-[110] absolute top-0 right-0 md:top-4 flex items-center gap-2">
+    <div class="z-[110] absolute top-0 right-0 md:top-4 flex items-center bc-cluster">
         <!-- 1. Dashboard -->
         <button id="dashboardBtn" type="button" onclick="openDashboard()" title="Dashboard"
                 class="p-2 rounded-full w-10 h-10 flex items-center justify-center bg-indigo-600 text-white hover:bg-indigo-700 shadow-md transition-transform hover:scale-110 active:scale-95">
@@ -1428,176 +1781,149 @@ document.addEventListener('DOMContentLoaded', () => {
         </button>
 
     </div>
-    <header class="mb-6 text-center pt-12 md:pt-16">
-        <h1 class="text-2xl md:text-3xl font-bold text-blue-600 dark:text-blue-400 flex justify-center items-center">
-            Aviation Weather Report
-            <span class="text-xs text-gray-400 dark:text-gray-500 font-normal ml-2 tracking-wide self-center" id="appVersionDisplay"></span>
-        </h1>
-        <p class="text-sm md:text-base text-gray-600 dark:text-gray-400 mt-2 px-4">
-            Generates a report of current METARs and TAFs. Warning: this app should be considered experimental--use at your own risk!
-        </p>
-        <p class="text-[9px] text-gray-400 dark:text-gray-600 mt-1 px-4 max-w-2xl mx-auto leading-tight opacity-70">
-            <strong>Non-Affiliation Notice:</strong> Independent project, not affiliated with the AVWX REST API or its creators.
-        </p>
+    <header class="bc-hero mb-6">
+        <div class="bc-hero-grid"></div>
+        <div class="bc-hero-inner">
+            <div class="bc-kicker">
+                <span class="bc-kicker-text">METAR, TAF, PIREP and alternates</span>
+            </div>
+            <h1 class="bc-title">Aviation Weather Report<span class="bc-version" id="appVersionDisplay"></span></h1>
+            <p class="bc-sub">
+                Live METAR &amp; TAF briefings with flight-category mapping. Experimental. Use at your own risk.
+            </p>
+            <p class="bc-notice">
+                <strong>Non-Affiliation Notice:</strong> Independent project, not affiliated with the AVWX REST API or its creators.
+            </p>
 
-        <!-- Dropdown Legend Container -->
-        <div class="relative inline-block text-left mt-4" id="legendDropdownContainer">
-            <button type="button" onclick="toggleLegendDropdown()" class="inline-flex justify-center items-center rounded-full border border-gray-300 dark:border-gray-700 shadow-sm px-4 py-1.5 bg-white dark:bg-gray-800 text-xs font-bold text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 focus:outline-none transition-colors">
-                Legend
-                <svg class="-mr-1 ml-1 h-4 w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
-                    <path fill-rule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clip-rule="evenodd" />
-                </svg>
-            </button>
+            <!-- Dropdown Legend Container -->
+            <div class="relative inline-block text-left mt-4" id="legendDropdownContainer">
+                <button type="button" onclick="toggleLegendDropdown()" class="inline-flex justify-center items-center rounded-full border border-gray-300 dark:border-gray-700 shadow-sm px-4 py-1.5 bg-white dark:bg-gray-800 text-xs font-bold text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 focus:outline-none transition-colors">
+                    Legend
+                    <svg class="-mr-1 ml-1 h-4 w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                        <path fill-rule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clip-rule="evenodd" />
+                    </svg>
+                </button>
 
-            <!-- Dropdown Menu -->
-            <div id="legendDropdownMenu" class="hidden origin-top absolute left-1/2 transform -translate-x-1/2 mt-2 w-56 rounded-xl shadow-lg bg-white/95 dark:bg-gray-800/95 backdrop-blur-sm border border-gray-200 dark:border-gray-700 z-[1000] transition-all">
-                <div class="p-3 flex flex-col gap-3" role="menu">
+                <!-- Dropdown Menu -->
+                <div id="legendDropdownMenu" class="hidden origin-top absolute left-1/2 transform -translate-x-1/2 mt-2 w-56 rounded-xl shadow-lg bg-white/95 dark:bg-gray-800/95 backdrop-blur-sm border border-gray-200 dark:border-gray-700 z-[1000] transition-all">
+                    <div class="p-3 flex flex-col gap-3" role="menu">
 
-                    <!-- VFR -->
-                    <div class="flex items-center gap-3">
-                        <span class="weather-dot vfr-dot shadow-sm"></span>
-                        <div class="flex flex-col text-left leading-tight">
-                            <span class="font-bold text-sm text-gray-800 dark:text-gray-200">VFR</span>
-                            <span class="text-[10px] font-medium text-gray-500 dark:text-gray-400 legend-vfr-text">Cig &gt;3000' &amp; Vis &gt;5sm</span>
+                        <!-- VFR -->
+                        <div class="flex items-center gap-3">
+                            <span class="weather-dot vfr-dot shadow-sm"></span>
+                            <div class="flex flex-col text-left leading-tight">
+                                <span class="font-bold text-sm text-gray-800 dark:text-gray-200">VFR</span>
+                                <span class="text-[10px] font-medium text-gray-500 dark:text-gray-400 legend-vfr-text">Cig &gt;3000' &amp; Vis &gt;5sm</span>
+                            </div>
                         </div>
-                    </div>
 
-                    <!-- MVFR -->
-                    <div class="flex items-center gap-3">
-                        <span class="weather-dot mvfr-dot shadow-sm"></span>
-                        <div class="flex flex-col text-left leading-tight">
-                            <span class="font-bold text-sm text-gray-800 dark:text-gray-200">MVFR</span>
-                            <span class="text-[10px] font-medium text-gray-500 dark:text-gray-400 legend-mvfr-text">Cig 1000-3000' or Vis 3-5sm</span>
+                        <!-- MVFR -->
+                        <div class="flex items-center gap-3">
+                            <span class="weather-dot mvfr-dot shadow-sm"></span>
+                            <div class="flex flex-col text-left leading-tight">
+                                <span class="font-bold text-sm text-gray-800 dark:text-gray-200">MVFR</span>
+                                <span class="text-[10px] font-medium text-gray-500 dark:text-gray-400 legend-mvfr-text">Cig 1000-3000' or Vis 3-5sm</span>
+                            </div>
                         </div>
-                    </div>
 
-                    <!-- IFR -->
-                    <div class="flex items-center gap-3">
-                        <span class="weather-dot ifr-dot shadow-sm"></span>
-                        <div class="flex flex-col text-left leading-tight">
-                            <span class="font-bold text-sm text-gray-800 dark:text-gray-200">IFR</span>
-                            <span class="text-[10px] font-medium text-gray-500 dark:text-gray-400 legend-ifr-text">Cig 500-999' or Vis 1-2.9sm</span>
+                        <!-- IFR -->
+                        <div class="flex items-center gap-3">
+                            <span class="weather-dot ifr-dot shadow-sm"></span>
+                            <div class="flex flex-col text-left leading-tight">
+                                <span class="font-bold text-sm text-gray-800 dark:text-gray-200">IFR</span>
+                                <span class="text-[10px] font-medium text-gray-500 dark:text-gray-400 legend-ifr-text">Cig 500-999' or Vis 1-2.9sm</span>
+                            </div>
                         </div>
-                    </div>
 
-                    <!-- LIFR -->
-                    <div class="flex items-center gap-3">
-                        <span class="weather-dot lifr-dot shadow-sm"></span>
-                        <div class="flex flex-col text-left leading-tight">
-                            <span class="font-bold text-sm text-gray-800 dark:text-gray-200">LIFR</span>
-                            <span class="text-[10px] font-medium text-gray-500 dark:text-gray-400 legend-lifr-text">Cig &lt;500' or Vis &lt;1sm</span>
+                        <!-- LIFR -->
+                        <div class="flex items-center gap-3">
+                            <span class="weather-dot lifr-dot shadow-sm"></span>
+                            <div class="flex flex-col text-left leading-tight">
+                                <span class="font-bold text-sm text-gray-800 dark:text-gray-200">LIFR</span>
+                                <span class="text-[10px] font-medium text-gray-500 dark:text-gray-400 legend-lifr-text">Cig &lt;500' or Vis &lt;1sm</span>
+                            </div>
                         </div>
-                    </div>
 
-                    <!-- No Data -->
-                    <div id="nodata-legend" class="flex items-center gap-3" style="display: none;">
-                        <span class="weather-dot nodata-tile shadow-sm"></span>
-                        <div class="flex flex-col text-left leading-tight">
-                            <span class="font-bold text-sm text-gray-500">N/A</span>
-                            <span class="text-[10px] font-medium text-gray-400">TAF Unavailable</span>
+                        <!-- No Data -->
+                        <div id="nodata-legend" class="flex items-center gap-3" style="display: none;">
+                            <span class="weather-dot nodata-tile shadow-sm"></span>
+                            <div class="flex flex-col text-left leading-tight">
+                                <span class="font-bold text-sm text-gray-500">N/A</span>
+                                <span class="text-[10px] font-medium text-gray-400">TAF Unavailable</span>
+                            </div>
                         </div>
-                    </div>
 
+                    </div>
                 </div>
             </div>
-        </div>
-
+        </div><!-- /bc-hero-inner -->
     </header>
 
-    <div class="bg-white dark:bg-black border border-transparent dark:border-gray-800 p-4 md:p-6 rounded-xl shadow-lg mb-6 transition-colors duration-300">
-        <!-- Input fields -->
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-
-            <div class="md:col-span-1 flex flex-col justify-end">
-                <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                    <div class="p-3 bg-gray-50 dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-800">
-                        <label for="icaoInput" class="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">
-                            Home Airport
-                        </label>
-                        <div class="flex w-full h-10 shadow-sm">
-                            <input type="text" id="icaoInput" maxlength="9" placeholder="KOKC" onfocus="handleInputFocus(this)"
-                                   class="uppercase flex-1 min-w-0 p-2 text-base md:text-sm border border-gray-300 dark:border-gray-700 rounded-l bg-white dark:bg-black dark:text-gray-100 focus:ring-blue-500 focus:border-blue-500 tracking-widest font-mono transition-colors z-0">
-
-                            <div class="flex items-center justify-center bg-gray-200 dark:bg-gray-800 border-y border-gray-300 dark:border-gray-700 px-2">
-                                <span class="text-[10px] font-bold text-gray-500">OR</span>
-                            </div>
-
-                            <button id="gpsHomeBtn" type="button" onclick="setHomeToGPS()"
-                                    class="flex items-center justify-center px-3 bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold rounded-r border border-blue-600 transition-colors shadow-sm whitespace-nowrap">
-                                GPS
-                            </button>
-                        </div>
-                    </div>
-                    <div class="p-3 bg-gray-50 dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-800">
-                        <label for="minRunway" class="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">
-                            Min Rwy (ft)
-                        </label>
-                        <input type="number" id="minRunway" placeholder="0" min="0" step="100"
-                               class="w-full p-2 text-base md:text-sm border border-gray-300 dark:border-gray-700 rounded bg-white dark:bg-black dark:text-gray-100 focus:ring-blue-500 focus:border-blue-500 font-mono transition-colors">
+    <div class="bc-console">
+        <div class="bc-console-body">
+            <div class="bc-row">
+                <div class="bc-field">
+                    <label for="icaoInput">Home airport (ICAO)</label>
+                    <div class="bc-icao-row">
+                        <input type="text" id="icaoInput" maxlength="9" placeholder="KOKC" onfocus="handleInputFocus(this)" class="uppercase">
+                        <span class="bc-or">OR</span>
+                        <button id="gpsHomeBtn" type="button" onclick="setHomeToGPS()">GPS</button>
                     </div>
                 </div>
-            </div>
-
-            <div class="md:col-span-1 flex items-end">
-                <div class="w-full">
-                    <p class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Alternate Analysis</p>
-                    <button id="toggleAdvanced"
-                            class="w-full bg-yellow-500 hover:bg-yellow-600 text-white font-bold py-3 px-4 rounded-lg shadow-md transition duration-150 focus:outline-none focus:ring-2 focus:ring-yellow-500 focus:ring-offset-2 dark:focus:ring-offset-gray-900 touch-manipulation">
-                        Enable Alternate Planner
-                    </button>
+                <div class="bc-field">
+                    <label for="minRunway">Min. runway (ft)</label>
+                    <input type="number" id="minRunway" placeholder="0" min="0" step="100" class="bc-num">
                 </div>
             </div>
-        </div>
 
-        <div id="advancedInputs" class="hidden mt-6 pt-4 border-t border-gray-200 dark:border-gray-800">
-            <h3 class="text-lg font-semibold text-blue-600 dark:text-blue-400 mb-4">Flight Plan Details</h3>
-            <p class="text-sm text-gray-500 mb-3">Enter either Departure or Destination to find alternates.</p>
-            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
-                <div>
-                    <label for="depIcao" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                        Departure (ICAO)
-                    </label>
-                    <input type="text" id="depIcao" maxlength="4" placeholder="KSEA"
-                           class="uppercase w-full p-2.5 text-base md:text-sm border border-gray-300 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-900 dark:text-gray-100 focus:ring-blue-500 focus:border-blue-500 font-mono transition-colors">
-                </div>
-                <div>
-                    <label for="destIcao" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                        Destination (ICAO)
-                    </label>
-                    <input type="text" id="destIcao" maxlength="4" placeholder="KSAN"
-                           class="uppercase w-full p-2.5 text-base md:text-sm border border-gray-300 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-900 dark:text-gray-100 focus:ring-blue-500 focus:border-blue-500 font-mono transition-colors">
-                </div>
-                <div>
-                    <label for="searchRadius" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                        Search Radius (NM)
-                    </label>
-                    <input type="number" id="searchRadius" placeholder="220" value="220" min="1" max="999"
-                           class="w-full p-2.5 text-base md:text-sm border border-gray-300 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-900 dark:text-gray-100 focus:ring-blue-500 focus:border-blue-500 transition-colors">
-                </div>
-                <div>
-                    <label for="takeOffTime" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                        Takeoff (UTC)
-                    </label>
-                    <input type="text" id="takeOffTime" placeholder="YYYY-MM-DD HH:MM" required
-                           class="w-full p-2.5 text-base md:text-sm border border-gray-300 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-900 dark:text-gray-100 focus:ring-blue-500 focus:border-blue-500 transition-colors cursor-pointer">
-                </div>
-                <div>
-                    <label for="landingTime" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                        Landing (UTC)
-                    </label>
-                    <input type="text" id="landingTime" placeholder="YYYY-MM-DD HH:MM" required
-                           class="w-full p-2.5 text-base md:text-sm border border-gray-300 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-900 dark:text-gray-100 focus:ring-blue-500 focus:border-blue-500 transition-colors cursor-pointer">
+            <div id="advancedInputs" class="hidden mt-6 pt-4 border-t border-gray-200 dark:border-gray-800">
+                <h3 class="text-lg font-semibold text-blue-600 dark:text-blue-400 mb-4">Flight Plan Details</h3>
+                <p class="text-sm text-gray-500 mb-3">Enter either Departure or Destination to find alternates.</p>
+                <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
+                    <div>
+                        <label for="depIcao" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                            Departure (ICAO)
+                        </label>
+                        <input type="text" id="depIcao" maxlength="4" placeholder="KSEA"
+                               class="uppercase w-full p-2.5 text-base md:text-sm border border-gray-300 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-900 dark:text-gray-100 focus:ring-blue-500 focus:border-blue-500 font-mono transition-colors">
+                    </div>
+                    <div>
+                        <label for="destIcao" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                            Destination (ICAO)
+                        </label>
+                        <input type="text" id="destIcao" maxlength="4" placeholder="KSAN"
+                               class="uppercase w-full p-2.5 text-base md:text-sm border border-gray-300 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-900 dark:text-gray-100 focus:ring-blue-500 focus:border-blue-500 font-mono transition-colors">
+                    </div>
+                    <div>
+                        <label for="searchRadius" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                            Search Radius (NM)
+                        </label>
+                        <input type="number" id="searchRadius" placeholder="220" value="220" min="1" max="999"
+                               class="w-full p-2.5 text-base md:text-sm border border-gray-300 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-900 dark:text-gray-100 focus:ring-blue-500 focus:border-blue-500 transition-colors">
+                    </div>
+                    <div>
+                        <label for="takeOffTime" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                            Takeoff (UTC)
+                        </label>
+                        <input type="text" id="takeOffTime" placeholder="YYYY-MM-DD HH:MM" required
+                               class="w-full p-2.5 text-base md:text-sm border border-gray-300 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-900 dark:text-gray-100 focus:ring-blue-500 focus:border-blue-500 transition-colors cursor-pointer">
+                    </div>
+                    <div>
+                        <label for="landingTime" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                            Landing (UTC)
+                        </label>
+                        <input type="text" id="landingTime" placeholder="YYYY-MM-DD HH:MM" required
+                               class="w-full p-2.5 text-base md:text-sm border border-gray-300 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-900 dark:text-gray-100 focus:ring-blue-500 focus:border-blue-500 transition-colors cursor-pointer">
+                    </div>
                 </div>
             </div>
-        </div>
 
-        <div class="mt-6 text-center">
-            <button id="generateButton"
-                    class="w-full md:w-auto bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-12 rounded-lg shadow-lg transform transition-transform hover:scale-[1.02] focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 dark:focus:ring-offset-gray-900 touch-manipulation">
-                Go!
-            </button>
-        </div>
-    </div>
+            <div class="bc-actions">
+                <button id="toggleAdvanced" type="button" class="touch-manipulation">Enable Alternate Planner</button>
+                <button id="generateButton" type="button" class="touch-manipulation">Go</button>
+            </div>
+        </div><!-- /bc-console-body -->
+    </div><!-- /bc-console -->
 
     <div id="status" class="hidden mt-6 p-4 text-center rounded-lg"></div>
     <div id="details" class="hidden mt-2 text-sm text-gray-500 text-center font-mono break-words"></div>
@@ -1639,7 +1965,7 @@ document.addEventListener('DOMContentLoaded', () => {
             <div id="weatherMap"></div>
 
             <!-- Zulu Clock -->
-            <div id="zuluClock">00:00:00Z</div>
+            <div class="zulu-clock">00:00:00Z</div>
 
             <!-- Radar Timestamp Display -->
             <div id="radarTimeDisplay">Radar Valid: --:--z</div>
@@ -1906,7 +2232,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         <script>
             // --- APP CONFIG ---
-            const CURRENT_VERSION = 'v2.8.8'; // Incremented Version
+            const CURRENT_VERSION = 'v2.9.0'; // Incremented Version
             const GITHUB_REPO = 'Unpiloted0852/AvWx';
 
             // Global Data Storage for Modal Access
@@ -2563,7 +2889,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const h = String(now.getUTCHours()).padStart(2, '0');
             const m = String(now.getUTCMinutes()).padStart(2, '0');
             const s = String(now.getUTCSeconds()).padStart(2, '0');
-            zuluClockEl.textContent = `${h}:${m}:${s}Z`;
+            document.querySelectorAll('#zuluClock, .zulu-clock').forEach(el => { el.textContent = `${h}:${m}:${s}Z`; });
 
             // Schedule next tick to land exactly on the next whole-second boundary
             const msUntilNext = 1000 - (_nowAccurate() % 1000);
@@ -2608,8 +2934,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     dateFormat: "Y-m-d H:i",
                     time_24hr: true,
                     disableMobile: true,
-                    minuteIncrement: 1,
-                    static: true
+                    minuteIncrement: 1
                 };
                 flatpickr("#takeOffTime", { ...commonConfig, defaultDate: formatUtcForInput(takeoffTime) });
                 flatpickr("#landingTime", { ...commonConfig, defaultDate: formatUtcForInput(landingTime) });
@@ -3149,8 +3474,13 @@ document.addEventListener('DOMContentLoaded', () => {
                 mapRenderer = L.canvas({ tolerance: 20 });
 
                 tileLayer = L.tileLayer(isDark ? MAP_DARK_URL : MAP_LIGHT_URL, {
-                    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>',
-                    subdomains: 'abcd',
+                    attribution: 'Tiles &copy; Esri &mdash; Esri, HERE, Garmin, &copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+                    maxNativeZoom: 16,   // Esri Canvas has real tiles only to z16; Leaflet upscales beyond
+                    maxZoom: 19
+                }).addTo(mapInstance);
+
+                labelLayer = L.tileLayer(isDark ? MAP_DARK_LABELS_URL : MAP_LIGHT_LABELS_URL, {
+                    maxNativeZoom: 16,
                     maxZoom: 19
                 }).addTo(mapInstance);
 
@@ -3775,7 +4105,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
                 // Render 3 copies: Main, West, East
                 [-360, 0, 360].forEach(offset => {
-                    const layer = L.geoJSON(mergedGeoJSON, {
+                    const geoLayer = L.geoJSON(mergedGeoJSON, {
                         pane: 'hazardPane',
                         renderer: hazardRenderer,
                         interactive: true,
@@ -3802,7 +4132,9 @@ document.addEventListener('DOMContentLoaded', () => {
                             const validTo = props.validTimeTo || '';
 
                             layer.on('mouseover', function() { this.setStyle({ weight: 4, fillOpacity: 0.4 }); });
-                            layer.on('mouseout', function() { layer.resetStyle(this); }); // Fixed reference
+                            const unhighlight = function() { geoLayer.resetStyle(layer); };
+                            layer.on('mouseout', unhighlight);
+                            layer.on('popupclose', unhighlight);
 
                             layer.bindPopup(`
                                 <div class="font-sans min-w-[200px]">
@@ -3813,7 +4145,7 @@ document.addEventListener('DOMContentLoaded', () => {
                             `);
                         }
                     });
-                    hazardGroup.addLayer(layer);
+                    hazardGroup.addLayer(geoLayer);
                 });
 
                 hazardsLayer = hazardGroup.addTo(mapInstance);
@@ -6659,7 +6991,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
              // Restore UI state manually since we are returning early
              generateButton.disabled = false;
-             generateButton.textContent = "Go!";
+             generateButton.textContent = "Go";
              generateButton.classList.remove('opacity-50', 'cursor-not-allowed');
 
              // DISPLAY THE FRIENDLY MESSAGE
@@ -6748,7 +7080,7 @@ document.addEventListener('DOMContentLoaded', () => {
              }
          } finally {
              generateButton.disabled = false;
-             generateButton.textContent = "Go!"; // Updated Text
+             generateButton.textContent = "Go"; // Updated Text
              generateButton.classList.remove('opacity-50', 'cursor-not-allowed');
          }
             }
