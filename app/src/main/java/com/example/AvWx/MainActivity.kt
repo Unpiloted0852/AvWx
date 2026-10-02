@@ -3,7 +3,6 @@ package com.example.AvWx
 import android.Manifest
 import android.app.Activity
 import android.content.ContentValues
-import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.net.Uri
@@ -21,6 +20,7 @@ import android.webkit.WebViewClient
 import android.widget.Toast
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
+import org.json.JSONObject
 import java.io.IOException
 
 class MainActivity : Activity() {
@@ -47,7 +47,7 @@ class MainActivity : Activity() {
 
         // 2. Add the Javascript Interface for saving PDFs and Updating
         // This connects "window.Android.savePdf" and "window.Android.launchUpdate"
-        myWebView.addJavascriptInterface(WebAppInterface(this), "Android")
+        myWebView.addJavascriptInterface(WebAppInterface(this, myWebView), "Android")
 
         // 3. Set WebChromeClient to handle the permission request from HTML
         myWebView.webChromeClient = object : WebChromeClient() {
@@ -93,19 +93,28 @@ class MainActivity : Activity() {
     }
 
     // --- JAVASCRIPT INTERFACE ---
-    class WebAppInterface(private val context: Context) {
+    class WebAppInterface(private val context: Activity, private val webView: WebView) {
 
-        // Function called by "window.Android.launchUpdate(url)"
+        private val updater = AppUpdater(context)
+
+        // Function called by "window.Android.launchUpdate(url)": downloads the release APK and
+        // hands it to the system installer. Progress and the outcome go back to the page through
+        // window.onUpdateProgress(percent) and window.onUpdateFinished(error or null).
         @JavascriptInterface
         fun launchUpdate(url: String) {
-            try {
-                val intent = Intent(Intent.ACTION_VIEW)
-                intent.data = Uri.parse(url)
-                intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                context.startActivity(intent)
-            } catch (e: Exception) {
-                Toast.makeText(context, "Error opening update link", Toast.LENGTH_SHORT).show()
-            }
+            updater.start(
+                url,
+                onProgress = { pct ->
+                    webView.evaluateJavascript("window.onUpdateProgress && window.onUpdateProgress($pct)", null)
+                },
+                onFinished = { error ->
+                    val arg = if (error == null) "null" else JSONObject.quote(error)
+                    webView.evaluateJavascript("window.onUpdateFinished && window.onUpdateFinished($arg)", null)
+                    if (error != null && error != "cancelled") {
+                        Toast.makeText(context, "Update failed: $error", Toast.LENGTH_LONG).show()
+                    }
+                }
+            )
         }
 
         @JavascriptInterface

@@ -1,0 +1,8 @@
+[versions]
+androidx-core = "1.13.1"
+androidx-appcompat = "1.6.1"  # Downgraded to avoid potential SDK 35 issues
+
+[libraries]
+androidx-core = { module = "androidx.core:core", version.ref = "androidx-core" }
+androidx-core-ktx = { module = "androidx.core:core-ktx", version.ref = "androidx-core" }
+androidx-appcompat = { module = "androidx.appcompat:appcompat", version.ref = "androidx-appcompat" }

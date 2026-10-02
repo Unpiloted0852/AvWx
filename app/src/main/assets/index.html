@@ -2232,7 +2232,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         <script>
             // --- APP CONFIG ---
-            const CURRENT_VERSION = 'v2.9.0'; // Incremented Version
+            const CURRENT_VERSION = 'v2.9.1'; // Incremented Version
             const GITHUB_REPO = 'Unpiloted0852/AvWx';
 
             // Global Data Storage for Modal Access
@@ -5804,16 +5804,31 @@ document.addEventListener('DOMContentLoaded', () => {
                 // Setup Button
                 downloadBtn.href = "#"; // Controlled by JS
 
+                // The Android app downloads and installs the update itself and reports back here
+                const idleLabel = downloadBtn.textContent;
+                let updateInProgress = false;
+                window.onUpdateProgress = (pct) => {
+                    downloadBtn.textContent = pct < 100 ? `Downloading… ${pct}%` : 'Installing…';
+                };
+                window.onUpdateFinished = () => {
+                    updateInProgress = false;
+                    downloadBtn.textContent = idleLabel;
+                };
+
                 downloadBtn.onclick = (e) => {
                     e.preventDefault();
+                    if (updateInProgress) return;
 
                     // A. Try Android Bridge
                     if (window.Android && typeof window.Android.launchUpdate === 'function') {
                         try {
+                            updateInProgress = true;
+                            downloadBtn.textContent = 'Downloading… 0%';
                             window.Android.launchUpdate(downloadUrl);
                             return;
                         } catch (err) {
                             console.error("Bridge update failed", err);
+                            window.onUpdateFinished();
                         }
                     }
 
