@@ -35,7 +35,7 @@ class AppUpdater(private val activity: Activity) {
     fun start(url: String, onProgress: (Int) -> Unit, onFinished: (String?) -> Unit) {
         if (running) return
         // The link comes from the web layer, so only ever install from this app's own releases.
-        if (!url.startsWith(RELEASES_PREFIX)) {
+        if (RELEASES_PREFIXES.none { url.startsWith(it) }) {
             activity.runOnUiThread { onFinished("unexpected download link") }
             return
         }
@@ -127,6 +127,11 @@ class AppUpdater(private val activity: Activity) {
     }
 
     companion object {
-        private const val RELEASES_PREFIX = "https://github.com/Unpiloted0852/AvWx/releases/"
+        // The repository is being renamed; both names are accepted so updates keep working
+        // on either side of the rename.
+        private val RELEASES_PREFIXES = listOf(
+            "https://github.com/Unpiloted0852/MetarsTafs/releases/",
+            "https://github.com/Unpiloted0852/AvWx/releases/"
+        )
     }
 }
