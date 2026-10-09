@@ -2229,7 +2229,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         <script>
             // --- APP CONFIG ---
-            const CURRENT_VERSION = 'v2.9.3'; // Incremented Version
+            const CURRENT_VERSION = 'v2.9.4'; // Incremented Version
             const GITHUB_REPO = 'Unpiloted0852/AvWx';
 
             // Global Data Storage for Modal Access
@@ -2797,109 +2797,109 @@ document.addEventListener('DOMContentLoaded', () => {
             // Zulu Clock Update
             let timeOffset = 0;
 
-        // ── High-accuracy Zulu clock ─────────────────────────────────────────────
-        // Uses NTP-style multi-sample sync + performance.now() monotonic reference
-        // so the display never drifts even if the JS event loop is busy.
+            // ── High-accuracy Zulu clock ─────────────────────────────────────────────
+            // The device clock is corrected with an NTP-style measurement against a time server:
+            // several samples are taken and the one with the shortest round trip wins, since the
+            // error of a sample can be no larger than half its round trip.
 
-        let _clockTickId = null;
+            let _clockTickId = null;
+            let _syncTimerId = null;
+            let _syncInProgress = null;
 
-        async function syncTime() {
-            // Take several samples and keep the one with the lowest RTT.
-            // We cross-check the JSON body timestamp against the HTTP Date header —
-            // the HTTP Date header is set at the network layer so it's immune to
-            // Android WebView's fetch overhead inflating our RTT estimate.
-            const SAMPLES = 5;
-            let bestOffset = null, bestRTT = Infinity;
+            // Each source returns UTC with millisecond precision and allows cross-origin reads.
+            const TIME_SOURCES = [
+                { url: 'https://time.akamai.com/?ms', parse: text => parseFloat(text) * 1000 },
+                { url: 'https://time.now/developer/api/timezone/Etc/UTC', parse: text => new Date(JSON.parse(text).utc_datetime).getTime() }
+            ];
 
-            for (let i = 0; i < SAMPLES; i++) {
-                try {
-                    const t0 = Date.now();
-                    const res = await fetch(
-                        "https://worldtimeapi.org/api/timezone/Etc/UTC",
-                        { cache: 'no-store' }
-                    );
-                    const t1 = Date.now();
-                    const rtt = t1 - t0;
-                    const data = await res.json();
-
-                    // Primary: JSON body has millisecond precision
-                    const bodyMs = new Date(data.utc_datetime).getTime();
-                    const bodyOffset = bodyMs - (t0 + rtt / 2);
-
-                    // Cross-check: HTTP Date header is whole-second but set at network layer —
-                    // unaffected by WebView application overhead
-                    const httpDateStr = res.headers.get('Date');
-                    let offset = bodyOffset;
-                    if (httpDateStr) {
-                        const httpMs = new Date(httpDateStr).getTime();
-                        // If the two sources agree within 600ms, trust the body (ms precision).
-                        // If they disagree by more, the body RTT estimate is likely wrong
-                        // (WebView overhead) — use the HTTP header instead.
-                        if (Math.abs(bodyOffset - (httpMs - Date.now())) > 600) {
-                            offset = httpMs - Date.now();
-                            console.log('Zulu: using HTTP Date header (WebView overhead detected)');
-                        }
+            async function sampleTimeSource(source, samples) {
+                let best = null;
+                for (let i = 0; i < samples; i++) {
+                    try {
+                        const sep = source.url.includes('?') ? '&' : '?';
+                        // performance.now() times the round trip so a clock adjustment mid-request can't skew it
+                        const p0 = performance.now();
+                        const res = await fetch(`${source.url}${sep}_=${Date.now()}`, { cache: 'no-store' });
+                        const rtt = performance.now() - p0;
+                        const localAtReply = Date.now();
+                        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+                        const serverMs = source.parse(await res.text());
+                        if (!isFinite(serverMs)) throw new Error('unreadable time');
+                        // The server stamped its reply about half a round trip before it arrived
+                        const offset = serverMs + rtt / 2 - localAtReply;
+                        if (!best || rtt < best.rtt) best = { offset, rtt };
+                        if (best.rtt < 20) break;
+                    } catch (e) {
+                        // individual sample failed, continue
                     }
-
-                    if (rtt < bestRTT) {
-                        bestRTT = rtt;
-                        bestOffset = offset;
-                    }
-
-                    if (i < SAMPLES - 1) await new Promise(r => setTimeout(r, 200));
-                } catch(e) {
-                    // individual sample failed, continue
+                    if (i < samples - 1) await new Promise(r => setTimeout(r, 150));
                 }
+                return best;
             }
 
-            if (bestOffset !== null) {
-                timeOffset = bestOffset;
-                console.log(`Zulu sync: offset ${bestOffset.toFixed(1)}ms, best RTT ${bestRTT.toFixed(1)}ms`);
-            } else {
-                console.warn("Time sync failed, using system clock");
-                timeOffset = 0;
-            }
+            function syncTime() {
+                if (_syncInProgress) return _syncInProgress;
+                _syncInProgress = (async () => {
+                    let best = null;
+                    for (const source of TIME_SOURCES) {
+                        best = await sampleTimeSource(source, 6);
+                        if (best) break;
+                    }
+                    if (best) {
+                        timeOffset = best.offset;
+                        console.log(`Zulu sync: offset ${best.offset.toFixed(1)}ms, accurate to ±${(best.rtt / 2).toFixed(1)}ms`);
+                    } else {
+                        // Keep the last good offset (zero until the first successful sync)
+                        console.warn("Time sync failed, keeping previous correction");
+                    }
 
-            // Re-sync every 5 minutes
-            setTimeout(syncTime, 5 * 60 * 1000);
-        }
+                    // Re-sync every 5 minutes, or after 30 seconds if no server could be reached
+                    clearTimeout(_syncTimerId);
+                    _syncTimerId = setTimeout(syncTime, best ? 5 * 60 * 1000 : 30 * 1000);
+                    _syncInProgress = null;
 
-        // Re-sync whenever the app comes back to the foreground —
-        // WebView suspends timers when backgrounded so the clock can go stale
-        document.addEventListener('visibilitychange', () => {
-            if (document.visibilityState === 'visible') {
-                syncTime().then(() => {
                     if (_clockTickId) clearTimeout(_clockTickId);
                     updateZuluClock();
-                });
+                })();
+                return _syncInProgress;
             }
-        });
 
-        function _nowAccurate() {
-            // Date.now() + NTP offset — simple and works correctly in both
-            // browsers and Android WebView (performance.now() is unreliable in WebView)
-            return Date.now() + timeOffset;
-        }
-
-        function updateZuluClock() {
-            const now = new Date(_nowAccurate());
-            const h = String(now.getUTCHours()).padStart(2, '0');
-            const m = String(now.getUTCMinutes()).padStart(2, '0');
-            const s = String(now.getUTCSeconds()).padStart(2, '0');
-            document.querySelectorAll('#zuluClock, .zulu-clock').forEach(el => { el.textContent = `${h}:${m}:${s}Z`; });
-
-            // Schedule next tick to land exactly on the next whole-second boundary
-            const msUntilNext = 1000 - (_nowAccurate() % 1000);
-            _clockTickId = setTimeout(updateZuluClock, msUntilNext);
-        }
-
-            // Sync time on load, then restart the clock with the corrected offset
-            syncTime().then(() => {
-                if(_clockTickId) clearTimeout(_clockTickId);
-                updateZuluClock();
+            // Re-sync whenever the app comes back to the foreground —
+            // WebView suspends timers when backgrounded so the clock can go stale
+            document.addEventListener('visibilitychange', () => {
+                if (document.visibilityState === 'visible') syncTime();
             });
-            // Start ticking immediately with system clock while sync is in progress
+
+            function _nowAccurate() {
+                return Date.now() + timeOffset;
+            }
+
+            // Gap between the device clock and the monotonic clock; it only moves if the device
+            // clock is changed (or the device slept), which makes the stored correction wrong.
+            let _clockSkewRef = Date.now() - performance.now();
+
+            function updateZuluClock() {
+                const skew = Date.now() - performance.now();
+                if (Math.abs(skew - _clockSkewRef) > 100) {
+                    _clockSkewRef = skew;
+                    syncTime();
+                }
+
+                const now = new Date(_nowAccurate());
+                const h = String(now.getUTCHours()).padStart(2, '0');
+                const m = String(now.getUTCMinutes()).padStart(2, '0');
+                const s = String(now.getUTCSeconds()).padStart(2, '0');
+                document.querySelectorAll('#zuluClock, .zulu-clock').forEach(el => { el.textContent = `${h}:${m}:${s}Z`; });
+
+                // Schedule next tick to land exactly on the next whole-second boundary
+                const msUntilNext = 1000 - (_nowAccurate() % 1000);
+                _clockTickId = setTimeout(updateZuluClock, msUntilNext);
+            }
+
+            // Start ticking immediately with the system clock; syncTime restarts the clock
+            // with the corrected offset as soon as it has one
             updateZuluClock();
+            syncTime();
 
             function formatUtcForInput(date) {
                 const Y = date.getUTCFullYear();
