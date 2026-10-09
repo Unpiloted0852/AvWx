@@ -1244,6 +1244,21 @@ document.addEventListener('DOMContentLoaded', () => {
           border-color: var(--border) !important;
         }
 
+        /* ── Temperature / humidity map legend and buttons ───── */
+        #fieldMapLegend {
+          position: absolute; bottom: 2rem; left: 50%; transform: translateX(-50%);
+          z-index: 1000; display: none; flex-direction: column; align-items: center;
+          width: 260px; padding: 8px 14px 6px; pointer-events: none;
+          background: rgba(255,255,255,.9); border: 1px solid rgba(0,0,0,.08);
+          border-radius: 10px; backdrop-filter: blur(8px);
+        }
+        html.dark #fieldMapLegend { background: rgba(15,25,41,.9); border-color: rgba(255,255,255,.08); }
+        #fieldMapLegendBar { width: 100%; height: 10px; margin-top: 5px; border-radius: 3px; border: 1px solid rgba(0,0,0,.35); }
+        #fieldMapLegendTicks { position: relative; width: 100%; height: 14px; margin-top: 2px; }
+        #fieldMapLegendTicks span { position: absolute; transform: translateX(-50%); }
+        html .layer-btn.tempmap-active { background-color: #ef4444 !important; border-color: #dc2626 !important; color: #fff !important; box-shadow: 0 2px 10px rgba(239,68,68,.4) !important; }
+        html .layer-btn.humidity-active { background-color: #16a34a !important; border-color: #15803d !important; color: #fff !important; box-shadow: 0 2px 10px rgba(22,163,74,.4) !important; }
+
         /* ── Heatmap legend ──────────────────────────────────── */
         #heatmapLegend {
           background: rgba(255,255,255,.9) !important;
@@ -2066,8 +2081,16 @@ document.addEventListener('DOMContentLoaded', () => {
                         🧊
                     </button>
 
-                    <button id="heatmapBtn" onclick="toggleHeatmap()" class="layer-btn bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 text-lg flex items-center justify-center">
+                    <button id="tempMapBtn" onclick="toggleFieldMap('temp')" class="layer-btn bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 text-lg flex items-center justify-center">
                         🌡️
+                    </button>
+
+                    <button id="humidityMapBtn" onclick="toggleFieldMap('rh')" class="layer-btn bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center justify-center">
+                        <span class="font-black tracking-tighter leading-none">RH</span>
+                    </button>
+
+                    <button id="heatmapBtn" onclick="toggleHeatmap()" class="layer-btn bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 text-lg flex items-center justify-center">
+                        🎈
                     </button>
 
                     <button id="pirepBtn" onclick="togglePireps()" class="layer-btn bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 text-xl flex items-center justify-center">
@@ -2099,6 +2122,13 @@ document.addEventListener('DOMContentLoaded', () => {
                 </div>
             </div>
 
+            <!-- Temperature / humidity map legend -->
+            <div id="fieldMapLegend">
+                <div id="fieldMapLegendTitle" class="text-xs font-bold uppercase tracking-wider text-black dark:text-white">Temperature</div>
+                <div id="fieldMapLegendBar"></div>
+                <div id="fieldMapLegendTicks" class="text-[10px] text-gray-600 dark:text-gray-300"></div>
+            </div>
+
             <!-- Floating Controls (Visible only in Fullscreen Mode) -->
             <div id="fullscreenControls" class="hidden">
                 <div class="map-overlay-top">
@@ -2125,6 +2155,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 <div class="max-w-7xl mx-auto flex flex-col gap-3 p-3">
 
                     <div class="flex flex-col gap-2">
+                        <label for="dashInput" class="text-xs font-bold text-gray-600 dark:text-gray-300">Add an airport tile: type its 4-letter code, then press Add tile</label>
                         <!-- Row 1: Back + Input + Clear -->
                         <div class="flex items-center gap-2">
                             <!-- Close Button -->
@@ -2134,10 +2165,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
                             <!-- Input Field -->
                             <div class="flex-1 flex shadow-sm">
-                                <input type="text" id="dashInput" placeholder="KJFK" maxlength="4"
+                                <input type="text" id="dashInput" placeholder="Airport code, e.g. KJFK" maxlength="4"
                                        class="uppercase w-full p-2 border border-gray-300 dark:border-gray-700 rounded-l-xl bg-white dark:bg-black dark:text-white font-mono focus:ring-2 focus:ring-indigo-500 outline-none text-sm">
-                                <button onclick="addDashboardStation()" class="flex-none bg-indigo-600 hover:bg-indigo-700 text-white px-4 rounded-r-xl font-bold text-xs shadow-sm">
-                                    ADD
+                                <button onclick="addDashboardStation()" class="flex-none bg-indigo-600 hover:bg-indigo-700 text-white px-4 rounded-r-xl font-bold text-xs shadow-sm whitespace-nowrap">
+                                    + Add tile
                                 </button>
                             </div>
 
@@ -2147,10 +2178,12 @@ document.addEventListener('DOMContentLoaded', () => {
                             </button>
                         </div>
 
-                        <!-- Row 2: Bulk Add (full width on mobile, auto on desktop) -->
-                        <button onclick="openDashSearchModal()" class="w-full sm:w-auto self-start bg-blue-500 hover:bg-blue-600 text-white px-4 py-1.5 rounded-xl font-bold text-xs shadow-sm whitespace-nowrap flex items-center justify-center gap-1.5">
+                        <div id="dashAddStatus" class="hidden text-xs font-bold" role="status"></div>
+
+                        <!-- Row 2: Add nearby airports (full width on mobile, auto on desktop) -->
+                        <button onclick="openDashSearchModal()" class="w-full sm:w-auto self-start bg-blue-500 hover:bg-blue-600 text-white px-4 py-1.5 rounded-xl font-bold text-xs shadow-sm whitespace-nowrap flex items-center justify-center gap-1.5" title="Add a tile for every airport around one place">
                             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
-                            Bulk Add
+                            Add nearby airports
                         </button>
                     </div>
 
@@ -2173,6 +2206,10 @@ document.addEventListener('DOMContentLoaded', () => {
             <!-- Scrollable Tile Grid -->
             <div class="p-4">
                 <div id="dashboardGrid" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 xl:grid-cols-8 gap-3 w-full"></div>
+                <button id="dashAddMoreBtn" onclick="focusDashInput()" class="mt-3 w-full p-3 rounded-xl border-2 border-dashed border-gray-300 dark:border-gray-700 text-sm font-bold text-gray-600 dark:text-gray-300 hover:border-indigo-500 hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors">
+                    + Add another airport
+                </button>
+                <p id="dashTileHint" class="mt-2 text-center text-[11px] text-gray-500 dark:text-gray-400">Tap a tile for details. Drag a tile to reorder (press and hold on a touch screen). Tap its ✕ to remove it.</p>
             </div>
         </div>
         <!-- Custom Clear Confirmation Modal -->
@@ -2198,7 +2235,8 @@ document.addEventListener('DOMContentLoaded', () => {
         <!-- Advanced Search Modal (Added) -->
         <div id="dashboardSearchModal" class="hidden fixed inset-0 z-[2000] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4" onclick="closeDashSearchModal()">
             <div class="bg-white dark:bg-gray-900 rounded-2xl shadow-2xl w-full max-w-md p-6 border border-gray-200 dark:border-gray-800" onclick="event.stopPropagation()">
-                <h3 class="text-xl font-bold text-gray-900 dark:text-white mb-4">Bulk Add Stations</h3>
+                <h3 class="text-xl font-bold text-gray-900 dark:text-white mb-1">Add nearby airports</h3>
+<p class="text-sm text-gray-500 dark:text-gray-400 mb-4">Adds a tile for every airport within the radius of the center airport.</p>
 
                 <div class="space-y-4">
                     <div>
@@ -2229,7 +2267,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         <script>
             // --- APP CONFIG ---
-            const CURRENT_VERSION = 'v2.9.4'; // Incremented Version
+            const CURRENT_VERSION = 'v2.9.5'; // Incremented Version
             const GITHUB_REPO = 'Unpiloted0852/AvWx';
 
             // Global Data Storage for Modal Access
@@ -2347,6 +2385,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const hasRadar = !!radarLayer;
             const hasFreezing = !!freezingLayer;
             const hasHeatmap = (heatmapMode !== 0);
+            const hasFieldMap = !!fieldMapLayer;
             const hasPirep = !!pirepLayer;
             const hasHazards = !!hazardsLayer;
             const hasDayNight = !!dayNightLayer;
@@ -2355,7 +2394,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
             const mainBtn = document.getElementById('mainLayerToggle');
 
-            if (hasRadar || hasFreezing || hasHeatmap || hasPirep || hasHazards || hasDayNight || hasRunways || hasTraffic) {
+            if (hasRadar || hasFreezing || hasHeatmap || hasFieldMap || hasPirep || hasHazards || hasDayNight || hasRunways || hasTraffic) {
                 mainBtn.classList.add('has-active-layers');
             } else {
                 mainBtn.classList.remove('has-active-layers');
@@ -2462,16 +2501,10 @@ document.addEventListener('DOMContentLoaded', () => {
                 useCelsius = !useCelsius;
                 try { localStorage.setItem('useCelsius', useCelsius); } catch(e){}
                 updateUnitButtons();
-                // Refresh Heatmap if Temp mode is active
-                if (heatmapMode === 1 && heatmapLayer) {
-                    // Re-create the layer to force re-draw with new units
-                    mapInstance.removeLayer(heatmapLayer);
-                    heatmapLayer = new L.WeatherIsoLayer({ mode: 'temp' });
-                    mapInstance.addLayer(heatmapLayer);
-
-                    // Refresh Legend Title
-                    const legendTitle = document.getElementById('legendTitle');
-                    if (legendTitle) legendTitle.textContent = `Temp Lines (${useCelsius ? '°C' : '°F'})`;
+                // Redraw the temperature map in the new units (a humidity map is unaffected)
+                if (fieldMapLayer) {
+                    fieldMapLayer._update();
+                    updateFieldMapLegend();
                 }
                 // Re-render UI if data exists
                 if (currentReportData && currentReportData.stationsData.length > 0) {
@@ -2885,15 +2918,20 @@ document.addEventListener('DOMContentLoaded', () => {
                     syncTime();
                 }
 
-                const now = new Date(_nowAccurate());
-                const h = String(now.getUTCHours()).padStart(2, '0');
-                const m = String(now.getUTCMinutes()).padStart(2, '0');
-                const s = String(now.getUTCSeconds()).padStart(2, '0');
+                const now = _nowAccurate();
+                // Some browsers round the clock they give to pages (privacy modes use steps of about
+                // 17 ms), so a tick that fires right on the second can read a moment before it.
+                // Anything within 25 ms of the next second counts as that second.
+                const shownSecond = Math.floor((now + 25) / 1000);
+                const shown = new Date(shownSecond * 1000);
+                const h = String(shown.getUTCHours()).padStart(2, '0');
+                const m = String(shown.getUTCMinutes()).padStart(2, '0');
+                const s = String(shown.getUTCSeconds()).padStart(2, '0');
                 document.querySelectorAll('#zuluClock, .zulu-clock').forEach(el => { el.textContent = `${h}:${m}:${s}Z`; });
 
-                // Schedule next tick to land exactly on the next whole-second boundary
-                const msUntilNext = 1000 - (_nowAccurate() % 1000);
-                _clockTickId = setTimeout(updateZuluClock, msUntilNext);
+                // Next tick lands just after the following second begins, measured from the same
+                // reading that chose what to display
+                _clockTickId = setTimeout(updateZuluClock, (shownSecond + 1) * 1000 - now + 1);
             }
 
             // Start ticking immediately with the system clock; syncTime restarts the clock
@@ -3282,12 +3320,303 @@ document.addEventListener('DOMContentLoaded', () => {
                 });
             }
 
+            // --- STATION VALUE MAPS (colour-filled, with each station's reading plotted) ---
+            // One of these can be shown at a time. Colour scales are sampled from the legends of
+            // the Oklahoma Mesonet's air temperature and relative humidity maps.
+            let fieldMapLayer = null;
+
+            const FIELD_MAPS = {
+                temp: {
+                    button: 'tempMapBtn',
+                    activeClass: 'tempmap-active',
+                    // [°F, r, g, b]
+                    stops: [
+                        [-20, 174, 174, 220], [-10, 220, 220, 220], [0, 146, 19, 146], [10, 255, 152, 255],
+                        [20, 6, 240, 255], [40, 0, 12, 255], [50, 134, 134, 134], [60, 20, 248, 7],
+                        [70, 255, 255, 0], [90, 255, 0, 0], [100, 142, 0, 0], [120, 244, 126, 240]
+                    ],
+                    read: metar => {
+                        const tempC = metar.rawTempC;
+                        if (tempC === null || tempC === undefined || isNaN(tempC)) return null;
+                        return tempC * 1.8 + 32;
+                    },
+                    label: tempF => Math.round(useCelsius ? (tempF - 32) / 1.8 : tempF),
+                    title: () => `Temperature (${useCelsius ? '°C' : '°F'})`,
+                    // [position on the scale, text]
+                    ticks: () => useCelsius
+                        ? [-20, -10, 0, 10, 20, 30, 40].map(c => [c * 1.8 + 32, c])
+                        : [0, 20, 40, 60, 80, 100].map(f => [f, f])
+                },
+                rh: {
+                    button: 'humidityMapBtn',
+                    activeClass: 'humidity-active',
+                    // [%, r, g, b]
+                    stops: [
+                        [0, 181, 69, 0], [7, 206, 24, 19], [12, 251, 2, 2], [14, 255, 38, 0],
+                        [17, 255, 153, 0], [20, 255, 176, 48], [28, 253, 253, 150], [36, 225, 255, 139],
+                        [49, 141, 233, 138], [60, 40, 200, 44], [71, 27, 145, 36], [100, 30, 157, 249]
+                    ],
+                    read: metar => {
+                        const tempC = metar.rawTempC, dewC = metar.rawDewC;
+                        if (tempC === null || tempC === undefined || isNaN(tempC)) return null;
+                        if (dewC === null || dewC === undefined || isNaN(dewC)) return null;
+                        const satVP = 6.112 * Math.exp((17.67 * tempC) / (tempC + 243.5));
+                        const actVP = 6.112 * Math.exp((17.67 * dewC) / (dewC + 243.5));
+                        return Math.min(100, actVP / satVP * 100);
+                    },
+                    label: rh => Math.round(rh),
+                    title: () => 'Relative Humidity (%)',
+                    ticks: () => [0, 20, 40, 60, 80, 100].map(v => [v, v])
+                }
+            };
+
+            function fieldMapColor(stops, value) {
+                if (value <= stops[0][0]) return stops[0].slice(1);
+                for (let i = 1; i < stops.length; i++) {
+                    if (value <= stops[i][0]) {
+                        const a = stops[i - 1], b = stops[i];
+                        const k = (value - a[0]) / (b[0] - a[0]);
+                        return [a[1] + (b[1] - a[1]) * k, a[2] + (b[2] - a[2]) * k, a[3] + (b[3] - a[3]) * k];
+                    }
+                }
+                return stops[stops.length - 1].slice(1);
+            }
+
+            if (typeof L.FieldMapLayer === 'undefined') {
+                L.FieldMapLayer = L.Layer.extend({
+                    initialize: function(options) {
+                        this.mode = options.mode;
+                    },
+                    
+                    onAdd: function(map) {
+                        this._map = map;
+                        // Colour fill sits just above the base map; the readings sit above the station dots
+                        this._fill = this._makeCanvas('tempMapPane', 215);
+                        this._labels = this._makeCanvas('tempLabelPane', 610);
+                        map.on('moveend', this._update, this);
+                        this._update();
+                    },
+
+                    onRemove: function(map) {
+                        map.off('moveend', this._update, this);
+                        L.DomUtil.remove(this._fill);
+                        L.DomUtil.remove(this._labels);
+                    },
+
+                    _makeCanvas: function(paneName, zIndex) {
+                        const pane = this._map.getPane(paneName) || this._map.createPane(paneName);
+                        pane.style.zIndex = zIndex;
+                        pane.style.pointerEvents = 'none';
+                        const canvas = L.DomUtil.create('canvas', 'leaflet-zoom-hide', pane);
+                        canvas.style.pointerEvents = 'none';
+                        return canvas;
+                    },
+
+                    _update: function() {
+                        if (!this._map) return;
+                        const map = this._map;
+                        const size = map.getSize();
+                        const dpr = window.devicePixelRatio || 1;
+                        const topLeft = map.containerPointToLayerPoint([0, 0]);
+                        [this._fill, this._labels].forEach(canvas => {
+                            canvas.width = size.x * dpr;
+                            canvas.height = size.y * dpr;
+                            canvas.style.width = size.x + 'px';
+                            canvas.style.height = size.y + 'px';
+                            L.DomUtil.setPosition(canvas, topLeft);
+                        });
+
+                        // How far (in screen pixels) a station's reading is allowed to colour the map:
+                        // about 3 degrees of latitude, so oceans and data gaps stay clear
+                        const center = map.getCenter();
+                        const pxPerDeg = 256 * Math.pow(2, map.getZoom()) / 360 / Math.max(0.2, Math.cos(center.lat * Math.PI / 180));
+                        const reach = Math.min(600, Math.max(18, 3 * pxPerDeg));
+
+                        const points = [];
+                        const config = FIELD_MAPS[this.mode];
+                        (allStationsData || []).forEach(s => {
+                            if (s.latitude === null || s.longitude === null || !s.metar) return;
+                            const value = config.read(s.metar);
+                            if (value === null) return;
+                            // Use the copy of the station nearest the view when the map wraps around the world
+                            let lng = s.longitude;
+                            while (lng - center.lng > 180) lng -= 360;
+                            while (lng - center.lng < -180) lng += 360;
+                            const p = map.latLngToContainerPoint([s.latitude, lng]);
+                            if (p.x < -reach || p.y < -reach || p.x > size.x + reach || p.y > size.y + reach) return;
+                            points.push({ x: p.x, y: p.y, value: value, label: String(config.label(value)) });
+                        });
+
+                        this._drawFill(points, config.stops, size, reach, dpr);
+                        this._drawLabels(points, size, dpr);
+                    },
+
+                    _drawFill: function(points, stops, size, reach, dpr) {
+                        const ctx = this._fill.getContext('2d');
+                        ctx.clearRect(0, 0, this._fill.width, this._fill.height);
+                        if (points.length === 0) return;
+
+                        // Stations are sorted into square buckets so each grid node only looks nearby
+                        const bucketSize = Math.max(24, reach / 3);
+                        const span = Math.ceil(reach / bucketSize);
+                        const bucketCols = Math.ceil((size.x + 2 * reach) / bucketSize) + 1;
+                        const bucketRows = Math.ceil((size.y + 2 * reach) / bucketSize) + 1;
+                        const buckets = new Array(bucketCols * bucketRows);
+                        points.forEach(p => {
+                            const i = Math.floor((p.y + reach) / bucketSize) * bucketCols + Math.floor((p.x + reach) / bucketSize);
+                            (buckets[i] || (buckets[i] = [])).push(p);
+                        });
+
+                        // The field is worked out on a coarse grid and stretched smoothly over the map
+                        const RES = 6;
+                        const NEIGHBORS = 6;
+                        const MAX_ALPHA = 185;
+                        const cols = Math.ceil(size.x / RES) + 1;
+                        const rows = Math.ceil(size.y / RES) + 1;
+                        const small = document.createElement('canvas');
+                        small.width = cols;
+                        small.height = rows;
+                        const smallCtx = small.getContext('2d');
+                        const image = smallCtx.createImageData(cols, rows);
+                        const reachSq = reach * reach;
+                        const nearDist = new Float64Array(NEIGHBORS);
+                        const nearValue = new Float64Array(NEIGHBORS);
+
+                        for (let gy = 0; gy < rows; gy++) {
+                            const y = gy * RES;
+                            const by = Math.floor((y + reach) / bucketSize);
+                            for (let gx = 0; gx < cols; gx++) {
+                                const x = gx * RES;
+                                const bx = Math.floor((x + reach) / bucketSize);
+                                let found = 0;
+                                for (let j = Math.max(0, by - span); j <= Math.min(bucketRows - 1, by + span); j++) {
+                                    for (let i = Math.max(0, bx - span); i <= Math.min(bucketCols - 1, bx + span); i++) {
+                                        const bucket = buckets[j * bucketCols + i];
+                                        if (!bucket) continue;
+                                        for (let n = 0; n < bucket.length; n++) {
+                                            const dx = bucket[n].x - x, dy = bucket[n].y - y;
+                                            const distSq = dx * dx + dy * dy;
+                                            if (distSq > reachSq) continue;
+                                            if (found === NEIGHBORS && distSq >= nearDist[NEIGHBORS - 1]) continue;
+                                            // Insert in order, nearest first
+                                            let k = found < NEIGHBORS ? found++ : NEIGHBORS - 1;
+                                            while (k > 0 && nearDist[k - 1] > distSq) {
+                                                nearDist[k] = nearDist[k - 1];
+                                                nearValue[k] = nearValue[k - 1];
+                                                k--;
+                                            }
+                                            nearDist[k] = distSq;
+                                            nearValue[k] = bucket[n].value;
+                                        }
+                                    }
+                                }
+                                if (found === 0) continue;
+
+                                let weightSum = 0, valueSum = 0;
+                                for (let k = 0; k < found; k++) {
+                                    const w = 1 / (nearDist[k] + 25);
+                                    weightSum += w;
+                                    valueSum += w * nearValue[k];
+                                }
+                                const rgb = fieldMapColor(stops, valueSum / weightSum);
+                                // Fade out towards the edge of the nearest station's reach
+                                const nearest = Math.sqrt(nearDist[0]);
+                                const fade = nearest < reach * 0.6 ? 1 : (reach - nearest) / (reach * 0.4);
+                                const o = (gy * cols + gx) * 4;
+                                image.data[o] = rgb[0];
+                                image.data[o + 1] = rgb[1];
+                                image.data[o + 2] = rgb[2];
+                                image.data[o + 3] = MAX_ALPHA * fade;
+                            }
+                        }
+                        smallCtx.putImageData(image, 0, 0);
+
+                        ctx.imageSmoothingEnabled = true;
+                        ctx.imageSmoothingQuality = 'high';
+                        // Node (gx, gy) belongs at pixel (gx * RES, gy * RES), so the image is shifted half a cell
+                        ctx.drawImage(small, -RES / 2 * dpr, -RES / 2 * dpr, cols * RES * dpr, rows * RES * dpr);
+                    },
+
+                    _drawLabels: function(points, size, dpr) {
+                        const ctx = this._labels.getContext('2d');
+                        ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+                        ctx.clearRect(0, 0, size.x, size.y);
+                        ctx.font = 'bold 13px sans-serif';
+                        ctx.textAlign = 'center';
+                        ctx.textBaseline = 'middle';
+                        ctx.lineJoin = 'round';
+                        ctx.lineWidth = 3.5;
+                        ctx.strokeStyle = 'rgba(255,255,255,0.95)';
+                        ctx.fillStyle = '#000';
+
+                        // Readings that would overlap one already drawn are left out until the map is zoomed in
+                        const CELL_W = 34, CELL_H = 18;
+                        const taken = new Set();
+                        points.forEach(p => {
+                            if (p.x < 0 || p.y < 0 || p.x > size.x || p.y > size.y) return;
+                            const y = p.y; // centred on the station, which has no dot while this layer is on
+                            const cx = Math.round(p.x / (CELL_W / 2)), cy = Math.round(y / (CELL_H / 2));
+                            for (let i = -1; i <= 1; i++) {
+                                for (let j = -1; j <= 1; j++) {
+                                    if (taken.has((cx + i) + ':' + (cy + j))) return;
+                                }
+                            }
+                            taken.add(cx + ':' + cy);
+                            ctx.strokeText(p.label, p.x, y);
+                            ctx.fillText(p.label, p.x, y);
+                        });
+                    }
+                });
+            }
+
+            function updateFieldMapLegend() {
+                const legend = document.getElementById('fieldMapLegend');
+                if (!legend) return;
+                legend.style.display = fieldMapLayer ? 'flex' : 'none';
+                // Sit above the pressure legend when both are showing
+                legend.style.bottom = heatmapMode !== 0 ? '5.75rem' : '2rem';
+                if (!fieldMapLayer) return;
+
+                const config = FIELD_MAPS[fieldMapLayer.mode];
+                const low = config.stops[0][0];
+                const range = config.stops[config.stops.length - 1][0] - low;
+                const position = value => ((value - low) / range * 100).toFixed(1) + '%';
+                document.getElementById('fieldMapLegendTitle').textContent = config.title();
+                document.getElementById('fieldMapLegendBar').style.background = 'linear-gradient(to right, ' +
+                    config.stops.map(s => `rgb(${s[1]},${s[2]},${s[3]}) ${position(s[0])}`).join(', ') + ')';
+                document.getElementById('fieldMapLegendTicks').innerHTML = config.ticks().map(t =>
+                    `<span style="left:${position(t[0])}">${t[1]}</span>`).join('');
+            }
+
+            // Turns the given map on, replacing the other one if it is showing; pressing the
+            // button of the map that is already on turns it off.
+            function toggleFieldMap(mode) {
+                if (!mapInstance || !FIELD_MAPS[mode]) return;
+
+                const wasOn = fieldMapLayer ? fieldMapLayer.mode : null;
+                if (fieldMapLayer) {
+                    mapInstance.removeLayer(fieldMapLayer);
+                    document.getElementById(FIELD_MAPS[wasOn].button).classList.remove(FIELD_MAPS[wasOn].activeClass);
+                    fieldMapLayer = null;
+                }
+                if (wasOn !== mode) {
+                    fieldMapLayer = new L.FieldMapLayer({ mode: mode });
+                    mapInstance.addLayer(fieldMapLayer);
+                    document.getElementById(FIELD_MAPS[mode].button).classList.add(FIELD_MAPS[mode].activeClass);
+                }
+                // Station dots are left out while one of these maps is on, so redraw the markers
+                if (currentStationsData.length > 0) renderMap(currentStationsData);
+                updateFieldMapLegend();
+                updateMapWarnings();
+                updateLayerActiveState();
+            }
+
             function updateMapWarnings() {
                 const warningEl = document.getElementById('combinedWarning');
                 const hasFreezing = !!freezingLayer;
                 const hasHeatmap = !!heatmapLayer;
 
-                if (hasFreezing || hasHeatmap) {
+                if (hasFreezing || hasHeatmap || fieldMapLayer) {
                     warningEl.classList.remove('hidden');
                 } else {
                     warningEl.classList.add('hidden');
@@ -3326,8 +3655,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
                 if (!mapInstance) return;
 
-                // Cycle Mode: Off (0) -> Temp (1) -> Pressure (2) -> Off (0)
-                heatmapMode = (heatmapMode + 1) % 3;
+                // Off (0) <-> Pressure (2). Mode 1 was the old temperature lines.
+                heatmapMode = heatmapMode === 0 ? 2 : 0;
 
                 // 1. Remove Existing
                 if (heatmapLayer) {
@@ -3339,33 +3668,12 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (heatmapMode === 0) {
                     // OFF
                     btn.classList.remove('bg-blue-100', 'text-blue-600', 'border-blue-500');
-                    btn.innerHTML = '🌡️';
+                    btn.innerHTML = '🎈';
                     legend.style.display = 'none';
-                }
-                else if (heatmapMode === 1) {
-                    // TEMP (Iso-lines)
-                    btn.classList.add('bg-blue-100', 'text-blue-600');
-                    btn.innerHTML = '🔥';
-
-                    // Setup Text Legend
-                    const unitStr = useCelsius ? '°C' : '°F';
-                    legend.style.display = 'flex';
-                    legendTitle.textContent = `Temp Lines (${unitStr})`;
-
-                    // Note: Legend values here are static ranges, just general guide
-                    legendLabels.innerHTML = `
-                        <span class="text-purple-600 font-bold">Cold</span> •
-                        <span class="text-blue-600 font-bold">Cool</span> •
-                        <span class="text-green-600 font-bold">Mild</span> •
-                        <span class="text-red-500 font-bold">Hot</span>
-                    `;
-
-                    // Add Layer
-                    heatmapLayer = new L.WeatherIsoLayer({ mode: 'temp' });
-                    mapInstance.addLayer(heatmapLayer);
                 }
                 else if (heatmapMode === 2) {
                     // PRESSURE (Iso-lines)
+                    btn.classList.add('bg-blue-100', 'text-blue-600');
                     btn.innerHTML = '🎈';
 
                     // Setup Text Legend
@@ -3382,6 +3690,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     mapInstance.addLayer(heatmapLayer);
                 }
 
+                updateFieldMapLegend();
                 updateMapWarnings();
                 updateLayerActiveState(); // New logic
             }
@@ -3394,6 +3703,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 runways: typeof showRunwaysOnMap !== 'undefined' ? showRunwaysOnMap : true,
                 freezing: !!freezingLayer,
                 heatmap: heatmapMode || 0,
+                fieldmap: fieldMapLayer ? fieldMapLayer.mode : null,
                 pireps: document.getElementById('pirepBtn')?.classList.contains('pirep-active') || false,
                 hazards: !!hazardsRefreshInterval,
                 daynight: !!dayNightInterval
@@ -3418,6 +3728,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     traffic: false,
                     freezing: false,
                     heatmap: 0,
+                    fieldmap: null,
                     pireps: false,
                     hazards: false
                 };
@@ -3451,10 +3762,18 @@ document.addEventListener('DOMContentLoaded', () => {
             if (settings.pireps !== isPirepOn) togglePireps();
 
             // Apply Heatmap (Cycle mode until matching saved state)
+            // Saved value 1 was the old temperature-lines mode, now replaced by the temperature map
+            let wantFieldMap = FIELD_MAPS[settings.fieldmap] ? settings.fieldmap : null;
             let target = settings.heatmap || 0;
+            if (target === 1) { target = 0; wantFieldMap = wantFieldMap || 'temp'; }
+            if (target !== 0) target = 2;
             while (heatmapMode !== target) {
                 toggleHeatmap();
             }
+
+            // Apply Temperature / Humidity Map
+            const fieldMapOn = fieldMapLayer ? fieldMapLayer.mode : null;
+            if (wantFieldMap !== fieldMapOn) toggleFieldMap(wantFieldMap || fieldMapOn);
         }
 
          function initMap() {
@@ -5270,7 +5589,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     hitMarker.bindPopup(popupContent, { autoPan: true });
 
                     markerLayerGroup.addLayer(hitMarker);
-                    markerLayerGroup.addLayer(visualMarker);
+                    if (!fieldMapLayer) markerLayerGroup.addLayer(visualMarker);
                 }
 
                 if (openPopupId && station.id === openPopupId) {
@@ -6097,6 +6416,65 @@ document.addEventListener('DOMContentLoaded', () => {
             }
 
 
+            // ── Keeping the page responsive during data refreshes ────────────────────
+            // Parsing the world's METARs and TAFs takes long enough to hold up everything else
+            // on the page, the Zulu clock included. The heavy steps below hand control back
+            // every few milliseconds so timers and taps are served in between.
+            let _lastYieldAt = 0;
+            async function yieldIfDue() {
+                if (performance.now() - _lastYieldAt < 12) return;
+                await new Promise(r => setTimeout(r, 0));
+                _lastYieldAt = performance.now();
+            }
+
+            async function gunzipToText(bytes) {
+                // The browser's own decompressor works off the main thread; pako is the fallback
+                if (typeof DecompressionStream === 'function') {
+                    try {
+                        const stream = new Blob([bytes]).stream().pipeThrough(new DecompressionStream('gzip'));
+                        return await new Response(stream).text();
+                    } catch (e) {}
+                }
+                return new TextDecoder("utf-8").decode(pako.inflate(bytes));
+            }
+
+            function parseXmlStrict(xmlText) {
+                const doc = new DOMParser().parseFromString(xmlText, "application/xml");
+                if (doc.querySelector("parsererror")) throw new Error("XML parse error");
+                return doc;
+            }
+
+            // Same result as parsing the whole text at once, but the records inside <data> are
+            // parsed a slice at a time and moved into the document, yielding between slices.
+            async function parseXmlInChunks(xmlText) {
+                const CHUNK_CHARS = 200000;
+                try {
+                    const open = /<data\b[^>]*>/.exec(xmlText);
+                    const close = xmlText.lastIndexOf('</data>');
+                    if (!open || close < 0 || xmlText.length < CHUNK_CHARS * 2) return parseXmlStrict(xmlText);
+                    const bodyStart = open.index + open[0].length;
+                    const body = xmlText.slice(bodyStart, close);
+                    const record = /^\s*<([A-Za-z_][\w.-]*)[\s>]/.exec(body);
+                    if (!record) return parseXmlStrict(xmlText);
+                    const closeTag = `</${record[1]}>`;
+
+                    const doc = parseXmlStrict(xmlText.slice(0, bodyStart) + xmlText.slice(close));
+                    const dataEl = doc.documentElement.querySelector('data');
+                    let pos = 0;
+                    while (pos < body.length) {
+                        let cut = body.indexOf(closeTag, Math.min(pos + CHUNK_CHARS, body.length));
+                        cut = cut < 0 ? body.length : cut + closeTag.length;
+                        await yieldIfDue();
+                        const part = parseXmlStrict(`<x>${body.slice(pos, cut)}</x>`).documentElement;
+                        while (part.firstChild) dataEl.appendChild(part.firstChild);
+                        pos = cut;
+                    }
+                    return doc;
+                } catch (e) {
+                    return parseXmlStrict(xmlText);
+                }
+            }
+
             async function fetchAndParse(url) {
                 // DIRECT LOCAL FETCH - NO PROXY
                 const cacheBuster = (url.includes('?') ? '&' : '?') + 'cb=' + Date.now();
@@ -6114,15 +6492,13 @@ document.addEventListener('DOMContentLoaded', () => {
                     let xmlText = "";
                     // Check for GZip signature (1f 8b)
                     if (view[0] === 0x1f && view[1] === 0x8b) {
-                        const decompressed = pako.inflate(view);
-                        xmlText = new TextDecoder("utf-8").decode(decompressed);
+                        xmlText = await gunzipToText(view);
                     } else {
                         xmlText = new TextDecoder("utf-8").decode(view);
                     }
 
                     if (!xmlText.trim()) throw new Error("Decompressed empty");
-                    const xmlDoc = new DOMParser().parseFromString(xmlText, "application/xml");
-                    if (xmlDoc.querySelector("parsererror")) throw new Error("XML parse error");
+                    const xmlDoc = await parseXmlInChunks(xmlText);
                     return xmlDoc;
                 });
             }
@@ -6473,7 +6849,7 @@ document.addEventListener('DOMContentLoaded', () => {
             }
 
 
-            function processData(tafDoc, metarDoc, stationMap, homeIcao, runwayMap, minRunwayLen, customRefCoords) {
+            async function processData(tafDoc, metarDoc, stationMap, homeIcao, runwayMap, minRunwayLen, customRefCoords) {
                 const stationDataMap = new Map();
                 const getOrCreateStation = (id) => {
                     if (!stationDataMap.has(id)) {
@@ -6492,9 +6868,10 @@ document.addEventListener('DOMContentLoaded', () => {
                     return stationDataMap.get(id);
                 };
 
-                metarDoc.querySelectorAll("METAR").forEach(node => {
+                for (const node of metarDoc.querySelectorAll("METAR")) {
+                    await yieldIfDue();
                     const stationId = node.querySelector("station_id")?.textContent?.trim();
-                    if (!stationId) return;
+                    if (!stationId) continue;
                     const station = getOrCreateStation(stationId);
 
                     // 1. Get RH and Temp
@@ -6528,11 +6905,12 @@ document.addEventListener('DOMContentLoaded', () => {
                         altimInHg: isNaN(altimInHg) ? null : altimInHg,
                         rawTempC: rawTempC
                     };
-                });
+                }
 
-                tafDoc.querySelectorAll("TAF").forEach(node => {
+                for (const node of tafDoc.querySelectorAll("TAF")) {
+                    await yieldIfDue();
                     const stationId = node.querySelector("station_id")?.textContent?.trim();
-                    if (!stationId) return;
+                    if (!stationId) continue;
                     const station = getOrCreateStation(stationId);
                     const rawText = node.querySelector("raw_text")?.textContent?.trim() || 'N/A';
                     const validToText = node.querySelector("valid_time_to")?.textContent;
@@ -6549,7 +6927,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         } catch (e) {}
                     }
                     station.taf = { rawText, periodHours, age: tafAgeMinutes, issueTime: issueTimeText, validTo: validToDate };
-                });
+                }
 
                 // AUTO-SORT LOGIC REPLACEMENT
                 // Priority: GPS -> Home -> Dep -> Dest -> Null
@@ -6896,7 +7274,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     const radiusInputVal = parseInt(searchRadiusInput.value);
                     const searchDist = (!isNaN(radiusInputVal) && radiusInputVal > 0) ? radiusInputVal : MAX_ROUTE_DISTANCE_NM;
 
-                    const processResult = processData(tafDoc, metarDoc, cachedStationMap, homeIcao, cachedRunwayMap, minRunwayLen, gpsReferenceCoords);
+                    const processResult = await processData(tafDoc, metarDoc, cachedStationMap, homeIcao, cachedRunwayMap, minRunwayLen, gpsReferenceCoords);
 
                     currentReportData = {
                         stationsData: processResult.stations,
@@ -6911,6 +7289,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (!document.getElementById('mapView').classList.contains('hidden')) {
                     renderMap(currentStationsData);
                 }
+                if (fieldMapLayer) fieldMapLayer._update();
 
                 // 2. Update Dashboard
                 if (!document.getElementById('customDashboardView').classList.contains('hidden')) {
@@ -7024,10 +7403,11 @@ document.addEventListener('DOMContentLoaded', () => {
                     // ----------------------------------------
 
                     showStatus("Processing stations...");
-                    const processResult = processData(tafDoc, metarDoc, stationMap, homeIcao, runwayMap, minRunwayLen, gpsReferenceCoords);
+                    const processResult = await processData(tafDoc, metarDoc, stationMap, homeIcao, runwayMap, minRunwayLen, gpsReferenceCoords);
                     const stationsData = processResult.stations; // FILTERED
                     const allStations = processResult.allStations; // UNFILTERED (NEW)
                     const stationDataMap = processResult.stationDataMap;
+                    autoAddHomeToDashboard(homeIcao, stationDataMap);
                     const usedRef = processResult.refName;
 
 
@@ -7730,17 +8110,59 @@ document.addEventListener('DOMContentLoaded', () => {
         } catch(e) {}
 
 
+        function showDashAddStatus(message, isError) {
+            const status = document.getElementById('dashAddStatus');
+            if (!status) return;
+            status.textContent = message;
+            status.className = 'text-xs font-bold ' + (isError ? 'text-red-600 dark:text-red-400' : 'text-green-600 dark:text-green-400');
+            clearTimeout(showDashAddStatus._timer);
+            showDashAddStatus._timer = setTimeout(() => status.classList.add('hidden'), 5000);
+        }
+
+        function focusDashInput() {
+            const input = document.getElementById('dashInput');
+            window.scrollTo({ top: containerEl.offsetTop - 20, behavior: 'smooth' });
+            input.focus({ preventScroll: true });
+        }
+
         function addDashboardStation() {
             const input = document.getElementById('dashInput');
-            const icao = input.value.trim().toUpperCase();
-            if (icao.length >= 3) {
-                if (!dashboardState.stations.includes(icao)) {
-                    dashboardState.stations.push(icao);
-                    saveDashboardState();
-                    renderDashboard();
-                }
-                input.value = '';
+            let icao = input.value.trim().toUpperCase();
+            if (icao.length < 3) {
+                showDashAddStatus('Type an airport code first, for example KJFK.', true);
+                input.focus();
+                return;
             }
+            // Once the airport list is loaded, only real airports are accepted. A US 3-letter
+            // code (JFK) is tried with its K prefix.
+            if (cachedStationMap && !cachedStationMap.has(icao)) {
+                if (icao.length === 3 && cachedStationMap.has('K' + icao)) {
+                    icao = 'K' + icao;
+                } else {
+                    showDashAddStatus(`No airport found with the code ${icao}. Use the 4-letter code, for example KJFK.`, true);
+                    return;
+                }
+            }
+            if (dashboardState.stations.includes(icao)) {
+                showDashAddStatus(`${icao} is already on your dashboard.`, false);
+            } else {
+                dashboardState.stations.push(icao);
+                saveDashboardState();
+                renderDashboard();
+                showDashAddStatus(`${icao} added.`, false);
+            }
+            input.value = '';
+        }
+
+        // Puts the home airport on the dashboard the first time it is used as home. This is
+        // done once per airport, so a home tile the user removes is not put back.
+        function autoAddHomeToDashboard(homeIcao, stationDataMap) {
+            if (!homeIcao || !stationDataMap || !stationDataMap.has(homeIcao)) return;
+            if (dashboardState.autoAddedHome === homeIcao) return;
+            dashboardState.autoAddedHome = homeIcao;
+            if (!dashboardState.stations.includes(homeIcao)) dashboardState.stations.unshift(homeIcao);
+            saveDashboardState();
+            if (!document.getElementById('customDashboardView').classList.contains('hidden')) renderDashboard();
         }
 
         function removeDashboardStation(icao) {
@@ -7910,13 +8332,16 @@ document.addEventListener('DOMContentLoaded', () => {
 
         function renderDashboard() {
             const grid = document.getElementById('dashboardGrid');
+            // The add-more button and tips only make sense once there is at least one tile
+            const hasTiles = dashboardState.stations.length > 0;
+            ['dashAddMoreBtn', 'dashTileHint'].forEach(id => document.getElementById(id)?.classList.toggle('hidden', !hasTiles));
 
             if (dashboardState.stations.length === 0) {
                 grid.innerHTML = `
                     <div class="col-span-full flex flex-col items-center justify-center p-12 text-center border-2 border-dashed border-gray-300 dark:border-gray-700 rounded-3xl">
                         <div class="text-5xl mb-4">📍</div>
-                        <h3 class="text-xl font-bold text-gray-500">Dashboard is Empty</h3>
-                        <p class="text-gray-400 max-w-xs mt-2">Add an airport ICAO above to start monitoring live weather and forecasts.</p>
+                        <h3 class="text-xl font-bold text-gray-500">Your dashboard is empty</h3>
+                        <p class="text-gray-400 max-w-sm mt-2">Each tile shows one airport's live weather and forecast. To add one, type its 4-letter code (for example KJFK) in the box above and press <b>Add tile</b>. To add every airport around one place in one go, press <b>Add nearby airports</b>.</p>
                     </div>
                 `;
                 return;
