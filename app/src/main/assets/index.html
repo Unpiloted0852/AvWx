@@ -1160,6 +1160,14 @@ document.addEventListener('DOMContentLoaded', () => {
         #fieldMapLegendTicks span { position: absolute; transform: translateX(-50%); }
         html .layer-btn.tempmap-active { background-color: #ef4444 !important; border-color: #dc2626 !important; color: #fff !important; box-shadow: 0 2px 10px rgba(239,68,68,.4) !important; }
         html .layer-btn.humidity-active { background-color: #16a34a !important; border-color: #15803d !important; color: #fff !important; box-shadow: 0 2px 10px rgba(22,163,74,.4) !important; }
+        html .layer-btn.satellite-active { background-color: #7c3aed !important; border-color: #6d28d9 !important; color: #fff !important; box-shadow: 0 2px 10px rgba(124,58,237,.4) !important; }
+        #satelliteInfo {
+          position: absolute; top: 5.4rem; left: 1rem; z-index: 1100; display: none;
+          padding: 0.2rem 0.6rem; border-radius: 8px; white-space: nowrap; pointer-events: none;
+          font: 700 0.65rem 'IBM Plex Mono', monospace; color: #6d28d9;
+          background: rgba(255,255,255,.88); border: 1px solid rgba(0,0,0,.08); backdrop-filter: blur(8px);
+        }
+        html.dark #satelliteInfo { background: rgba(15,25,41,.9); border-color: rgba(255,255,255,.08); color: #c4b5fd; }
 
         /* ── Heatmap legend ──────────────────────────────────── */
         #heatmapLegend {
@@ -1883,6 +1891,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
             <!-- Radar Timestamp Display -->
             <div id="radarTimeDisplay">Radar Valid: --:--z</div>
+            <div id="satelliteInfo"></div>
 
             <!-- Unified Map Warning (Tiny Bottom Right) -->
             <div id="combinedWarning" class="hidden absolute bottom-0 right-0 z-[1100] px-1 py-0.5 bg-black/50 text-[8px] text-white/70 pointer-events-none select-none">
@@ -1954,6 +1963,10 @@ document.addEventListener('DOMContentLoaded', () => {
                         <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 16a8 8 0 11-16 0c0-4.135 3.5-7.5 8-14 4.5 6.5 8 9.865 8 14z" />
                         </svg>
+                    </button>
+
+                    <button id="satelliteBtn" onclick="toggleSatellite()" class="layer-btn bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center justify-center">
+                        <span class="font-black tracking-tighter leading-none">SAT</span>
                     </button>
 
                     <div class="chart-btn-row">
@@ -2158,7 +2171,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         <script>
             // --- APP CONFIG ---
-            const CURRENT_VERSION = 'v2.9.8'; // Incremented Version
+            const CURRENT_VERSION = 'v2.9.9'; // Incremented Version
             const GITHUB_REPO = 'Unpiloted0852/AvWx';
 
             // Global Data Storage for Modal Access
@@ -2271,6 +2284,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const hasFreezing = !!freezingLayer;
             const hasHeatmap = (heatmapMode !== 0);
             const hasFieldMap = !!fieldMapLayer;
+            const hasSatellite = !!satelliteLayers;
             const hasPirep = !!pirepLayer;
             const hasHazards = !!hazardsLayer;
             const hasDayNight = !!dayNightLayer;
@@ -2278,7 +2292,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
             const mainBtn = document.getElementById('mainLayerToggle');
 
-            if (hasRadar || hasFreezing || hasHeatmap || hasFieldMap || hasPirep || hasHazards || hasDayNight || hasRunways) {
+            if (hasRadar || hasFreezing || hasHeatmap || hasFieldMap || hasSatellite || hasPirep || hasHazards || hasDayNight || hasRunways) {
                 mainBtn.classList.add('has-active-layers');
             } else {
                 mainBtn.classList.remove('has-active-layers');
@@ -2896,6 +2910,40 @@ document.addEventListener('DOMContentLoaded', () => {
             let heatmapLayer = null;
             let heatmapMode = 0; // 0: Off, 1: Temp, 2: Pressure
 
+            // Keeps a layer's canvases lined up with the map while it is being zoomed (pinch or
+            // animated zoom). The canvases are only redrawn once the zoom has finished, so in
+            // between they are stretched and shifted the same way Leaflet moves its own tiles.
+            // Each canvas must cover the map view exactly, and the layer must call markDrawnView
+            // whenever it redraws. Returns a function that stops the tracking.
+            function followMapZoom(layer, map, canvases) {
+                canvases.forEach(canvas => {
+                    L.DomUtil.removeClass(canvas, 'leaflet-zoom-hide');
+                    L.DomUtil.addClass(canvas, 'leaflet-zoom-animated');
+                });
+                const place = (center, zoom) => {
+                    const drawn = layer._drawnView;
+                    if (!drawn) return;
+                    const scale = map.getZoomScale(zoom, drawn.zoom);
+                    const offset = map.getSize().multiplyBy(-0.5 * scale)
+                        .add(map.project(drawn.center, zoom))
+                        .subtract(map._getNewPixelOrigin(center, zoom));
+                    canvases.forEach(canvas => L.DomUtil.setTransform(canvas, offset, scale));
+                };
+                const onZoom = () => place(map.getCenter(), map.getZoom());
+                const onZoomAnim = e => place(e.center, e.zoom);
+                map.on('zoom', onZoom);
+                map.on('zoomanim', onZoomAnim);
+                return () => {
+                    map.off('zoom', onZoom);
+                    map.off('zoomanim', onZoomAnim);
+                };
+            }
+
+            // Records the view a layer's canvases were just drawn for
+            function markDrawnView(layer, map) {
+                layer._drawnView = { center: map.getCenter(), zoom: map.getZoom() };
+            }
+
            // --- ISO-LINE HEATMAP CONFIGURATION (SMOOTHED) ---
             if (typeof L.WeatherIsoLayer === 'undefined') {
                 L.WeatherIsoLayer = L.Layer.extend({
@@ -2910,6 +2958,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         this._canvas.style.zIndex = 200;
                         map.getPanes().overlayPane.appendChild(this._canvas);
 
+                        this._stopFollowingZoom = followMapZoom(this, map, [this._canvas]);
                         map.on('moveend', this._update, this);
                         map.on('zoomend', this._update, this);
                         this._update();
@@ -2917,6 +2966,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
                     onRemove: function(map) {
                         map.getPanes().overlayPane.removeChild(this._canvas);
+                        this._stopFollowingZoom();
                         map.off('moveend', this._update, this);
                         map.off('zoomend', this._update, this);
                     },
@@ -2924,6 +2974,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     _update: function() {
                         if (!this._map) return;
                         const map = this._map;
+                        markDrawnView(this, map);
                         const size = map.getSize();
                         const canvas = this._canvas;
 
@@ -3308,6 +3359,8 @@ document.addEventListener('DOMContentLoaded', () => {
                             coast: data.coast.map(decode)
                         };
                         if (fieldMapLayer) fieldMapLayer._update();
+                        if (flightCatLayer) flightCatLayer._draw();
+                        if (satelliteBoundaryLayer) satelliteBoundaryLayer._update();
                     })
                     .catch(e => {
                         // The maps still work without the lines; a later toggle tries again
@@ -3315,6 +3368,66 @@ document.addEventListener('DOMContentLoaded', () => {
                         fieldMapBoundariesLoading = null;
                     });
                 return fieldMapBoundariesLoading;
+            }
+
+            // Draws the country, state/province and coast lines for the current view onto a canvas
+            // that covers the map. "light" gives pale lines with a dark edge, for dark imagery.
+            function drawBoundaryLines(map, ctx, size, dpr, light) {
+                if (!fieldMapBoundaries) return;
+                const zoom = map.getZoom();
+                const world = 256 * Math.pow(2, zoom);
+                const origin = map.getPixelBounds().min; // world-pixel position of the view's top-left corner
+                ctx.save();
+                ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+                ctx.lineJoin = 'round';
+                ctx.lineCap = 'round';
+
+                // Drawn lightest first so country borders end up on top
+                const layers = light ? [
+                    { lines: fieldMapBoundaries.states, color: 'rgba(255,255,255,0.75)', width: 1, minZoom: 4 },
+                    { lines: fieldMapBoundaries.coast, color: 'rgba(255,255,255,0.85)', width: 1.1, minZoom: 0 },
+                    { lines: fieldMapBoundaries.countries, color: 'rgba(255,236,150,0.95)', width: 1.5, minZoom: 0 }
+                ] : [
+                    { lines: fieldMapBoundaries.states, color: 'rgba(0,0,0,0.7)', width: 1.2, minZoom: 4 },
+                    { lines: fieldMapBoundaries.coast, color: 'rgba(0,0,0,0.75)', width: 1.3, minZoom: 0 },
+                    { lines: fieldMapBoundaries.countries, color: 'rgba(0,0,0,0.9)', width: 1.8, minZoom: 0 }
+                ];
+                layers.forEach(layer => {
+                    if (zoom < layer.minZoom) return;
+                    ctx.beginPath();
+                    layer.lines.forEach(line => {
+                        if (line.maxY * world - origin.y < 0 || line.minY * world - origin.y > size.y) return;
+                        // The world repeats sideways, so try the copy either side as well
+                        for (let copy = -1; copy <= 1; copy++) {
+                            const shift = copy * world - origin.x;
+                            if (line.maxX * world + shift < 0 || line.minX * world + shift > size.x) continue;
+                            const xy = line.xy, last = xy.length / 2 - 1;
+                            let prevX = 0, prevY = 0;
+                            for (let i = 0; i <= last; i++) {
+                                const x = xy[i * 2] * world + shift;
+                                const y = xy[i * 2 + 1] * world - origin.y;
+                                if (i === 0) {
+                                    ctx.moveTo(x, y);
+                                } else if (i < last && Math.abs(x - prevX) < 0.7 && Math.abs(y - prevY) < 0.7) {
+                                    continue; // closer than a pixel to the last point drawn
+                                } else {
+                                    ctx.lineTo(x, y);
+                                }
+                                prevX = x;
+                                prevY = y;
+                            }
+                        }
+                    });
+                    if (light) {
+                        ctx.strokeStyle = 'rgba(0,0,0,0.55)';
+                        ctx.lineWidth = layer.width + 1.6;
+                        ctx.stroke();
+                    }
+                    ctx.strokeStyle = layer.color;
+                    ctx.lineWidth = layer.width;
+                    ctx.stroke();
+                });
+                ctx.restore();
             }
 
             // Gathers the stations in and around the view as screen points with a value each.
@@ -3421,11 +3534,13 @@ document.addEventListener('DOMContentLoaded', () => {
                         this._fill = this._makeCanvas('tempMapPane', 215);
                         this._labels = this._makeCanvas('tempLabelPane', 610);
                         loadFieldMapBoundaries();
+                        this._stopFollowingZoom = followMapZoom(this, map, [this._fill, this._labels]);
                         map.on('moveend', this._update, this);
                         this._update();
                     },
 
                     onRemove: function(map) {
+                        this._stopFollowingZoom();
                         map.off('moveend', this._update, this);
                         L.DomUtil.remove(this._fill);
                         L.DomUtil.remove(this._labels);
@@ -3435,7 +3550,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         const pane = this._map.getPane(paneName) || this._map.createPane(paneName);
                         pane.style.zIndex = zIndex;
                         pane.style.pointerEvents = 'none';
-                        const canvas = L.DomUtil.create('canvas', 'leaflet-zoom-hide', pane);
+                        const canvas = L.DomUtil.create('canvas', '', pane);
                         canvas.style.pointerEvents = 'none';
                         return canvas;
                     },
@@ -3443,6 +3558,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     _update: function() {
                         if (!this._map) return;
                         const map = this._map;
+                        markDrawnView(this, map);
                         const size = map.getSize();
                         const dpr = window.devicePixelRatio || 1;
                         const topLeft = map.containerPointToLayerPoint([0, 0]);
@@ -3496,54 +3612,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     },
 
                     _drawBoundaries: function(size, dpr) {
-                        if (!fieldMapBoundaries) return;
-                        const map = this._map;
-                        const zoom = map.getZoom();
-                        const world = 256 * Math.pow(2, zoom);
-                        const origin = map.getPixelBounds().min; // world-pixel position of the view's top-left corner
-                        const ctx = this._fill.getContext('2d');
-                        ctx.save();
-                        ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-                        ctx.lineJoin = 'round';
-                        ctx.lineCap = 'round';
-
-                        // Drawn lightest first so country borders end up on top
-                        const layers = [
-                            { lines: fieldMapBoundaries.states, color: 'rgba(0,0,0,0.7)', width: 1.2, minZoom: 4 },
-                            { lines: fieldMapBoundaries.coast, color: 'rgba(0,0,0,0.75)', width: 1.3, minZoom: 0 },
-                            { lines: fieldMapBoundaries.countries, color: 'rgba(0,0,0,0.9)', width: 1.8, minZoom: 0 }
-                        ];
-                        layers.forEach(layer => {
-                            if (zoom < layer.minZoom) return;
-                            ctx.strokeStyle = layer.color;
-                            ctx.lineWidth = layer.width;
-                            ctx.beginPath();
-                            layer.lines.forEach(line => {
-                                if (line.maxY * world - origin.y < 0 || line.minY * world - origin.y > size.y) return;
-                                // The world repeats sideways, so try the copy either side as well
-                                for (let copy = -1; copy <= 1; copy++) {
-                                    const shift = copy * world - origin.x;
-                                    if (line.maxX * world + shift < 0 || line.minX * world + shift > size.x) continue;
-                                    const xy = line.xy, last = xy.length / 2 - 1;
-                                    let prevX = 0, prevY = 0;
-                                    for (let i = 0; i <= last; i++) {
-                                        const x = xy[i * 2] * world + shift;
-                                        const y = xy[i * 2 + 1] * world - origin.y;
-                                        if (i === 0) {
-                                            ctx.moveTo(x, y);
-                                        } else if (i < last && Math.abs(x - prevX) < 0.7 && Math.abs(y - prevY) < 0.7) {
-                                            continue; // closer than a pixel to the last point drawn
-                                        } else {
-                                            ctx.lineTo(x, y);
-                                        }
-                                        prevX = x;
-                                        prevY = y;
-                                    }
-                                }
-                            });
-                            ctx.stroke();
-                        });
-                        ctx.restore();
+                        drawBoundaryLines(this._map, this._fill.getContext('2d'), size, dpr, false);
                     },
 
                     _drawLabels: function(points, size, dpr) {
@@ -3619,6 +3688,233 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (currentStationsData.length > 0) renderMap(currentStationsData);
                 updateFieldMapLegend();
                 updateMapWarnings();
+                updateLayerActiveState();
+            }
+
+            // --- SATELLITE IMAGERY ---
+            // Recent geostationary satellite images covering the whole world. Each satellite sees
+            // one side of the globe, so the map is split into longitude sectors and each sector
+            // shows the satellite best placed for it. Colour "GeoColor" imagery is used where a
+            // free tile service offers it (GOES and Meteosat); the Indian Ocean and Asia-Pacific
+            // sectors use infrared, which also works at night.
+            const GIBS_URL = 'https://gibs.earthdata.nasa.gov/wmts/epsg3857/best';
+            const EUMETSAT_URL = 'https://view.eumetsat.int/geoserver';
+            const SATELLITE_SOURCES = [
+                { name: 'GOES-West', west: -178.25, east: -106, gibs: 'GOES-West_ABI_GeoColor', matrix: 'GoogleMapsCompatible_Level7', maxNativeZoom: 7 },
+                { name: 'GOES-East', west: -106, east: -37.5, gibs: 'GOES-East_ABI_GeoColor', matrix: 'GoogleMapsCompatible_Level7', maxNativeZoom: 7 },
+                { name: 'Meteosat', west: -37.5, east: 50, wms: 'mtg_fd:rgb_geocolour', maxNativeZoom: 8 },
+                { name: 'Meteosat IODC infrared', west: 50, east: 93, wms: 'msg_iodc:ir108', maxNativeZoom: 7 },
+                { name: 'Himawari infrared', west: 93, east: -178.25, gibs: 'Himawari_AHI_Band13_Clean_Infrared', matrix: 'GoogleMapsCompatible_Level6', maxNativeZoom: 6 }
+            ];
+            let satelliteLayers = null; // source -> tile layer, while the imagery is on
+            let satelliteBoundaryLayer = null;
+            let satelliteRefreshInterval = null;
+
+            // Which part of a tile lies inside a source's sector, as fractions to trim off its
+            // left and right edges. null means the tile is entirely outside the sector.
+            function satelliteTileClip(coords, source, zoomOffset) {
+                const count = Math.pow(2, coords.z + (zoomOffset || 0));
+                const tileWidth = 360 / count;
+                const tileWest = (((coords.x % count) + count) % count) * tileWidth - 180;
+                let span = source.east - source.west;
+                if (span <= 0) span += 360; // the sector crosses the date line
+                // The tile's west edge, in degrees east of the sector's west edge
+                const start = (((tileWest - source.west) % 360) + 360) % 360;
+                const SLACK = 0.002; // tiny overlap so no hairline shows between sectors
+                if (start < span) {
+                    return { left: 0, right: Math.max(0, 1 - (span - start) / tileWidth - SLACK) };
+                }
+                if (start + tileWidth > 360) {
+                    return {
+                        left: Math.max(0, (360 - start) / tileWidth - SLACK),
+                        right: Math.max(0, 1 - (360 - start + span) / tileWidth - SLACK)
+                    };
+                }
+                return null;
+            }
+
+            // A tile layer that only loads tiles inside its source's sector and trims the tiles
+            // that straddle the sector's edges
+            function sectorTileClass(Base) {
+                return Base.extend({
+                    options: { source: null },
+                    createTile: function(coords, done) {
+                        const clip = satelliteTileClip(coords, this.options.source, this.options.zoomOffset);
+                        if (!clip) {
+                            const blank = document.createElement('div');
+                            setTimeout(() => done(null, blank), 0);
+                            return blank;
+                        }
+                        const tile = Base.prototype.createTile.call(this, coords, done);
+                        if (clip.left > 0 || clip.right > 0) {
+                            tile.style.clipPath = `inset(0 ${(clip.right * 100).toFixed(3)}% 0 ${(clip.left * 100).toFixed(3)}%)`;
+                        }
+                        return tile;
+                    }
+                });
+            }
+            if (typeof L.SatelliteTiles === 'undefined') {
+                L.SatelliteTiles = sectorTileClass(L.TileLayer);
+                L.SatelliteWMS = sectorTileClass(L.TileLayer.WMS);
+
+                // Boundary lines on their own, drawn over the satellite imagery
+                L.BoundaryLayer = L.Layer.extend({
+                    onAdd: function(map) {
+                        this._map = map;
+                        const pane = map.getPane('satelliteLinesPane') || map.createPane('satelliteLinesPane');
+                        pane.style.zIndex = 206;
+                        pane.style.pointerEvents = 'none';
+                        this._canvas = L.DomUtil.create('canvas', '', pane);
+                        this._canvas.style.pointerEvents = 'none';
+                        loadFieldMapBoundaries();
+                        this._stopFollowingZoom = followMapZoom(this, map, [this._canvas]);
+                        map.on('moveend', this._update, this);
+                        this._update();
+                    },
+                    onRemove: function(map) {
+                        this._stopFollowingZoom();
+                        map.off('moveend', this._update, this);
+                        L.DomUtil.remove(this._canvas);
+                    },
+                    _update: function() {
+                        if (!this._map) return;
+                        const map = this._map;
+                        markDrawnView(this, map);
+                        const size = map.getSize();
+                        const dpr = window.devicePixelRatio || 1;
+                        const canvas = this._canvas;
+                        canvas.width = size.x * dpr;
+                        canvas.height = size.y * dpr;
+                        canvas.style.width = size.x + 'px';
+                        canvas.style.height = size.y + 'px';
+                        L.DomUtil.setPosition(canvas, map.containerPointToLayerPoint([0, 0]));
+                        drawBoundaryLines(map, canvas.getContext('2d'), size, dpr, true);
+                    }
+                });
+            }
+
+            function satelliteTileUrl(source) {
+                return `${GIBS_URL}/${source.gibs}/default/${source.time || 'default'}/${source.matrix}/{z}/{y}/{x}.png`;
+            }
+
+            // The time of the newest image a source has, or null if that could not be found out
+            async function latestSatelliteTime(source) {
+                try {
+                    if (source.wms) {
+                        const [workspace, layer] = source.wms.split(':');
+                        const res = await fetch(`${EUMETSAT_URL}/${workspace}/${layer}/wms?service=WMS&version=1.3.0&request=GetCapabilities`, { cache: 'no-store' });
+                        const match = /<Dimension name="time"[^>]*default="([^"]+)"/.exec(await res.text());
+                        return match ? match[1] : null;
+                    }
+                    // NASA publishes an image every 10 minutes, roughly half an hour behind real
+                    // time. Step back from 20 minutes ago until one exists.
+                    const STEP = 10 * 60 * 1000;
+                    let time = Math.floor(_nowAccurate() / STEP) * STEP - 2 * STEP;
+                    for (let i = 0; i < 18; i++, time -= STEP) {
+                        const stamp = new Date(time).toISOString().slice(0, 19) + 'Z';
+                        const res = await fetch(`${GIBS_URL}/${source.gibs}/default/${stamp}/${source.matrix}/0/0/0.png`, { method: 'HEAD', cache: 'no-store' });
+                        if (res.ok) return stamp;
+                    }
+                } catch (e) {}
+                return null;
+            }
+
+            // Moves every sector on to its newest image. Runs when the imagery is turned on and
+            // every few minutes after that.
+            async function refreshSatelliteTimes() {
+                await Promise.all(SATELLITE_SOURCES.map(async source => {
+                    const time = await latestSatelliteTime(source);
+                    const layer = satelliteLayers && satelliteLayers.get(source);
+                    if (!layer) return; // turned off in the meantime
+                    if (!time) {
+                        // Time unknown: the service's "latest" image is being shown, so just reload it
+                        if (source.wms) layer.setParams({ refreshed: Date.now() });
+                        else layer.redraw();
+                    } else if (time !== source.time) {
+                        source.time = time;
+                        if (source.wms) layer.setParams({ time: time });
+                        else layer.setUrl(satelliteTileUrl(source));
+                    }
+                }));
+                updateSatelliteInfo();
+            }
+
+            // Shows which satellite covers the middle of the view and how old its image is
+            function updateSatelliteInfo() {
+                const info = document.getElementById('satelliteInfo');
+                if (!info) return;
+                if (!satelliteLayers) {
+                    info.style.display = 'none';
+                    return;
+                }
+                let lng = mapInstance.getCenter().lng;
+                lng = ((((lng + 180) % 360) + 360) % 360) - 180;
+                const source = SATELLITE_SOURCES.find(s => s.west < s.east ? (lng >= s.west && lng < s.east) : (lng >= s.west || lng < s.east));
+                const time = source && source.time ? source.time.slice(11, 16) + 'Z' : 'latest';
+                info.textContent = `Satellite: ${time} · ${source ? source.name : ''}`;
+                info.style.display = 'block';
+            }
+
+            // The imagery servers occasionally fail a tile; ask for it again a couple of times
+            function retrySatelliteTile(event) {
+                const tile = event.tile;
+                if (!tile || tile.tagName !== 'IMG') return;
+                tile._retries = (tile._retries || 0) + 1;
+                if (tile._retries > 3) return;
+                const url = tile.src.replace(/[?&]retry=\d+$/, '');
+                setTimeout(() => {
+                    tile.src = url + (url.includes('?') ? '&' : '?') + 'retry=' + tile._retries;
+                }, 1500 * tile._retries);
+            }
+
+            function toggleSatellite() {
+                const btn = document.getElementById('satelliteBtn');
+                if (!mapInstance) return;
+
+                if (satelliteLayers) {
+                    satelliteLayers.forEach(layer => mapInstance.removeLayer(layer));
+                    satelliteLayers = null;
+                    mapInstance.removeLayer(satelliteBoundaryLayer);
+                    satelliteBoundaryLayer = null;
+                    clearInterval(satelliteRefreshInterval);
+                    satelliteRefreshInterval = null;
+                    mapInstance.off('moveend', updateSatelliteInfo);
+                    btn.classList.remove('satellite-active');
+                } else {
+                    // Above the base map, below every weather layer
+                    const pane = mapInstance.getPane('satellitePane') || mapInstance.createPane('satellitePane');
+                    pane.style.zIndex = 203;
+                    pane.style.pointerEvents = 'none';
+
+                    satelliteLayers = new Map();
+                    SATELLITE_SOURCES.forEach(source => {
+                        source.time = null;
+                        // Sharp-screen devices get tiles from one zoom level deeper, shown at half size, so the
+                        // imagery is as crisp as the source allows. Each source's maxNativeZoom is the finest
+                        // detail it publishes; closer in than that, the image is enlarged.
+                        const options = { pane: 'satellitePane', source: source, maxNativeZoom: source.maxNativeZoom, maxZoom: 20, detectRetina: true };
+                        let layer;
+                        if (source.wms) {
+                            options.attribution = 'Imagery &copy; EUMETSAT';
+                            layer = new L.SatelliteWMS(`${EUMETSAT_URL}/wms`, Object.assign(options, {
+                                layers: source.wms, format: 'image/png', transparent: true, version: '1.3.0'
+                            }));
+                        } else {
+                            options.attribution = 'Imagery: NASA GIBS (NOAA, JMA)';
+                            // Leaflet asks for one level deeper on sharp screens, so stay within what exists
+                            if (L.Browser.retina) options.maxNativeZoom = source.maxNativeZoom - 1;
+                            layer = new L.SatelliteTiles(satelliteTileUrl(source), options);
+                        }
+                        layer.on('tileerror', retrySatelliteTile);
+                        satelliteLayers.set(source, layer.addTo(mapInstance));
+                    });
+                    satelliteBoundaryLayer = new L.BoundaryLayer().addTo(mapInstance);
+                    mapInstance.on('moveend', updateSatelliteInfo);
+                    refreshSatelliteTimes();
+                    satelliteRefreshInterval = setInterval(refreshSatelliteTimes, 5 * 60 * 1000);
+                    btn.classList.add('satellite-active');
+                }
+                updateSatelliteInfo();
                 updateLayerActiveState();
             }
 
@@ -3716,6 +4012,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 fieldmap: fieldMapLayer ? fieldMapLayer.mode : null,
                 pireps: document.getElementById('pirepBtn')?.classList.contains('pirep-active') || false,
                 hazards: !!hazardsRefreshInterval,
+                satellite: !!satelliteLayers,
                 daynight: !!dayNightInterval
             };
             try {
@@ -3739,6 +4036,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     heatmap: 0,
                     fieldmap: null,
                     pireps: false,
+                    satellite: false,
                     hazards: false
                 };
             }
@@ -3761,6 +4059,9 @@ document.addEventListener('DOMContentLoaded', () => {
             // Apply Freezing
             const isFreezingOn = !!freezingLayer;
             if (settings.freezing !== isFreezingOn) toggleFreezingLayer();
+
+            // Apply Satellite
+            if (!!settings.satellite !== !!satelliteLayers) toggleSatellite();
 
             // Apply PIREPs
             const isPirepOn = document.getElementById('pirepBtn')?.classList.contains('pirep-active');
@@ -3881,18 +4182,21 @@ document.addEventListener('DOMContentLoaded', () => {
                             const pane = map.getPane('freezingLinePane') || map.createPane('freezingLinePane');
                             pane.style.zIndex = 420;
                             pane.style.pointerEvents = 'none';
-                            this._canvas = L.DomUtil.create('canvas', 'leaflet-freezing-layer leaflet-zoom-hide', pane);
+                            this._canvas = L.DomUtil.create('canvas', 'leaflet-freezing-layer', pane);
                             this._canvas.style.pointerEvents = 'none';
+                            this._stopFollowingZoom = followMapZoom(this, map, [this._canvas]);
                             map.on('moveend', this._update, this);
                             this._update();
                         },
                         onRemove: function(map) {
+                            this._stopFollowingZoom();
                             map.off('moveend', this._update, this);
                             L.DomUtil.remove(this._canvas);
                         },
                         _update: function() {
                             if (!this._map) return;
                             const map = this._map;
+                            markDrawnView(this, map);
                             const size = map.getSize();
                             const dpr = window.devicePixelRatio || 1;
                             const canvas = this._canvas;
@@ -4167,15 +4471,19 @@ document.addEventListener('DOMContentLoaded', () => {
                         this._canvas = document.createElement('canvas');
                         this._canvas.style.cssText = 'position:absolute;top:0;left:0;pointer-events:none';
                         pane.appendChild(this._canvas);
+                        loadFieldMapBoundaries();
+                        this._stopFollowingZoom = followMapZoom(this, map, [this._canvas]);
                         map.on('moveend zoomend', this._draw, this);
                         this._draw();
                     },
                     onRemove(map) {
+                        this._stopFollowingZoom();
                         map.off('moveend zoomend', this._draw, this);
                         this._canvas.remove();
                     },
                     _draw() {
                         const map    = this._map;
+                        markDrawnView(this, map);
                         const size   = map.getSize();
                         const canvas = this._canvas;
                         canvas.width  = size.x;
@@ -4253,6 +4561,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         ctx.filter = `blur(${STRIDE * 0.9}px)`;
                         ctx.drawImage(off, 0, 0, size.x, size.y);
                         ctx.filter = 'none';
+                        drawBoundaryLines(map, ctx, size, 1, false);
                     }
                 });
 
@@ -4625,6 +4934,7 @@ document.addEventListener('DOMContentLoaded', () => {
             }
             updateLayerActiveState();
         }
+            let pirepRefreshInterval = null;
             function togglePireps() {
                 const btn = document.getElementById('pirepBtn');
                 const attrib = document.getElementById('pirepAttribution');
@@ -4634,11 +4944,14 @@ document.addEventListener('DOMContentLoaded', () => {
                     // OFF
                     mapInstance.removeLayer(pirepLayer);
                     pirepLayer = null;
+                    clearInterval(pirepRefreshInterval);
+                    pirepRefreshInterval = null;
                     btn.classList.remove('pirep-active');
                     if(attrib) attrib.classList.add('hidden');
                 } else {
                     // ON
                     btn.classList.add('pirep-active');
+                    pirepRefreshInterval = setInterval(updatePireps, 5 * 60 * 1000);
                     if(attrib) attrib.classList.remove('hidden');
                     btn.innerHTML = `<svg class="animate-spin h-5 w-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>`;
                     setTimeout(() => {
@@ -6670,6 +6983,20 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
             }
 
+            // A screen that was asleep or in a background tab may have missed refreshes, because
+            // browsers slow timers down then. Everything that refreshes on a timer is brought up to
+            // date as soon as the page is seen again.
+            let lastDataRefreshAt = Date.now();
+            document.addEventListener('visibilitychange', () => {
+                if (document.visibilityState !== 'visible' || Date.now() - lastDataRefreshAt < 90000) return;
+                lastDataRefreshAt = Date.now();
+                if (currentReportData && currentReportData.stationsData.length > 0) refreshDataSilent();
+                if (radarRefreshInterval) updateRadarLayer();
+                if (hazardsRefreshInterval) updateHazardsLayer();
+                if (pirepRefreshInterval) updatePireps();
+                if (satelliteRefreshInterval) refreshSatelliteTimes();
+            });
+
            // New helper to create station card
            // Updated to make elements clickable
             function createStationCard(data) {
@@ -6831,6 +7158,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     };
                     currentStationsData = processResult.stations;
                     allStationsData = processResult.allStations;
+                    lastDataRefreshAt = Date.now();
                 }
 
                 // 1. Update Map
@@ -6839,6 +7167,9 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
                 if (fieldMapLayer) fieldMapLayer._update();
                 if (freezingLayer) freezingLayer._update();
+                if (heatmapLayer) heatmapLayer._update();
+                // The flight category shading is built from the data it was turned on with, so rebuild it
+                if (flightCatLayer) { toggleFlightCat(); toggleFlightCat(); }
 
                 // 2. Update Dashboard
                 if (!document.getElementById('customDashboardView').classList.contains('hidden')) {
