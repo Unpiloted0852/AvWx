@@ -2267,7 +2267,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         <script>
             // --- APP CONFIG ---
-            const CURRENT_VERSION = 'v2.9.6'; // Incremented Version
+            const CURRENT_VERSION = 'v2.9.7'; // Incremented Version
             const GITHUB_REPO = 'Unpiloted0852/AvWx';
 
             // Global Data Storage for Modal Access
@@ -2506,6 +2506,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     fieldMapLayer._update();
                     updateFieldMapLegend();
                 }
+                if (freezingLayer) freezingLayer._update(); // its labels name the unit
                 // Re-render UI if data exists
                 if (currentReportData && currentReportData.stationsData.length > 0) {
                     refreshDataSilent(true); // Skip fetch, just redraw
@@ -3432,6 +3433,98 @@ document.addEventListener('DOMContentLoaded', () => {
                 return fieldMapBoundariesLoading;
             }
 
+            // Gathers the stations in and around the view as screen points with a value each.
+            // "reach" is how far (in screen pixels) a station's reading is allowed to spread:
+            // about 3 degrees of latitude, so oceans and data gaps stay clear.
+            function collectFieldPoints(map, read, label) {
+                const size = map.getSize();
+                const center = map.getCenter();
+                const pxPerDeg = 256 * Math.pow(2, map.getZoom()) / 360 / Math.max(0.2, Math.cos(center.lat * Math.PI / 180));
+                const reach = Math.min(600, Math.max(18, 3 * pxPerDeg));
+
+                const points = [];
+                (allStationsData || []).forEach(s => {
+                    if (s.latitude === null || s.longitude === null || !s.metar) return;
+                    const value = read(s.metar);
+                    if (value === null) return;
+                    // Use the copy of the station nearest the view when the map wraps around the world
+                    let lng = s.longitude;
+                    while (lng - center.lng > 180) lng -= 360;
+                    while (lng - center.lng < -180) lng += 360;
+                    const p = map.latLngToContainerPoint([s.latitude, lng]);
+                    if (p.x < -reach || p.y < -reach || p.x > size.x + reach || p.y > size.y + reach) return;
+                    points.push({ x: p.x, y: p.y, value: value, label: label ? String(label(value)) : '' });
+                });
+                return { points: points, size: size, reach: reach };
+            }
+
+            // Estimates the value at every node of a grid over the view (one node every RES pixels)
+            // from the nearest stations. "nearest" is the distance to the closest station; nodes
+            // beyond every station's reach have the value NaN.
+            function interpolateFieldGrid(points, size, reach, RES) {
+                const NEIGHBORS = 6;
+                const cols = Math.ceil(size.x / RES) + 1;
+                const rows = Math.ceil(size.y / RES) + 1;
+                const values = new Float32Array(cols * rows).fill(NaN);
+                const nearest = new Float32Array(cols * rows);
+
+                // Stations are sorted into square buckets so each grid node only looks nearby
+                const bucketSize = Math.max(24, reach / 3);
+                const span = Math.ceil(reach / bucketSize);
+                const bucketCols = Math.ceil((size.x + 2 * reach) / bucketSize) + 1;
+                const bucketRows = Math.ceil((size.y + 2 * reach) / bucketSize) + 1;
+                const buckets = new Array(bucketCols * bucketRows);
+                points.forEach(p => {
+                    const i = Math.floor((p.y + reach) / bucketSize) * bucketCols + Math.floor((p.x + reach) / bucketSize);
+                    (buckets[i] || (buckets[i] = [])).push(p);
+                });
+
+                const reachSq = reach * reach;
+                const nearDist = new Float64Array(NEIGHBORS);
+                const nearValue = new Float64Array(NEIGHBORS);
+                for (let gy = 0; gy < rows; gy++) {
+                    const y = gy * RES;
+                    const by = Math.floor((y + reach) / bucketSize);
+                    for (let gx = 0; gx < cols; gx++) {
+                        const x = gx * RES;
+                        const bx = Math.floor((x + reach) / bucketSize);
+                        let found = 0;
+                        for (let j = Math.max(0, by - span); j <= Math.min(bucketRows - 1, by + span); j++) {
+                            for (let i = Math.max(0, bx - span); i <= Math.min(bucketCols - 1, bx + span); i++) {
+                                const bucket = buckets[j * bucketCols + i];
+                                if (!bucket) continue;
+                                for (let n = 0; n < bucket.length; n++) {
+                                    const dx = bucket[n].x - x, dy = bucket[n].y - y;
+                                    const distSq = dx * dx + dy * dy;
+                                    if (distSq > reachSq) continue;
+                                    if (found === NEIGHBORS && distSq >= nearDist[NEIGHBORS - 1]) continue;
+                                    // Insert in order, nearest first
+                                    let k = found < NEIGHBORS ? found++ : NEIGHBORS - 1;
+                                    while (k > 0 && nearDist[k - 1] > distSq) {
+                                        nearDist[k] = nearDist[k - 1];
+                                        nearValue[k] = nearValue[k - 1];
+                                        k--;
+                                    }
+                                    nearDist[k] = distSq;
+                                    nearValue[k] = bucket[n].value;
+                                }
+                            }
+                        }
+                        if (found === 0) continue;
+
+                        let weightSum = 0, valueSum = 0;
+                        for (let k = 0; k < found; k++) {
+                            const w = 1 / (nearDist[k] + 25);
+                            weightSum += w;
+                            valueSum += w * nearValue[k];
+                        }
+                        values[gy * cols + gx] = valueSum / weightSum;
+                        nearest[gy * cols + gx] = Math.sqrt(nearDist[0]);
+                    }
+                }
+                return { RES: RES, cols: cols, rows: rows, values: values, nearest: nearest };
+            }
+
             if (typeof L.FieldMapLayer === 'undefined') {
                 L.FieldMapLayer = L.Layer.extend({
                     initialize: function(options) {
@@ -3477,30 +3570,12 @@ document.addEventListener('DOMContentLoaded', () => {
                             L.DomUtil.setPosition(canvas, topLeft);
                         });
 
-                        // How far (in screen pixels) a station's reading is allowed to colour the map:
-                        // about 3 degrees of latitude, so oceans and data gaps stay clear
-                        const center = map.getCenter();
-                        const pxPerDeg = 256 * Math.pow(2, map.getZoom()) / 360 / Math.max(0.2, Math.cos(center.lat * Math.PI / 180));
-                        const reach = Math.min(600, Math.max(18, 3 * pxPerDeg));
-
-                        const points = [];
                         const config = FIELD_MAPS[this.mode];
-                        (allStationsData || []).forEach(s => {
-                            if (s.latitude === null || s.longitude === null || !s.metar) return;
-                            const value = config.read(s.metar);
-                            if (value === null) return;
-                            // Use the copy of the station nearest the view when the map wraps around the world
-                            let lng = s.longitude;
-                            while (lng - center.lng > 180) lng -= 360;
-                            while (lng - center.lng < -180) lng += 360;
-                            const p = map.latLngToContainerPoint([s.latitude, lng]);
-                            if (p.x < -reach || p.y < -reach || p.x > size.x + reach || p.y > size.y + reach) return;
-                            points.push({ x: p.x, y: p.y, value: value, label: String(config.label(value)) });
-                        });
+                        const field = collectFieldPoints(map, config.read, config.label);
 
-                        this._drawFill(points, config.stops, size, reach, dpr);
+                        this._drawFill(field.points, config.stops, size, field.reach, dpr);
                         this._drawBoundaries(size, dpr);
-                        this._drawLabels(points, size, dpr);
+                        this._drawLabels(field.points, size, dpr);
                     },
 
                     _drawFill: function(points, stops, size, reach, dpr) {
@@ -3508,85 +3583,32 @@ document.addEventListener('DOMContentLoaded', () => {
                         ctx.clearRect(0, 0, this._fill.width, this._fill.height);
                         if (points.length === 0) return;
 
-                        // Stations are sorted into square buckets so each grid node only looks nearby
-                        const bucketSize = Math.max(24, reach / 3);
-                        const span = Math.ceil(reach / bucketSize);
-                        const bucketCols = Math.ceil((size.x + 2 * reach) / bucketSize) + 1;
-                        const bucketRows = Math.ceil((size.y + 2 * reach) / bucketSize) + 1;
-                        const buckets = new Array(bucketCols * bucketRows);
-                        points.forEach(p => {
-                            const i = Math.floor((p.y + reach) / bucketSize) * bucketCols + Math.floor((p.x + reach) / bucketSize);
-                            (buckets[i] || (buckets[i] = [])).push(p);
-                        });
-
                         // The field is worked out on a coarse grid and stretched smoothly over the map
-                        const RES = 6;
-                        const NEIGHBORS = 6;
                         const MAX_ALPHA = 185;
-                        const cols = Math.ceil(size.x / RES) + 1;
-                        const rows = Math.ceil(size.y / RES) + 1;
+                        const grid = interpolateFieldGrid(points, size, reach, 6);
                         const small = document.createElement('canvas');
-                        small.width = cols;
-                        small.height = rows;
+                        small.width = grid.cols;
+                        small.height = grid.rows;
                         const smallCtx = small.getContext('2d');
-                        const image = smallCtx.createImageData(cols, rows);
-                        const reachSq = reach * reach;
-                        const nearDist = new Float64Array(NEIGHBORS);
-                        const nearValue = new Float64Array(NEIGHBORS);
-
-                        for (let gy = 0; gy < rows; gy++) {
-                            const y = gy * RES;
-                            const by = Math.floor((y + reach) / bucketSize);
-                            for (let gx = 0; gx < cols; gx++) {
-                                const x = gx * RES;
-                                const bx = Math.floor((x + reach) / bucketSize);
-                                let found = 0;
-                                for (let j = Math.max(0, by - span); j <= Math.min(bucketRows - 1, by + span); j++) {
-                                    for (let i = Math.max(0, bx - span); i <= Math.min(bucketCols - 1, bx + span); i++) {
-                                        const bucket = buckets[j * bucketCols + i];
-                                        if (!bucket) continue;
-                                        for (let n = 0; n < bucket.length; n++) {
-                                            const dx = bucket[n].x - x, dy = bucket[n].y - y;
-                                            const distSq = dx * dx + dy * dy;
-                                            if (distSq > reachSq) continue;
-                                            if (found === NEIGHBORS && distSq >= nearDist[NEIGHBORS - 1]) continue;
-                                            // Insert in order, nearest first
-                                            let k = found < NEIGHBORS ? found++ : NEIGHBORS - 1;
-                                            while (k > 0 && nearDist[k - 1] > distSq) {
-                                                nearDist[k] = nearDist[k - 1];
-                                                nearValue[k] = nearValue[k - 1];
-                                                k--;
-                                            }
-                                            nearDist[k] = distSq;
-                                            nearValue[k] = bucket[n].value;
-                                        }
-                                    }
-                                }
-                                if (found === 0) continue;
-
-                                let weightSum = 0, valueSum = 0;
-                                for (let k = 0; k < found; k++) {
-                                    const w = 1 / (nearDist[k] + 25);
-                                    weightSum += w;
-                                    valueSum += w * nearValue[k];
-                                }
-                                const rgb = fieldMapColor(stops, valueSum / weightSum);
-                                // Fade out towards the edge of the nearest station's reach
-                                const nearest = Math.sqrt(nearDist[0]);
-                                const fade = nearest < reach * 0.6 ? 1 : (reach - nearest) / (reach * 0.4);
-                                const o = (gy * cols + gx) * 4;
-                                image.data[o] = rgb[0];
-                                image.data[o + 1] = rgb[1];
-                                image.data[o + 2] = rgb[2];
-                                image.data[o + 3] = MAX_ALPHA * fade;
-                            }
+                        const image = smallCtx.createImageData(grid.cols, grid.rows);
+                        for (let n = 0; n < grid.values.length; n++) {
+                            const value = grid.values[n];
+                            if (value !== value) continue; // NaN: no station within reach
+                            const rgb = fieldMapColor(stops, value);
+                            // Fade out towards the edge of the nearest station's reach
+                            const fade = grid.nearest[n] < reach * 0.6 ? 1 : (reach - grid.nearest[n]) / (reach * 0.4);
+                            image.data[n * 4] = rgb[0];
+                            image.data[n * 4 + 1] = rgb[1];
+                            image.data[n * 4 + 2] = rgb[2];
+                            image.data[n * 4 + 3] = MAX_ALPHA * fade;
                         }
                         smallCtx.putImageData(image, 0, 0);
 
                         ctx.imageSmoothingEnabled = true;
                         ctx.imageSmoothingQuality = 'high';
                         // Node (gx, gy) belongs at pixel (gx * RES, gy * RES), so the image is shifted half a cell
-                        ctx.drawImage(small, -RES / 2 * dpr, -RES / 2 * dpr, cols * RES * dpr, rows * RES * dpr);
+                        const RES = grid.RES;
+                        ctx.drawImage(small, -RES / 2 * dpr, -RES / 2 * dpr, grid.cols * RES * dpr, grid.rows * RES * dpr);
                     },
 
                     _drawBoundaries: function(size, dpr) {
@@ -3988,103 +4010,102 @@ document.addEventListener('DOMContentLoaded', () => {
                    }
                 });
 
-                // --- FREEZING LAYER DEFINITION ---
+                // --- FREEZING LINE DEFINITION ---
+                // Draws the line where the air temperature crosses freezing (0°C / 32°F), traced
+                // through the same temperature field that the temperature map colours in.
                 if (typeof L.FreezingLayer === 'undefined') {
                     L.FreezingLayer = L.Layer.extend({
                         onAdd: function(map) {
                             this._map = map;
-                            this._canvas = L.DomUtil.create('canvas', 'leaflet-freezing-layer');
+                            // Above the colour fills, radar and charts; below the station markers
+                            const pane = map.getPane('freezingLinePane') || map.createPane('freezingLinePane');
+                            pane.style.zIndex = 420;
+                            pane.style.pointerEvents = 'none';
+                            this._canvas = L.DomUtil.create('canvas', 'leaflet-freezing-layer leaflet-zoom-hide', pane);
                             this._canvas.style.pointerEvents = 'none';
-                            this._canvas.style.zIndex = 300;
-                            map.getPanes().overlayPane.appendChild(this._canvas);
-
                             map.on('moveend', this._update, this);
-                            map.on('zoomend', this._update, this);
                             this._update();
                         },
                         onRemove: function(map) {
-                            map.getPanes().overlayPane.removeChild(this._canvas);
                             map.off('moveend', this._update, this);
-                            map.off('zoomend', this._update, this);
+                            L.DomUtil.remove(this._canvas);
                         },
                         _update: function() {
                             if (!this._map) return;
                             const map = this._map;
                             const size = map.getSize();
+                            const dpr = window.devicePixelRatio || 1;
                             const canvas = this._canvas;
-                            canvas.width = size.x;
-                            canvas.height = size.y;
-                            const bounds = map.getBounds();
-                            const topLeft = map.latLngToLayerPoint(bounds.getNorthWest());
-                            L.DomUtil.setPosition(canvas, topLeft);
-                            this._draw();
-                        },
-                        _draw: function() {
-                            const ctx = this._canvas.getContext('2d');
-                            const width = this._canvas.width;
-                            const height = this._canvas.height;
-                            const map = this._map;
-                            ctx.clearRect(0, 0, width, height);
-                            if (!allStationsData || allStationsData.length === 0) return;
-                            const bounds = map.getBounds();
-                            const pad = 15.0;
-                            const south = bounds.getSouth() - pad;
-                            const north = bounds.getNorth() + pad;
+                            canvas.width = size.x * dpr;
+                            canvas.height = size.y * dpr;
+                            canvas.style.width = size.x + 'px';
+                            canvas.style.height = size.y + 'px';
+                            L.DomUtil.setPosition(canvas, map.containerPointToLayerPoint([0, 0]));
+                            const ctx = canvas.getContext('2d');
+                            ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
 
-                            const relevantStations = allStationsData.filter(s =>
-                                s.latitude !== null && s.longitude !== null &&
-                                s.latitude >= south && s.latitude <= north &&
-                                s.metar && s.metar.rawTempC !== null && !isNaN(s.metar.rawTempC)
-                            );
+                            const field = collectFieldPoints(map, FIELD_MAPS.temp.read);
+                            if (field.points.length === 0) return;
+                            const grid = interpolateFieldGrid(field.points, size, field.reach, 6);
+                            const FREEZING_F = 32;
+                            const RES = grid.RES, cols = grid.cols, values = grid.values;
+                            // Where along the edge between two grid nodes the temperature crosses freezing
+                            const crossing = (a, b) => (FREEZING_F - a) / (b - a);
 
-                            if (relevantStations.length < 5) return;
-                            const RES = 15;
-                            const cols = Math.ceil(width / RES);
-                            const rows = Math.ceil(height / RES);
-                            const stationData = relevantStations.map(s => ({
-                                lat: s.latitude,
-                                lon: s.longitude,
-                                temp: s.metar.rawTempC
-                            }));
-
-                            ctx.fillStyle = 'rgba(6, 182, 212, 0.25)';
-                            const NEIGHBOR_COUNT = 5;
-
-                            for (let y = 0; y < rows; y++) {
-                                for (let x = 0; x < cols; x++) {
-                                    const px = x * RES;
-                                    const py = y * RES;
-                                    const ll = map.containerPointToLatLng(L.point(px + RES/2, py + RES/2));
-                                    const cosLat = Math.cos(ll.lat * Math.PI / 180);
-                                    let closest = [];
-                                    for (let i = 0; i < stationData.length; i++) {
-                                        const s = stationData[i];
-                                        const dLat = s.lat - ll.lat;
-                                        let rawDiff = Math.abs(s.lon - ll.lng);
-                                        if (rawDiff > 180) rawDiff = 360 - rawDiff;
-                                        const dLon = rawDiff * cosLat;
-                                        const distSq = dLat*dLat + dLon*dLon;
-                                        if (closest.length < NEIGHBOR_COUNT) {
-                                            closest.push({ distSq: distSq, temp: s.temp });
-                                            closest.sort((a,b) => a.distSq - b.distSq);
-                                        } else if (distSq < closest[NEIGHBOR_COUNT-1].distSq) {
-                                            closest[NEIGHBOR_COUNT-1] = { distSq: distSq, temp: s.temp };
-                                            closest.sort((a,b) => a.distSq - b.distSq);
+                            // Each grid square the line passes through contributes one short piece of it
+                            const LABEL_SPACING = 260;
+                            const labelCells = new Set();
+                            const labelSpots = [];
+                            ctx.beginPath();
+                            for (let gy = 0; gy < grid.rows - 1; gy++) {
+                                for (let gx = 0; gx < cols - 1; gx++) {
+                                    const tl = values[gy * cols + gx], tr = values[gy * cols + gx + 1];
+                                    const bl = values[(gy + 1) * cols + gx], br = values[(gy + 1) * cols + gx + 1];
+                                    if (tl !== tl || tr !== tr || bl !== bl || br !== br) continue; // no data here
+                                    const x0 = gx * RES, y0 = gy * RES;
+                                    const ends = [];
+                                    if ((tl < FREEZING_F) !== (tr < FREEZING_F)) ends.push(x0 + crossing(tl, tr) * RES, y0);
+                                    if ((tr < FREEZING_F) !== (br < FREEZING_F)) ends.push(x0 + RES, y0 + crossing(tr, br) * RES);
+                                    if ((bl < FREEZING_F) !== (br < FREEZING_F)) ends.push(x0 + crossing(bl, br) * RES, y0 + RES);
+                                    if ((tl < FREEZING_F) !== (bl < FREEZING_F)) ends.push(x0, y0 + crossing(tl, bl) * RES);
+                                    for (let i = 0; i + 3 < ends.length; i += 4) {
+                                        ctx.moveTo(ends[i], ends[i + 1]);
+                                        ctx.lineTo(ends[i + 2], ends[i + 3]);
+                                    }
+                                    if (ends.length >= 4) {
+                                        const cell = Math.floor(x0 / LABEL_SPACING) + ':' + Math.floor(y0 / LABEL_SPACING);
+                                        if (!labelCells.has(cell)) {
+                                            labelCells.add(cell);
+                                            labelSpots.push({ x: (ends[0] + ends[2]) / 2, y: (ends[1] + ends[3]) / 2 });
                                         }
-                                    }
-                                    let sumWeights = 0;
-                                    let weightedTemp = 0;
-                                    for(let i=0; i<closest.length; i++) {
-                                        const w = 1 / (closest[i].distSq + 0.000001);
-                                        weightedTemp += closest[i].temp * w;
-                                        sumWeights += w;
-                                    }
-                                    if (sumWeights > 0) {
-                                        const estimatedTemp = weightedTemp / sumWeights;
-                                        if (estimatedTemp < 0) ctx.fillRect(px, py, RES, RES);
                                     }
                                 }
                             }
+                            // White line with a dark edge, so it stands out on the map and on the colour fills
+                            ctx.lineCap = 'round';
+                            ctx.lineJoin = 'round';
+                            ctx.strokeStyle = 'rgba(0, 30, 90, 0.9)';
+                            ctx.lineWidth = 6;
+                            ctx.stroke();
+                            ctx.strokeStyle = '#ffffff';
+                            ctx.lineWidth = 3;
+                            ctx.stroke();
+
+                            // Name the line every so often along its length
+                            const text = useCelsius ? '0°C' : '32°F';
+                            ctx.font = 'bold 11px sans-serif';
+                            ctx.textAlign = 'center';
+                            ctx.textBaseline = 'middle';
+                            const w = ctx.measureText(text).width + 10, h = 16;
+                            labelSpots.forEach(spot => {
+                                ctx.fillStyle = 'rgba(0, 30, 90, 0.95)';
+                                ctx.fillRect(spot.x - w / 2, spot.y - h / 2, w, h);
+                                ctx.strokeStyle = '#ffffff';
+                                ctx.lineWidth = 1;
+                                ctx.strokeRect(spot.x - w / 2, spot.y - h / 2, w, h);
+                                ctx.fillStyle = '#ffffff';
+                                ctx.fillText(text, spot.x, spot.y);
+                            });
                         }
                     });
                 }
@@ -5088,18 +5109,9 @@ document.addEventListener('DOMContentLoaded', () => {
                     btn.classList.remove('freezing-active');
                 } else {
                     // Turn On
-                    // Show loading state briefly
-                    btn.innerHTML = `<svg class="animate-spin h-5 w-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>`;
-
-                    // Allow UI to update before running heavy calc
-                    setTimeout(() => {
-                        if(typeof L.FreezingLayer !== 'undefined') {
-                            freezingLayer = new L.FreezingLayer();
-                            mapInstance.addLayer(freezingLayer);
-                            btn.classList.add('freezing-active');
-                            btn.innerHTML = '🧊';
-                        }
-                    }, 50);
+                    freezingLayer = new L.FreezingLayer();
+                    mapInstance.addLayer(freezingLayer);
+                    btn.classList.add('freezing-active');
                 }
                 updateMapWarnings();
                 updateLayerActiveState(); // New logic
@@ -7393,6 +7405,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     renderMap(currentStationsData);
                 }
                 if (fieldMapLayer) fieldMapLayer._update();
+                if (freezingLayer) freezingLayer._update();
 
                 // 2. Update Dashboard
                 if (!document.getElementById('customDashboardView').classList.contains('hidden')) {
