@@ -2267,7 +2267,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         <script>
             // --- APP CONFIG ---
-            const CURRENT_VERSION = 'v2.9.5'; // Incremented Version
+            const CURRENT_VERSION = 'v2.9.6'; // Incremented Version
             const GITHUB_REPO = 'Unpiloted0852/AvWx';
 
             // Global Data Storage for Modal Access
@@ -3382,6 +3382,56 @@ document.addEventListener('DOMContentLoaded', () => {
                 return stops[stops.length - 1].slice(1);
             }
 
+            // Country, state/province and coast lines drawn over the colour fill so places stay
+            // recognisable. The line data is fetched the first time one of these maps is turned on.
+            const FIELD_MAP_BOUNDARIES_URL = `${BASE_URL}/data/boundaries.json`;
+            let fieldMapBoundaries = null;
+            let fieldMapBoundariesLoading = null;
+
+            function loadFieldMapBoundaries(url) {
+                if (fieldMapBoundaries || fieldMapBoundariesLoading) return fieldMapBoundariesLoading;
+                fieldMapBoundariesLoading = fetch(url || FIELD_MAP_BOUNDARIES_URL)
+                    .then(res => {
+                        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+                        return res.json();
+                    })
+                    .then(data => {
+                        // Each line is stored as a start point followed by steps, in 1/scale degrees.
+                        // It is unpacked once into Web Mercator positions (0..1 across the world).
+                        const decode = flat => {
+                            const count = flat.length / 2;
+                            const line = { xy: new Float32Array(count * 2), minX: 1, maxX: 0, minY: 1, maxY: 0 };
+                            let lon = 0, lat = 0;
+                            for (let i = 0; i < count; i++) {
+                                lon += flat[i * 2];
+                                lat += flat[i * 2 + 1];
+                                const latRad = Math.max(-85, Math.min(85, lat / data.scale)) * Math.PI / 180;
+                                const x = (lon / data.scale + 180) / 360;
+                                const y = 0.5 - Math.log(Math.tan(Math.PI / 4 + latRad / 2)) / (2 * Math.PI);
+                                line.xy[i * 2] = x;
+                                line.xy[i * 2 + 1] = y;
+                                if (x < line.minX) line.minX = x;
+                                if (x > line.maxX) line.maxX = x;
+                                if (y < line.minY) line.minY = y;
+                                if (y > line.maxY) line.maxY = y;
+                            }
+                            return line;
+                        };
+                        fieldMapBoundaries = {
+                            countries: data.countries.map(decode),
+                            states: data.states.map(decode),
+                            coast: data.coast.map(decode)
+                        };
+                        if (fieldMapLayer) fieldMapLayer._update();
+                    })
+                    .catch(e => {
+                        // The maps still work without the lines; a later toggle tries again
+                        console.warn('Boundary lines unavailable', e);
+                        fieldMapBoundariesLoading = null;
+                    });
+                return fieldMapBoundariesLoading;
+            }
+
             if (typeof L.FieldMapLayer === 'undefined') {
                 L.FieldMapLayer = L.Layer.extend({
                     initialize: function(options) {
@@ -3393,6 +3443,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         // Colour fill sits just above the base map; the readings sit above the station dots
                         this._fill = this._makeCanvas('tempMapPane', 215);
                         this._labels = this._makeCanvas('tempLabelPane', 610);
+                        loadFieldMapBoundaries();
                         map.on('moveend', this._update, this);
                         this._update();
                     },
@@ -3448,6 +3499,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         });
 
                         this._drawFill(points, config.stops, size, reach, dpr);
+                        this._drawBoundaries(size, dpr);
                         this._drawLabels(points, size, dpr);
                     },
 
@@ -3535,6 +3587,57 @@ document.addEventListener('DOMContentLoaded', () => {
                         ctx.imageSmoothingQuality = 'high';
                         // Node (gx, gy) belongs at pixel (gx * RES, gy * RES), so the image is shifted half a cell
                         ctx.drawImage(small, -RES / 2 * dpr, -RES / 2 * dpr, cols * RES * dpr, rows * RES * dpr);
+                    },
+
+                    _drawBoundaries: function(size, dpr) {
+                        if (!fieldMapBoundaries) return;
+                        const map = this._map;
+                        const zoom = map.getZoom();
+                        const world = 256 * Math.pow(2, zoom);
+                        const origin = map.getPixelBounds().min; // world-pixel position of the view's top-left corner
+                        const ctx = this._fill.getContext('2d');
+                        ctx.save();
+                        ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+                        ctx.lineJoin = 'round';
+                        ctx.lineCap = 'round';
+
+                        // Drawn lightest first so country borders end up on top
+                        const layers = [
+                            { lines: fieldMapBoundaries.states, color: 'rgba(0,0,0,0.7)', width: 1.2, minZoom: 4 },
+                            { lines: fieldMapBoundaries.coast, color: 'rgba(0,0,0,0.75)', width: 1.3, minZoom: 0 },
+                            { lines: fieldMapBoundaries.countries, color: 'rgba(0,0,0,0.9)', width: 1.8, minZoom: 0 }
+                        ];
+                        layers.forEach(layer => {
+                            if (zoom < layer.minZoom) return;
+                            ctx.strokeStyle = layer.color;
+                            ctx.lineWidth = layer.width;
+                            ctx.beginPath();
+                            layer.lines.forEach(line => {
+                                if (line.maxY * world - origin.y < 0 || line.minY * world - origin.y > size.y) return;
+                                // The world repeats sideways, so try the copy either side as well
+                                for (let copy = -1; copy <= 1; copy++) {
+                                    const shift = copy * world - origin.x;
+                                    if (line.maxX * world + shift < 0 || line.minX * world + shift > size.x) continue;
+                                    const xy = line.xy, last = xy.length / 2 - 1;
+                                    let prevX = 0, prevY = 0;
+                                    for (let i = 0; i <= last; i++) {
+                                        const x = xy[i * 2] * world + shift;
+                                        const y = xy[i * 2 + 1] * world - origin.y;
+                                        if (i === 0) {
+                                            ctx.moveTo(x, y);
+                                        } else if (i < last && Math.abs(x - prevX) < 0.7 && Math.abs(y - prevY) < 0.7) {
+                                            continue; // closer than a pixel to the last point drawn
+                                        } else {
+                                            ctx.lineTo(x, y);
+                                        }
+                                        prevX = x;
+                                        prevY = y;
+                                    }
+                                }
+                            });
+                            ctx.stroke();
+                        });
+                        ctx.restore();
                     },
 
                     _drawLabels: function(points, size, dpr) {
