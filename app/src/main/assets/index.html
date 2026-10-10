@@ -103,95 +103,6 @@ document.addEventListener('DOMContentLoaded', () => {
     <link href="https://fonts.googleapis.com/css2?family=Public+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
     <style>
 
-        /* ADS-B Active State */
-    /* ADS-B Active State */
-    .traffic-active {
-        background-color: #10b981 !important;
-        color: white !important;
-    }
-
-    /* Compact Traffic Popup Override */
-    .traffic-popup-compact .leaflet-popup-content-wrapper {
-        padding: 0;
-        overflow: hidden;
-        border-radius: 4px;
-        background: rgba(255, 255, 255, 0.95);
-        /* CRITICAL: Override global min-width */
-        min-width: 0px !important;
-        width: auto !important;
-    }
-
-    .dark .traffic-popup-compact .leaflet-popup-content-wrapper {
-        background: rgba(30, 41, 59, 0.95);
-        border: 1px solid #374151;
-    }
-
-    .traffic-popup-compact .leaflet-popup-content {
-        margin: 0 !important;
-        width: auto !important;
-        min-width: 120px !important; /* Small but readable */
-    }
-
-    .traffic-popup-compact .leaflet-popup-tip {
-        background: rgba(255, 255, 255, 0.95);
-    }
-    .dark .traffic-popup-compact .leaflet-popup-tip {
-        background: #374151;
-    }
-
-    /* ATC VISUAL STYLE - UPDATED */
-    .atc-container {
-        position: relative;
-        width: 100%;
-        height: 100%;
-        pointer-events: auto;
-        filter: drop-shadow(0 1px 2px rgba(0,0,0,0.8));
-    }
-
-    /* The Target Blip (Triangle) */
-    .atc-blip {
-        position: absolute;
-        top: 0; left: 0;
-        width: 12px;
-        height: 12px;
-        background-color: #10b981; /* Emerald-500 */
-        /* Sharp triangle */
-        clip-path: polygon(50% 0%, 0% 100%, 100% 100%);
-        transition: transform 1s linear;
-    }
-
-    /* The Data Block (Label) */
-    .atc-label {
-        position: absolute;
-        left: 10px; /* Hugs the right side of the blip */
-        top: -3px;  /* Aligned with top of blip */
-
-        font-family: 'IBM Plex Mono', 'Courier New', monospace;
-        font-size: 9px;
-        font-weight: 700;
-        line-height: 1.0;
-        color: #10b981;
-
-        text-shadow:
-            -1px -1px 0 #000,
-             1px -1px 0 #000,
-            -1px  1px 0 #000,
-             1px  1px 0 #000,
-             0px 0px 2px #000;
-
-        white-space: nowrap; /* CRITICAL FIX: Prevents code indentation from becoming visual space */
-        pointer-events: none;
-        z-index: 20;
-    }
-
-    /* Secondary Info Row (Alt/Speed) */
-    .atc-label span {
-        display: block;
-        opacity: 0.9;
-        font-size: 8px;
-        margin-top: 0px;
-    }
-
         /* Premium Dashboard Styling */
     .dash-card {
         backdrop-filter: blur(10px);
@@ -469,9 +380,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
             .layer-btn svg { width: 60%; height: 60%; }
 
-    /* Text Scaling (RWY/ADS-B) */
+    /* Text Scaling (text buttons such as RWY) */
             .layer-btn span, .layer-btn div {
-                /* Reduced min size slightly (7px) to fit "ADS-B" */
+                /* Small minimum size (7px) so longer labels fit */
                 font-size: clamp(7px, 2vh, 10px) !important;
                 font-weight: 900;
 
@@ -554,14 +465,6 @@ document.addEventListener('DOMContentLoaded', () => {
         z-index: 11000 !important; /* Higher than map overlay */
     }
 
-    /* Logic to hide ADS-B Text Labels when specific class is added to map */
-    .hide-traffic-labels .atc-label {
-        display: none !important;
-    }
-    /* Keep the blip visible, just hide the text */
-    .hide-traffic-labels .atc-blip {
-        display: block !important;
-    }
             /* Heatmap Legend */
             #heatmapLegend {
                 position: absolute;
@@ -1145,7 +1048,6 @@ document.addEventListener('DOMContentLoaded', () => {
         html .layer-btn.pirep-active   { background-color: #f59e0b !important; border-color: #d97706 !important; color: #fff !important; box-shadow: 0 2px 10px rgba(245,158,11,.5) !important; }
         html .layer-btn.hazard-active  { background-color: #ef4444 !important; border-color: #dc2626 !important; color: #fff !important; box-shadow: 0 2px 10px rgba(239,68,68,.5)  !important; }
         html .layer-btn.daynight-active{ background-color: #4b5563 !important; border-color: #374151 !important; color: #fbbf24 !important; box-shadow: 0 2px 10px rgba(75,85,99,.5)   !important; }
-        html .layer-btn.traffic-active { background-color: #10b981 !important; border-color: #059669 !important; color: #fff !important; box-shadow: 0 2px 10px rgba(16,185,129,.5) !important; }
 
         /* Zulu clock */
         #zuluClock {
@@ -1982,13 +1884,6 @@ document.addEventListener('DOMContentLoaded', () => {
             <!-- Radar Timestamp Display -->
             <div id="radarTimeDisplay">Radar Valid: --:--z</div>
 
-            <!-- SEARCH FOR THIS SECTION AROUND LINE 693 -->
-            <!-- ADS-B Credit (Obscure, Bottom Center) -->
-            <!-- CHANGED: bottom-0 -> bottom-6 to lift it up -->
-            <div id="adsbCredit" class="hidden absolute bottom-6 left-1/2 transform -translate-x-1/2 z-[1000] text-[8px] font-mono text-gray-400/60 dark:text-gray-600/60 pointer-events-none select-none pb-0.5">
-                Traffic data <a href="https://airplanes.live" target="_blank" class="pointer-events-auto hover:text-gray-500 dark:hover:text-gray-400 underline decoration-dotted">airplanes.live</a>
-            </div>
-
             <!-- Unified Map Warning (Tiny Bottom Right) -->
             <div id="combinedWarning" class="hidden absolute bottom-0 right-0 z-[1100] px-1 py-0.5 bg-black/50 text-[8px] text-white/70 pointer-events-none select-none">
                 Experimental Data
@@ -2095,10 +1990,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
                     <button id="pirepBtn" onclick="togglePireps()" class="layer-btn bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 text-xl flex items-center justify-center">
                         ✈️
-                    </button>
-
-                    <button id="trafficBtn" onclick="toggleTraffic()" class="layer-btn bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center justify-center">
-                        <span class="font-black leading-tight">ADS-B</span>
                     </button>
 
                     <button id="hazardsBtn" onclick="toggleHazards()" class="layer-btn bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 text-lg flex items-center justify-center">
@@ -2267,7 +2158,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         <script>
             // --- APP CONFIG ---
-            const CURRENT_VERSION = 'v2.9.7'; // Incremented Version
+            const CURRENT_VERSION = 'v2.9.8'; // Incremented Version
             const GITHUB_REPO = 'Unpiloted0852/AvWx';
 
             // Global Data Storage for Modal Access
@@ -2293,12 +2184,6 @@ document.addEventListener('DOMContentLoaded', () => {
             // Add with other globals
 
         let hazardRenderer = null;
-        let trafficLayer = null;
-        let selectedPlaneTrace = null; // Stores the active flight path polyline
-        let selectedPlaneTraceEst = null;
-        let trafficRefreshInterval = null;
-        let selectedAircraftHex = null;
-        let trafficMarkers = new Map(); // Stores markers to allow smooth movement updates
             let mapInstance = null;
             let markerLayerGroup = null;
             let labelLayerGroup = null; // Optimized layer for text
@@ -2390,11 +2275,10 @@ document.addEventListener('DOMContentLoaded', () => {
             const hasHazards = !!hazardsLayer;
             const hasDayNight = !!dayNightLayer;
             const hasRunways = showRunwaysOnMap;
-            const hasTraffic = !!trafficLayer;
 
             const mainBtn = document.getElementById('mainLayerToggle');
 
-            if (hasRadar || hasFreezing || hasHeatmap || hasFieldMap || hasPirep || hasHazards || hasDayNight || hasRunways || hasTraffic) {
+            if (hasRadar || hasFreezing || hasHeatmap || hasFieldMap || hasPirep || hasHazards || hasDayNight || hasRunways) {
                 mainBtn.classList.add('has-active-layers');
             } else {
                 mainBtn.classList.remove('has-active-layers');
@@ -3725,6 +3609,8 @@ document.addEventListener('DOMContentLoaded', () => {
                     fieldMapLayer = null;
                 }
                 if (wasOn !== mode) {
+                    // Only one whole-map colouring at a time: flight category shading gives way
+                    if (flightCatLayer) toggleFlightCat();
                     fieldMapLayer = new L.FieldMapLayer({ mode: mode });
                     mapInstance.addLayer(fieldMapLayer);
                     document.getElementById(FIELD_MAPS[mode].button).classList.add(FIELD_MAPS[mode].activeClass);
@@ -3824,7 +3710,6 @@ document.addEventListener('DOMContentLoaded', () => {
         function saveLayerSettings() {
             const settings = {
                 radar: !!radarRefreshInterval, // If interval exists, Radar is ON
-                traffic: !!trafficRefreshInterval,
                 runways: typeof showRunwaysOnMap !== 'undefined' ? showRunwaysOnMap : true,
                 freezing: !!freezingLayer,
                 heatmap: heatmapMode || 0,
@@ -3850,7 +3735,6 @@ document.addEventListener('DOMContentLoaded', () => {
                     radar: true,      // Default ON
                     daynight: false,  // Default OFF
                     runways: true,    // Default ON
-                    traffic: false,
                     freezing: false,
                     heatmap: 0,
                     fieldmap: null,
@@ -3869,10 +3753,6 @@ document.addEventListener('DOMContentLoaded', () => {
             // Apply Day/Night
             const isDayNightOn = !!dayNightInterval;
             if (settings.daynight !== isDayNightOn) toggleDayNight();
-
-            // Apply Traffic
-            const isTrafficOn = !!trafficRefreshInterval;
-            if (settings.traffic !== isTrafficOn) toggleTraffic();
 
             // Apply Hazards
             const isHazardsOn = !!hazardsRefreshInterval;
@@ -3970,10 +3850,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 mapInstance.createPane('pirepPane');
                 mapInstance.getPane('pirepPane').style.zIndex = 625;
 
-                mapInstance.createPane('trafficPane');
-                mapInstance.getPane('trafficPane').style.zIndex = 650;
-                mapInstance.getPane('trafficPane').style.pointerEvents = 'none';
-
                 // --- RENDERERS ---
                 markerRenderer = L.svg({ pane: 'markerPane' });
                 routeRenderer = L.canvas({ pane: 'routePane' });
@@ -3990,24 +3866,8 @@ document.addEventListener('DOMContentLoaded', () => {
                     }
                 });
 
-                mapInstance.on('click', () => {
-                    clearFlightPath();
-                    trafficMarkers.forEach(m => {
-                        const el = m.getElement();
-                        if (el) el.style.filter = '';
-                    });
-                });
-
                 mapInstance.on('zoomend', () => {
                    updateMapLabels();
-                   // Toggle Traffic Labels based on Zoom
-                   const currentZoom = mapInstance.getZoom();
-                   const mapEl = document.getElementById('weatherMap');
-                   if (currentZoom < 9) {
-                       mapEl.classList.add('hide-traffic-labels');
-                   } else {
-                       mapEl.classList.remove('hide-traffic-labels');
-                   }
                 });
 
                 // --- FREEZING LINE DEFINITION ---
@@ -4280,6 +4140,9 @@ document.addEventListener('DOMContentLoaded', () => {
                     btn.classList.remove('flightCat-active');
                     return;
                 }
+                // The flight category shading and the temperature / humidity maps all colour the
+                // whole map, so turning this on turns the other off
+                if (fieldMapLayer) toggleFieldMap(fieldMapLayer.mode);
 
                 const pts = [];
                 for (const s of allStationsData) {
@@ -4786,316 +4649,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
                 updateLayerActiveState(); // New logic
             }
-
-        // --- TRAFFIC (ADS-B) LOGIC ---
-        function getTrafficIcon(track, flight, altText, gs, vs, altBaro) {
-            const spd = (gs !== undefined && gs !== null) ? Math.round(gs) : '···';
-
-            let trend = '';
-            if (vs > 300) trend = '↑';
-            else if (vs < -300) trend = '↓';
-
-            // Color-code by altitude
-            let color;
-            if (altBaro === 'ground') color = '#facc15';       // yellow — on ground
-            else if (typeof altBaro !== 'number') color = '#94a3b8'; // gray — unknown
-            else if (altBaro >= 28000) color = '#e2e8f0';      // white — high
-            else if (altBaro >= 18000) color = '#67e8f9';      // cyan — upper
-            else if (altBaro >= 10000) color = '#6ee7b7';      // teal — mid
-            else if (altBaro >= 3000)  color = '#86efac';      // green — low
-            else                       color = '#fca5a5';      // red — very low / approach
-
-            // SVG airplane silhouette, rotated to track
-            const iconHtml = `
-        <div class="atc-container">
-            <svg style="transform:rotate(${track}deg);width:18px;height:18px;overflow:visible;filter:drop-shadow(0 1px 3px rgba(0,0,0,.7));"
-                 viewBox="0 0 24 24" fill="${color}" xmlns="http://www.w3.org/2000/svg">
-                <!-- fuselage -->
-                <ellipse cx="12" cy="12" rx="1.6" ry="8" fill="${color}"/>
-                <!-- main wings -->
-                <path d="M12 10 L2 17 L4 18 L12 13 L20 18 L22 17 Z" fill="${color}"/>
-                <!-- tail -->
-                <path d="M12 19 L8 22 L9 22.5 L12 21 L15 22.5 L16 22 Z" fill="${color}"/>
-                <!-- stroke -->
-                <ellipse cx="12" cy="12" rx="1.6" ry="8" fill="none" stroke="rgba(0,0,0,.5)" stroke-width="0.4"/>
-                <path d="M12 10 L2 17 L4 18 L12 13 L20 18 L22 17 Z" fill="none" stroke="rgba(0,0,0,.5)" stroke-width="0.4"/>
-            </svg>
-            <div class="atc-label" style="left:16px;top:-2px;color:${color};">${flight}<span>${altText}${trend} ${spd}</span></div>
-        </div>`;
-
-            return L.divIcon({
-                className: 'bg-transparent',
-                html: iconHtml,
-                iconSize: [18, 18],
-                iconAnchor: [9, 9]
-            });
-        }
-
-        async function updateTrafficLayer() {
-            if (!mapInstance) return;
-
-            try {
-                const center = mapInstance.getCenter();
-                const bounds = mapInstance.getBounds();
-                const northEast = bounds.getNorthEast();
-
-                // 1. Calculate Radius
-                const radiusDeg = Math.max(Math.abs(northEast.lat - center.lat), Math.abs(northEast.lng - center.lng));
-                const radiusNm = Math.min(Math.ceil(radiusDeg * 60 * 1.5), 250);
-
-                // 2. Fetch Traffic
-                const targetUrl = `https://api.airplanes.live/v2/point/${center.lat.toFixed(4)}/${center.lng.toFixed(4)}/${radiusNm}?cb=${Date.now()}`;
-
-                const res = await fetch(targetUrl);
-                if (!res.ok) return;
-                const data = await res.json();
-                const aircraft = data.ac || data.aircraft;
-                if (!aircraft) return;
-
-                const seenIds = new Set();
-
-                aircraft.forEach(ac => {
-                    if (!ac.lat || !ac.lon) return;
-
-                    const hex = ac.hex;
-                    const flight = ac.flight ? ac.flight.trim() : (ac.r || hex);
-                    const alt = ac.alt_baro;
-                    const gs = ac.gs;
-                    const track = ac.track; // Usually True Track
-                    const vs = ac.baro_rate;
-
-                    // New Data Fields
-                    const type = ac.t; // Aircraft Type
-                    const squawk = ac.squawk;
-                    const ias = ac.ias;
-                    const tas = ac.tas;
-                    const magHeading = ac.mag_heading;
-                    const trueHeading = ac.true_heading;
-                    const windDir = ac.wd; // Wind Direction
-                    const windSpd = ac.ws; // Wind Speed
-
-                    seenIds.add(hex);
-
-                    // --- 3. PER-TRACK QNH & TRANSITION LOGIC ---
-                    let localQnhInHg = null;
-                    let transitionAlt = 6000; // Default Global TA
-
-                    if (typeof allStationsData !== 'undefined' && allStationsData.length > 0) {
-                        let minDist = Infinity;
-                        let nearestStation = null;
-
-                        for (const s of allStationsData) {
-                            if (s.latitude === null || s.longitude === null || !s.metar || s.metar.altimInHg === null) continue;
-
-                            const dLat = s.latitude - ac.lat;
-                            const dLon = s.longitude - ac.lon;
-                            const distSq = dLat*dLat + dLon*dLon;
-
-                            if (distSq < minDist) {
-                                minDist = distSq;
-                                nearestStation = s;
-                                localQnhInHg = s.metar.altimInHg;
-                            }
-                        }
-
-                        if (nearestStation) {
-                            const id = nearestStation.id;
-                            if (id.startsWith('K') || id.startsWith('C') || id.startsWith('P') || id.startsWith('T')) {
-                                transitionAlt = 18000;
-                            }
-                        }
-                    }
-
-                    // --- ALTITUDE DISPLAY CALCULATION ---
-                    let altDisplay = "---"; // Full string for Popup
-                    let altLabel = "ALT";   // Label for Popup
-                    let tagAlt = "---";     // Short string for Map Icon
-
-                    if (alt === 'ground') {
-                        altDisplay = "Ground";
-                        tagAlt = "Gnd";
-                        altLabel = "POS";
-                    }
-                    else if (typeof alt === 'number') {
-                        if (alt >= transitionAlt) {
-                            // Above Transition: Flight Level
-                            const flVal = Math.round(alt / 100);
-                            altDisplay = "FL" + flVal;
-                            tagAlt = "FL" + flVal;
-                            altLabel = "FL";
-                        } else if (localQnhInHg) {
-                            // Below Transition: QNH Corrected
-                            const correction = (localQnhInHg - 29.92) * 1000;
-                            const msl = alt + correction;
-                            altDisplay = Math.round(msl).toLocaleString() + " ft";
-                            tagAlt = Math.round(msl) + "ft";
-                            altLabel = "MSL";
-                        } else {
-                            // Fallback
-                            altDisplay = alt.toLocaleString() + " ft";
-                            tagAlt = alt + "ft";
-                            altLabel = "STD";
-                        }
-                    }
-
-                    // --- BUILD POPUP CONTENT DYNAMICALLY ---
-                    let detailsHtml = '';
-
-                    // 1. Aircraft Type
-                    if (type) {
-                        detailsHtml += `<div class="flex justify-between gap-4"><span class="text-gray-400 text-[10px]">TYPE</span><span class="font-bold">${type}</span></div>`;
-                    }
-
-                    // 2. Altitude (Always show if available)
-                    detailsHtml += `<div class="flex justify-between gap-4"><span class="text-gray-400 text-[10px]">${altLabel}</span><span class="font-bold">${altDisplay}</span></div>`;
-
-                    // 3. Vertical Speed
-                    if (vs !== undefined && vs !== null) {
-                        detailsHtml += `<div class="flex justify-between gap-4"><span class="text-gray-400 text-[10px]">V/S</span><span class="font-bold">${vs} fpm</span></div>`;
-                    }
-
-                    // 4. Track (Ground Track)
-                    if (track !== undefined && track !== null) {
-                        detailsHtml += `<div class="flex justify-between gap-4"><span class="text-gray-400 text-[10px]">TRK</span><span class="font-bold">${Math.round(track)}°T</span></div>`;
-                    }
-
-                    // 5. Heading (Prefer Magnetic, fallback to True)
-                    if (magHeading !== undefined && magHeading !== null) {
-                        detailsHtml += `<div class="flex justify-between gap-4"><span class="text-gray-400 text-[10px]">HDG</span><span class="font-bold">${Math.round(magHeading)}°M</span></div>`;
-                    } else if (trueHeading !== undefined && trueHeading !== null) {
-                        detailsHtml += `<div class="flex justify-between gap-4"><span class="text-gray-400 text-[10px]">HDG</span><span class="font-bold">${Math.round(trueHeading)}°T</span></div>`;
-                    }
-
-                    // 6. Ground Speed
-                    if (gs !== undefined && gs !== null) {
-                        detailsHtml += `<div class="flex justify-between gap-4"><span class="text-gray-400 text-[10px]">GS</span><span class="font-bold">${Math.round(gs)} kts</span></div>`;
-                    }
-
-                    // 7. Indicated Airspeed
-                    if (ias !== undefined && ias !== null) {
-                        detailsHtml += `<div class="flex justify-between gap-4"><span class="text-gray-400 text-[10px]">IAS</span><span class="font-bold">${Math.round(ias)} kts</span></div>`;
-                    }
-
-                    // 8. True Airspeed
-                    if (tas !== undefined && tas !== null) {
-                        detailsHtml += `<div class="flex justify-between gap-4"><span class="text-gray-400 text-[10px]">TAS</span><span class="font-bold">${Math.round(tas)} kts</span></div>`;
-                    }
-
-                    // 9. Wind (Calculated)
-                    if (windDir !== undefined && windDir !== null && windSpd !== undefined && windSpd !== null) {
-                        detailsHtml += `<div class="flex justify-between gap-4"><span class="text-gray-400 text-[10px]">WIND</span><span class="font-bold">${Math.round(windDir)}° @ ${Math.round(windSpd)} kts</span></div>`;
-                    }
-
-                    // 10. Squawk
-                    if (squawk) {
-                        detailsHtml += `<div class="flex justify-between gap-4"><span class="text-gray-400 text-[10px]">SQ</span><span class="font-bold font-mono">${squawk}</span></div>`;
-                    }
-
-                    const icon = getTrafficIcon(track || 0, flight, tagAlt, gs, vs, alt);
-
-                    const reg = ac.r || '';
-                    const category = ac.category || '';
-                    const popupContent = `
-                        <div class="font-mono text-xs leading-none min-w-[160px]">
-                            <div class="bg-slate-800 text-white px-2 py-1.5 rounded-t flex items-center justify-between gap-3">
-                                <span class="font-black tracking-wide text-sm">${flight}</span>
-                                ${reg ? `<span class="text-slate-300 text-[10px]">${reg}</span>` : ''}
-                            </div>
-                            ${(type || category) ? `<div class="bg-slate-700 text-slate-300 px-2 py-0.5 text-[10px] flex gap-2">${type ? `<span class="font-bold text-white">${type}</span>` : ''}${category ? `<span>${category}</span>` : ''}</div>` : ''}
-                            <div class="px-2 py-1.5 space-y-1 text-gray-700 dark:text-gray-200 bg-white dark:bg-slate-900">
-                                ${detailsHtml}
-                            </div>
-                        </div>
-                    `;
-
-                    if (trafficMarkers.has(hex)) {
-                        const marker = trafficMarkers.get(hex);
-                        marker.setLatLng([ac.lat, ac.lon]);
-                        marker.setIcon(icon);
-                        marker.setPopupContent(popupContent);
-                    } else {
-                        const marker = L.marker([ac.lat, ac.lon], {
-                            icon: icon,
-                            pane: 'trafficPane',
-                            zIndexOffset: 1000
-                        });
-
-                        marker.bindPopup(popupContent, {
-                            closeButton: false,
-                            autoPan: false,
-                            className: 'traffic-popup-compact',
-                            offset: [0, -5]
-                        });
-
-                        // --- CLICK LISTENER ---
-                        marker.on('click', (e) => {
-                            L.DomEvent.stopPropagation(e);
-                            // Highlight selected marker
-                            trafficMarkers.forEach((m, h) => {
-                                const el = m.getElement();
-                                if (el) el.style.filter = h === hex ? 'drop-shadow(0 0 6px white)' : '';
-                            });
-                            fetchAndDrawTrace(hex);
-                        });
-
-                        if (trafficLayer) {
-                            trafficLayer.addLayer(marker);
-                            trafficMarkers.set(hex, marker);
-                        }
-                    }
-                });
-
-                // Cleanup
-                trafficMarkers.forEach((marker, hex) => {
-                    if (!seenIds.has(hex)) {
-                        if (trafficLayer) trafficLayer.removeLayer(marker);
-                        trafficMarkers.delete(hex);
-                    }
-                });
-
-            } catch (e) {
-                console.warn("Traffic error", e);
-            }
-
-            // --- AUTO-REFRESH TRACE ---
-            // If a plane is selected, refresh its path to match the new position
-            if (selectedAircraftHex) fetchAndDrawTrace(selectedAircraftHex);
-        }
-
-        function toggleTraffic() {
-            const btn = document.getElementById('trafficBtn');
-            const creditEl = document.getElementById('adsbCredit'); // <--- Get Element
-
-            if(!mapInstance) return;
-
-            if (trafficRefreshInterval) {
-                // --- TURN OFF ---
-                clearInterval(trafficRefreshInterval);
-                trafficRefreshInterval = null;
-
-                if(trafficLayer) {
-                    mapInstance.removeLayer(trafficLayer);
-                    trafficLayer = null;
-                }
-                trafficMarkers.clear();
-
-                btn.classList.remove('traffic-active');
-                if (creditEl) creditEl.classList.add('hidden'); // <--- HIDE CREDIT
-            } else {
-                // --- TURN ON ---
-                btn.classList.add('traffic-active');
-                if (creditEl) creditEl.classList.remove('hidden'); // <--- SHOW CREDIT
-
-                trafficLayer = L.layerGroup().addTo(mapInstance);
-
-                // Initial update
-                updateTrafficLayer();
-
-                // 3 second polling (adsb.lol is unlimited)
-                trafficRefreshInterval = setInterval(updateTrafficLayer, 3000);
-            }
-            updateLayerActiveState();
-        }
 
             function toggleFreezingLayer() {
                 const btn = document.getElementById('freezingBtn');
@@ -6294,126 +5847,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 statusEl.style.display = 'none';
                 detailsEl.style.display = 'none';
             }
-
-        async function fetchAndDrawTrace(hex) {
-            // 1. Handle switching planes (Clear old path if clicking a new plane)
-            if (selectedAircraftHex && selectedAircraftHex !== hex) {
-                clearFlightPath();
-            }
-            selectedAircraftHex = hex;
-
-            try {
-                const lastTwo = hex.slice(-2);
-                // Try adsb.lol globe first (freshest), then airplanes.live, then proxied fallbacks
-                const directAdsbLol   = `https://globe.adsb.lol/data/traces/${lastTwo}/trace_full_${hex.toLowerCase()}.json`;
-                const directAirplanes = `https://globe.airplanes.live/data/traces/${lastTwo}/trace_full_${hex.toLowerCase()}.json`;
-                const urls = [
-                    directAdsbLol,
-                    directAirplanes,
-                    `https://corsproxy.io/?${encodeURIComponent(directAdsbLol)}`,
-                    `https://api.allorigins.win/get?url=${encodeURIComponent(directAdsbLol)}`
-                ];
-                let res = null;
-                for (const url of urls) {
-                    try {
-                        res = await fetch(url, { signal: AbortSignal.timeout(5000) });
-                        if (res.ok) break;
-                    } catch(e) { continue; }
-                }
-                if (!res || !res.ok) return;
-
-                let data = await res.json();
-                // allorigins wraps response in { contents: "..." }
-                if (data.contents) data = JSON.parse(data.contents);
-                if (!data.trace || data.trace.length === 0) return;
-
-                const trace = data.trace;
-                let startIndex = 0;
-
-                // --- FILTER LEG LOGIC ---
-                const isGround = (p) => p[3] === "ground" || (typeof p[3] === 'number' && p[4] < 50 && p[3] < 500);
-                const lastPoint = trace[trace.length - 1];
-                let currentlyInAir = !isGround(lastPoint);
-
-                for (let i = trace.length - 1; i >= 0; i--) {
-                    const point = trace[i];
-                    const onGround = isGround(point);
-                    if (i > 0 && (point[0] - trace[i-1][0] > 1800)) { startIndex = i; break; }
-
-                    if (currentlyInAir) {
-                        if (onGround) { startIndex = i; break; }
-                    } else {
-                        if (!onGround) currentlyInAir = true;
-                    }
-                }
-
-                // 2. Get Historical Points
-                const latLngs = trace.slice(startIndex)
-                    .map(point => [point[1], point[2]])
-                    .filter(pt => pt[0] !== null && pt[1] !== null);
-
-                if (!mapInstance) return;
-
-                // 3. Draw or Update History (Solid Line)
-                if (selectedPlaneTrace) {
-                    // Update existing line (Smooth)
-                    selectedPlaneTrace.setLatLngs(latLngs);
-                } else {
-                    // Create new line
-                    selectedPlaneTrace = L.polyline(latLngs, {
-                        color: '#10b981',
-                        weight: 3,
-                        opacity: 0.8,
-                        dashArray: '5, 5',
-                        lineCap: 'round',
-                        pane: 'trafficPane',
-                        interactive: false
-                    }).addTo(mapInstance);
-                }
-
-                // 4. Draw or Update Estimated Segment
-                if (trafficMarkers.has(hex) && latLngs.length > 0) {
-                    const lastHistPos = latLngs[latLngs.length - 1];
-                    const currentLivePos = trafficMarkers.get(hex).getLatLng();
-                    const estPoints = [lastHistPos, currentLivePos];
-
-                    if (selectedPlaneTraceEst) {
-                        selectedPlaneTraceEst.setLatLngs(estPoints);
-                    } else {
-                        selectedPlaneTraceEst = L.polyline(estPoints, {
-                            color: '#6ee7b7',
-                            weight: 2,
-                            opacity: 0.6,
-                            dashArray: '2, 6',
-                            pane: 'trafficPane',
-                            interactive: false
-                        }).addTo(mapInstance);
-                    }
-                } else if (selectedPlaneTraceEst) {
-                    // If marker is gone or no history, remove the estimate line
-                    mapInstance.removeLayer(selectedPlaneTraceEst);
-                    selectedPlaneTraceEst = null;
-                }
-
-            } catch (e) {
-                // Silent fail
-            }
-        }
-
-
-        function clearFlightPath() {
-            // Stop tracking the ID
-            selectedAircraftHex = null;
-
-            if (selectedPlaneTrace && mapInstance) {
-                mapInstance.removeLayer(selectedPlaneTrace);
-                selectedPlaneTrace = null;
-            }
-            if (selectedPlaneTraceEst && mapInstance) {
-                mapInstance.removeLayer(selectedPlaneTraceEst);
-                selectedPlaneTraceEst = null;
-            }
-        }
 
             function haversineDistance(lat1, lon1, lat2, lon2) {
                 const R = 6371;
