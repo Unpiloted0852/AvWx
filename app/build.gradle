@@ -22,8 +22,8 @@ android {
         applicationId "com.example.AvWx"
         minSdk 21
         targetSdk 34
-        versionCode 87
-        versionName "2.9.12"
+        versionCode 88
+        versionName "2.9.13"
     }
 
     signingConfigs {
