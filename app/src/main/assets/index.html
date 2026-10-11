@@ -2400,7 +2400,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         <script>
             // --- APP CONFIG ---
-            const CURRENT_VERSION = 'v2.9.20'; // Incremented Version
+            const CURRENT_VERSION = 'v2.9.21'; // Incremented Version
             const GITHUB_REPO = 'Unpiloted0852/AvWx';
 
             // Global Data Storage for Modal Access
@@ -4673,20 +4673,28 @@ document.addEventListener('DOMContentLoaded', () => {
                         if (live.length === 0) return;
                         const isActive = live.some(w => airspaceTime(w[0]) <= now);
                         if (isActive !== drawActive) return;
-                        const rings = area.rings.map(flat => {
+                        // A part listed twice is drawn once
+                        const rings = area.rings.filter((flat, at) => area.rings.findIndex(other => other.join() === flat.join()) === at).map(flat => {
                             const points = [];
                             for (let i = 0; i < flat.length; i += 2) points.push([flat[i], flat[i + 1]]);
                             return points;
                         });
-                        const shape = L.polygon(rings.map(points => [points]), {
-                            pane: 'airspacePane', renderer: airspaceLayer._renderer,
-                            color: isActive ? '#dc2626' : '#d97706', weight: isActive ? 2 : 1.5,
-                            dashArray: isActive ? null : '6 5',
-                            fillColor: isActive ? '#dc2626' : '#d97706', fillOpacity: isActive ? 0.16 : 0.05
+                        // Each part is its own shape: where parts overlap the fill shows darker, and a tap
+                        // anywhere inside any of them finds the area. Drawn as one shape, overlaps would
+                        // cancel each other out and leave holes.
+                        const tapInfo = { title: area.name, note: [area.kind, isActive ? 'active now' : 'not yet active'].filter(Boolean).join(' · '), html: () => airspacePopup(area, _nowAccurate()),
+                            latlngs: rings.map(points => [points.map(point => L.latLng(point))]) }; // the whole area, for the highlight
+                        rings.forEach(points => {
+                            const shape = L.polygon(points, {
+                                pane: 'airspacePane', renderer: airspaceLayer._renderer,
+                                color: isActive ? '#dc2626' : '#d97706', weight: isActive ? 2 : 1.5,
+                                dashArray: isActive ? null : '6 5',
+                                fillColor: isActive ? '#dc2626' : '#d97706', fillOpacity: isActive ? 0.16 : 0.05
+                            });
+                            shape._tapInfo = tapInfo;
+                            shape.on('click', areaTapped);
+                            airspaceLayer.addLayer(shape);
                         });
-                        shape._tapInfo = { title: area.name, note: [area.kind, isActive ? 'active now' : 'not yet active'].filter(Boolean).join(' · '), html: () => airspacePopup(area, _nowAccurate()) };
-                        shape.on('click', areaTapped);
-                        airspaceLayer.addLayer(shape);
                     });
                 });
             }
@@ -5232,7 +5240,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const base = { pane: 'areaHighlightPane', renderer: areaTapRenderer, interactive: false, lineJoin: 'round' };
         areaTapHighlight = L.layerGroup([
             make(hit.latlngs, Object.assign({}, base, { color: '#111827', weight: 8, opacity: 0.9, fill: false })),
-            make(hit.latlngs, Object.assign({}, base, { color: '#fde047', weight: 4, opacity: 1, fill: hit.closed, fillColor: hit.colour, fillOpacity: 0.35 }))
+            make(hit.latlngs, Object.assign({}, base, { color: '#fde047', weight: 4, opacity: 1, fill: hit.closed, fillColor: hit.colour, fillOpacity: 0.35, fillRule: 'nonzero' }))
         ]).addTo(mapInstance);
         areaTapHighlight._for = popup;
     }
@@ -5253,7 +5261,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const details = shape._tapInfo.html();
             if (seen.has(details)) return;
             seen.add(details);
-            areaTapHits.push({ info: shape._tapInfo, colour: shape.options.color || '#888888', latlngs: shape.getLatLngs(), closed: shape instanceof L.Polygon });
+            areaTapHits.push({ info: shape._tapInfo, colour: shape.options.color || '#888888', latlngs: shape._tapInfo.latlngs || shape.getLatLngs(), closed: shape instanceof L.Polygon });
         });
         let html;
         if (areaTapHits.length === 1) {
