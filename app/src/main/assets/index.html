@@ -2271,7 +2271,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         <script>
             // --- APP CONFIG ---
-            const CURRENT_VERSION = 'v2.9.16'; // Incremented Version
+            const CURRENT_VERSION = 'v2.9.17'; // Incremented Version
             const GITHUB_REPO = 'Unpiloted0852/AvWx';
 
             // Global Data Storage for Modal Access
@@ -4407,6 +4407,99 @@ document.addEventListener('DOMContentLoaded', () => {
                 return rest ? `${hours} h ${rest} min` : `${hours} h`;
             }
 
+            // --- NOTAM text for an airspace area ---
+            // The text of each NOTAM on the map is published scrambled, in small files, and is only
+            // fetched and unscrambled when its area's "Show the NOTAM" link is tapped. The data job
+            // (notam_text_entry in scripts/update_airspace.py) does the scrambling.
+            let NOTAM_TEXT_URL = `${BASE_URL}/data/notam_text`;
+            const NOTAM_TEXT_SALT = 'avwx-notam-text-v1';
+
+            // SHA-256 of some bytes. Written out here because the browser's built-in version is
+            // not available inside the Android app on every device.
+            function sha256Bytes(bytes) {
+                const K = [
+                    0x428a2f98, 0x71374491, 0xb5c0fbcf, 0xe9b5dba5, 0x3956c25b, 0x59f111f1, 0x923f82a4, 0xab1c5ed5,
+                    0xd807aa98, 0x12835b01, 0x243185be, 0x550c7dc3, 0x72be5d74, 0x80deb1fe, 0x9bdc06a7, 0xc19bf174,
+                    0xe49b69c1, 0xefbe4786, 0x0fc19dc6, 0x240ca1cc, 0x2de92c6f, 0x4a7484aa, 0x5cb0a9dc, 0x76f988da,
+                    0x983e5152, 0xa831c66d, 0xb00327c8, 0xbf597fc7, 0xc6e00bf3, 0xd5a79147, 0x06ca6351, 0x14292967,
+                    0x27b70a85, 0x2e1b2138, 0x4d2c6dfc, 0x53380d13, 0x650a7354, 0x766a0abb, 0x81c2c92e, 0x92722c85,
+                    0xa2bfe8a1, 0xa81a664b, 0xc24b8b70, 0xc76c51a3, 0xd192e819, 0xd6990624, 0xf40e3585, 0x106aa070,
+                    0x19a4c116, 0x1e376c08, 0x2748774c, 0x34b0bcb5, 0x391c0cb3, 0x4ed8aa4a, 0x5b9cca4f, 0x682e6ff3,
+                    0x748f82ee, 0x78a5636f, 0x84c87814, 0x8cc70208, 0x90befffa, 0xa4506ceb, 0xbef9a3f7, 0xc67178f2
+                ];
+                const H = [0x6a09e667, 0xbb67ae85, 0x3c6ef372, 0xa54ff53a, 0x510e527f, 0x9b05688c, 0x1f83d9ab, 0x5be0cd19];
+                const padded = new Uint8Array(((bytes.length + 9 + 63) >> 6) << 6);
+                padded.set(bytes);
+                padded[bytes.length] = 0x80;
+                const view = new DataView(padded.buffer);
+                view.setUint32(padded.length - 8, Math.floor(bytes.length / 0x20000000));
+                view.setUint32(padded.length - 4, (bytes.length << 3) >>> 0);
+                const w = new Int32Array(64);
+                for (let offset = 0; offset < padded.length; offset += 64) {
+                    for (let i = 0; i < 16; i++) w[i] = view.getInt32(offset + i * 4);
+                    for (let i = 16; i < 64; i++) {
+                        const x = w[i - 15], y = w[i - 2];
+                        const s0 = ((x >>> 7) | (x << 25)) ^ ((x >>> 18) | (x << 14)) ^ (x >>> 3);
+                        const s1 = ((y >>> 17) | (y << 15)) ^ ((y >>> 19) | (y << 13)) ^ (y >>> 10);
+                        w[i] = (w[i - 16] + s0 + w[i - 7] + s1) | 0;
+                    }
+                    let a = H[0], b = H[1], c = H[2], d = H[3], e = H[4], f = H[5], g = H[6], h = H[7];
+                    for (let i = 0; i < 64; i++) {
+                        const S1 = ((e >>> 6) | (e << 26)) ^ ((e >>> 11) | (e << 21)) ^ ((e >>> 25) | (e << 7));
+                        const t1 = (h + S1 + ((e & f) ^ (~e & g)) + K[i] + w[i]) | 0;
+                        const S0 = ((a >>> 2) | (a << 30)) ^ ((a >>> 13) | (a << 19)) ^ ((a >>> 22) | (a << 10));
+                        const t2 = (S0 + ((a & b) ^ (a & c) ^ (b & c))) | 0;
+                        h = g; g = f; f = e; e = (d + t1) | 0; d = c; c = b; b = a; a = (t1 + t2) | 0;
+                    }
+                    H[0] = (H[0] + a) | 0; H[1] = (H[1] + b) | 0; H[2] = (H[2] + c) | 0; H[3] = (H[3] + d) | 0;
+                    H[4] = (H[4] + e) | 0; H[5] = (H[5] + f) | 0; H[6] = (H[6] + g) | 0; H[7] = (H[7] + h) | 0;
+                }
+                const out = new Uint8Array(32);
+                const outView = new DataView(out.buffer);
+                H.forEach((word, i) => outView.setInt32(i * 4, word));
+                return out;
+            }
+
+            // Fetches and unscrambles one NOTAM's text
+            async function readAirspaceNotam(number, location) {
+                const join = (a, b) => { const out = new Uint8Array(a.length + b.length); out.set(a); out.set(b, a.length); return out; };
+                const key = sha256Bytes(new TextEncoder().encode(`${NOTAM_TEXT_SALT}|${number}|${location}`));
+                const locator = Array.from(sha256Bytes(join(new TextEncoder().encode('loc|'), key)).slice(0, 12),
+                    byte => byte.toString(16).padStart(2, '0')).join('');
+                const res = await fetch(`${NOTAM_TEXT_URL}/${locator.slice(0, 2)}.json?cb=${Date.now()}`, { cache: 'no-store' });
+                if (!res.ok) throw new Error(`HTTP ${res.status}`);
+                const entry = (await res.json())[locator];
+                if (!entry) throw new Error('not found');
+                const scrambled = Uint8Array.from(atob(entry), ch => ch.charCodeAt(0));
+                const packed = new Uint8Array(scrambled.length);
+                for (let block = 0; block * 32 < scrambled.length; block++) {
+                    const counter = new Uint8Array([block >>> 24, block >>> 16, block >>> 8, block]);
+                    const stream = sha256Bytes(join(key, counter));
+                    for (let i = block * 32; i < Math.min(scrambled.length, block * 32 + 32); i++) packed[i] = scrambled[i] ^ stream[i - block * 32];
+                }
+                return pako.inflate(packed, { to: 'string' });
+            }
+
+            // The "Show the NOTAM" link in an area's popup: replaces itself with the NOTAM's text
+            async function showAirspaceNotam(link, number, location) {
+                const box = document.createElement('pre');
+                box.style.cssText = 'margin:6px 0 0;padding:6px 8px;max-height:220px;overflow:auto;white-space:pre-wrap;word-break:break-word;' +
+                    "font:11px/1.35 'IBM Plex Mono',monospace;background:rgba(127,127,127,.15);border-radius:6px";
+                box.textContent = 'Loading…';
+                // The link is hidden, not removed: taking the tapped element out of the page mid-tap
+                // makes the map treat the tap as one on the map itself, which closes the popup
+                link.style.display = 'none';
+                link.insertAdjacentElement('afterend', box);
+                try {
+                    box.textContent = `${number} (${location})\n` + await readAirspaceNotam(number, location);
+                } catch (e) {
+                    box.textContent = `The text of NOTAM ${number} is not available right now.`;
+                }
+                // The popup has grown: bring it back into view if it now runs off the map
+                const popup = mapInstance && mapInstance._popup;
+                if (popup && popup._adjustPan) popup._adjustPan();
+            }
+
             function airspacePopup(area, now) {
                 const esc = text => String(text).replace(/[&<>"]/g, ch => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[ch]));
                 const rows = area.windows.filter(w => airspaceTime(w[1]) > now).map(w => {
@@ -4418,10 +4511,20 @@ document.addEventListener('DOMContentLoaded', () => {
         return `<div style="margin-top:4px">${when}<br><span style="opacity:.8">${limits}</span></div>`;
                 }).join('');
                 const detail = [area.kind, area.note, area.state].filter(Boolean).map(esc).join(' · ');
+                // A way to read the notice itself: the NOTAM text for NOTAM areas, the FAA's page for TFRs
+                const linkStyle = 'display:block;margin-top:6px;font-weight:600;color:#2563eb;text-decoration:underline;cursor:pointer';
+                let links = '';
+                (area.notams || []).forEach(([number, location]) => {
+                    if (!/^[A-Z0-9\/]+$/.test(number) || !/^[A-Z0-9]*$/.test(location)) return;
+                    links += `<a style="${linkStyle}" onclick="showAirspaceNotam(this, '${number}', '${location}')">Show NOTAM ${number}</a>`;
+                });
+                const tfr = /^TFR (\d)\/(\d{4})$/.exec(area.name);
+                if (tfr) links += `<a style="${linkStyle}" href="https://tfr.faa.gov/tfr3/?page=detail_${tfr[1]}_${tfr[2]}" target="_blank" rel="noopener">Open this TFR on the FAA's site</a>`;
                 return `<div style="font:13px/1.35 'Public Sans',sans-serif;min-width:190px">
                     <div style="font-weight:700;font-size:14px">${esc(area.name)}</div>
                     <div style="opacity:.75">${detail}</div>${rows}
-                    <div style="margin-top:6px;font-size:11px;opacity:.6">${area.origin === 'NOTAM' ? 'From a NOTAM: the times are its whole period, and daily hours may apply. ' : ''}Source: ${esc(area.source)}. Check NOTAMs before flight.</div>
+                    ${links}
+                    <div style="margin-top:6px;font-size:11px;opacity:.6">${area.origin === 'NOTAM' ? 'The times are the NOTAM\'s whole period, and daily hours may apply. ' : ''}Source: ${esc(area.source)}. Check NOTAMs before flight.</div>
                 </div>`;
             }
 
@@ -4430,8 +4533,9 @@ document.addEventListener('DOMContentLoaded', () => {
             // areas change state and drop off on time.
             function drawAirspace() {
                 if (!airspaceLayer || !airspaceData) return;
+                // Leave things alone while someone is reading an area's popup; the next tick catches up
+                if (airspaceLayer._openArea && airspaceLayer.getLayers().length) return;
                 const now = _nowAccurate();
-                const openPopupArea = airspaceLayer._openArea || null;
                 airspaceLayer.clearLayers();
                 // Upcoming areas go on first so the active ones sit on top of them
                 [false, true].forEach(drawActive => {
@@ -4455,7 +4559,6 @@ document.addEventListener('DOMContentLoaded', () => {
                         shape.on('popupopen', () => { airspaceLayer._openArea = area.name; });
                         shape.on('popupclose', () => { if (airspaceLayer) airspaceLayer._openArea = null; });
                         airspaceLayer.addLayer(shape);
-                        if (openPopupArea === area.name) shape.openPopup();
                     });
                 });
             }
