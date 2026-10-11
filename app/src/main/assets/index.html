@@ -1169,13 +1169,6 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         html.dark #satelliteInfo { background: rgba(15,25,41,.9); border-color: rgba(255,255,255,.08); color: #c4b5fd; }
         html .layer-btn.airspace-active { background-color: #dc2626 !important; border-color: #b91c1c !important; color: #fff !important; box-shadow: 0 2px 10px rgba(220,38,38,.4) !important; }
-        #airspaceInfo {
-          position: absolute; top: 7.3rem; left: 1rem; z-index: 1100; display: none;
-          padding: 0.2rem 0.6rem; border-radius: 8px; white-space: nowrap; pointer-events: none;
-          font: 700 0.65rem 'IBM Plex Mono', monospace; color: var(--text-1);
-          background: rgba(255,255,255,.88); border: 1px solid rgba(0,0,0,.08); backdrop-filter: blur(8px);
-        }
-        html.dark #airspaceInfo { background: rgba(15,25,41,.9); border-color: rgba(255,255,255,.08); }
 
         /* ── Heatmap legend ──────────────────────────────────── */
         #heatmapLegend {
@@ -1975,7 +1968,6 @@ document.addEventListener('DOMContentLoaded', () => {
             <!-- Radar Timestamp Display -->
             <div id="radarTimeDisplay">Radar Valid: --:--z</div>
             <div id="satelliteInfo"></div>
-            <div id="airspaceInfo"></div>
 
             <!-- Unified Map Warning (Tiny Bottom Right) -->
             <div id="combinedWarning" class="hidden absolute bottom-0 right-0 z-[1100] px-1 py-0.5 bg-black/50 text-[8px] text-white/70 pointer-events-none select-none">
@@ -2279,7 +2271,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         <script>
             // --- APP CONFIG ---
-            const CURRENT_VERSION = 'v2.9.15'; // Incremented Version
+            const CURRENT_VERSION = 'v2.9.16'; // Incremented Version
             const GITHUB_REPO = 'Unpiloted0852/AvWx';
 
             // Global Data Storage for Modal Access
@@ -4305,7 +4297,7 @@ document.addEventListener('DOMContentLoaded', () => {
             // map, one under the other, as high as they can go without sitting under the Zulu
             // clock or the full-screen "Back to Report" button.
             function positionMapBadges() {
-                const badges = ['radarTimeDisplay', 'satelliteInfo', 'airspaceInfo'].map(id => document.getElementById(id))
+                const badges = ['radarTimeDisplay', 'satelliteInfo'].map(id => document.getElementById(id))
                     .filter(el => el && getComputedStyle(el).display !== 'none');
                 if (badges.length === 0) return;
                 const mapRect = document.getElementById('weatherMap').getBoundingClientRect();
@@ -4342,7 +4334,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 };
                 window.addEventListener('scroll', later, { passive: true, capture: true });
                 window.addEventListener('resize', later);
-                ['radarTimeDisplay', 'satelliteInfo', 'airspaceInfo', 'fullscreenControls', 'mapView'].forEach(id => {
+                ['radarTimeDisplay', 'satelliteInfo', 'fullscreenControls', 'mapView'].forEach(id => {
                     const el = document.getElementById(id);
                     if (el) new MutationObserver(later).observe(el, { attributes: true, attributeFilter: ['style', 'class'], childList: true, characterData: true, subtree: id !== 'mapView' });
                 });
@@ -4422,13 +4414,14 @@ document.addEventListener('DOMContentLoaded', () => {
                     const when = start <= now
                         ? `<b style="color:#dc2626">Active now</b> until ${airspaceClock(end)}`
                         : `<b style="color:#d97706">Starts ${airspaceClock(start)}</b> (in ${airspaceDuration(start - now)}), until ${airspaceClock(end)}`;
-                    return `<div style="margin-top:4px">${when}<br><span style="opacity:.8">${esc(w[2])} to ${esc(w[3])}</span></div>`;
+                    const limits = w[2] || w[3] ? `${esc(w[2])} to ${esc(w[3])}` : 'Limits: see the NOTAM';
+        return `<div style="margin-top:4px">${when}<br><span style="opacity:.8">${limits}</span></div>`;
                 }).join('');
                 const detail = [area.kind, area.note, area.state].filter(Boolean).map(esc).join(' · ');
                 return `<div style="font:13px/1.35 'Public Sans',sans-serif;min-width:190px">
                     <div style="font-weight:700;font-size:14px">${esc(area.name)}</div>
                     <div style="opacity:.75">${detail}</div>${rows}
-                    <div style="margin-top:6px;font-size:11px;opacity:.6">Source: ${esc(area.source)}. Check NOTAMs before flight.</div>
+                    <div style="margin-top:6px;font-size:11px;opacity:.6">${area.origin === 'NOTAM' ? 'From a NOTAM: the times are its whole period, and daily hours may apply. ' : ''}Source: ${esc(area.source)}. Check NOTAMs before flight.</div>
                 </div>`;
             }
 
@@ -4440,7 +4433,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 const now = _nowAccurate();
                 const openPopupArea = airspaceLayer._openArea || null;
                 airspaceLayer.clearLayers();
-                let active = 0, upcoming = 0;
                 // Upcoming areas go on first so the active ones sit on top of them
                 [false, true].forEach(drawActive => {
                     airspaceData.areas.forEach(area => {
@@ -4448,7 +4440,6 @@ document.addEventListener('DOMContentLoaded', () => {
                         if (live.length === 0) return;
                         const isActive = live.some(w => airspaceTime(w[0]) <= now);
                         if (isActive !== drawActive) return;
-                        if (isActive) active++; else upcoming++;
                         const rings = area.rings.map(flat => {
                             const points = [];
                             for (let i = 0; i < flat.length; i += 2) points.push([flat[i], flat[i + 1]]);
@@ -4467,17 +4458,6 @@ document.addEventListener('DOMContentLoaded', () => {
                         if (openPopupArea === area.name) shape.openPopup();
                     });
                 });
-
-                const info = document.getElementById('airspaceInfo');
-                if (info) {
-                    const failed = Object.entries(airspaceData.sources || {}).filter(([, s]) => !s.ok).map(([name]) => name);
-                    // Areas in Europe's plan whose shape could not be found, so they cannot be drawn
-                    const unplotted = ((airspaceData.sources || {}).EAUP || {}).unplotted || 0;
-                    info.innerHTML = `<span style="color:#dc2626">■</span> ${active} active &nbsp;<span style="color:#d97706">┅</span> ${upcoming} within 24 h` +
-                        (failed.length ? ` &nbsp;· ${failed.join(', ')} not updating` : '') +
-            (unplotted ? ` &nbsp;· ${unplotted} in Europe not plotted` : '');
-                    info.style.display = 'block';
-                }
             }
 
             async function refreshAirspace() {
@@ -4490,44 +4470,34 @@ document.addEventListener('DOMContentLoaded', () => {
                     drawAirspace();
                 } catch (e) {
                     console.warn('Special use airspace unavailable', e);
-                    const info = document.getElementById('airspaceInfo');
-                    if (info && airspaceLayer && !airspaceData) {
-                        info.textContent = 'Airspace data unavailable';
-                        info.style.display = 'block';
-                    }
                 }
             }
 
             function toggleAirspace() {
                 const btn = document.getElementById('airspaceBtn');
-                const info = document.getElementById('airspaceInfo');
                 if (!mapInstance) return;
 
                 if (airspaceLayer) {
                     mapInstance.removeLayer(airspaceLayer);
+                    mapInstance.removeLayer(airspaceLayer._renderer); // its canvas would otherwise be left behind
                     airspaceLayer = null;
                     clearInterval(airspaceRefreshInterval);
                     clearInterval(airspaceTickInterval);
                     airspaceRefreshInterval = airspaceTickInterval = null;
                     btn.classList.remove('airspace-active');
-                    if (info) info.style.display = 'none';
                 } else {
-                    // Above the weather fills and charts, below the station markers
+                    // Above the weather fills and charts; just below the hazard areas so those stay tappable
                     const pane = mapInstance.getPane('airspacePane') || mapInstance.createPane('airspacePane');
-                    pane.style.zIndex = 430;
+                    pane.style.zIndex = 404;
                     airspaceLayer = L.layerGroup().addTo(mapInstance);
-                    airspaceLayer._renderer = L.svg({ pane: 'airspacePane' });
+                    // Thousands of outlines worldwide: a canvas draws them far faster than separate shapes
+                    airspaceLayer._renderer = L.canvas({ pane: 'airspacePane', padding: 0.3 });
                     btn.classList.add('airspace-active');
-                    if (info) {
-                        info.textContent = 'Airspace: loading…';
-                        info.style.display = 'block';
-                    }
                     drawAirspace(); // anything already in hand, straight away
                     refreshAirspace();
                     airspaceRefreshInterval = setInterval(refreshAirspace, 5 * 60 * 1000);
                     airspaceTickInterval = setInterval(drawAirspace, 60 * 1000);
                 }
-                positionMapBadges();
                 updateLayerActiveState();
             }
 
