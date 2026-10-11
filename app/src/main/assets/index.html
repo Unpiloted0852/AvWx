@@ -1169,6 +1169,60 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         html.dark #satelliteInfo { background: rgba(15,25,41,.9); border-color: rgba(255,255,255,.08); color: #c4b5fd; }
         html .layer-btn.airspace-active { background-color: #dc2626 !important; border-color: #b91c1c !important; color: #fff !important; box-shadow: 0 2px 10px rgba(220,38,38,.4) !important; }
+  /* ── Significant weather forecast (SIG WX) ───────────── */
+  html .layer-btn.sigwx-active { background-color: #0d9488 !important; border-color: #0f766e !important; color: #fff !important; box-shadow: 0 2px 10px rgba(13,148,136,.4) !important; }
+  #sigwxBar {
+    position: absolute; bottom: 2rem; left: 50%; transform: translateX(-50%);
+    z-index: 1000; display: none; flex-direction: column; align-items: stretch; gap: 4px;
+    width: min(340px, calc(100% - 5.5rem)); padding: 6px 10px 7px;
+    background: rgba(255,255,255,.92); border: 1px solid rgba(0,0,0,.08);
+    border-radius: 10px; backdrop-filter: blur(8px); color: #1f2937;
+    font: 600 0.7rem 'Public Sans', sans-serif;
+  }
+  html.dark #sigwxBar { background: rgba(15,25,41,.92); border-color: rgba(255,255,255,.08); color: #e5e7eb; }
+  #sigwxBar .sigwx-row { display: flex; align-items: center; gap: 6px; }
+  #sigwxBar .sigwx-step {
+    flex: none; width: 30px; height: 26px; border-radius: 6px; cursor: pointer; font-size: 0.8rem; line-height: 1;
+    background: rgba(127,127,127,.18); border: 1px solid rgba(127,127,127,.3); color: inherit;
+  }
+  #sigwxBar .sigwx-step:disabled { opacity: .35; cursor: default; }
+  #sigwxLabel { flex: 1; text-align: center; font: 700 0.72rem 'IBM Plex Mono', monospace; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  #sigwxSlider { width: 100%; margin: 0; accent-color: #0d9488; touch-action: none; }
+  #sigwxKey { display: flex; flex-wrap: wrap; justify-content: center; gap: 2px 9px; font-size: 0.62rem; font-weight: 600; opacity: .85; }
+  #sigwxKey i { display: inline-block; width: 12px; height: 8px; margin-right: 3px; border-radius: 2px; vertical-align: baseline; }
+  .sigwx-label {
+    font: 700 10px/1 'IBM Plex Mono', monospace; white-space: nowrap; color: #111827; pointer-events: none;
+    text-shadow: 0 0 2px #fff, 0 0 2px #fff, 0 0 3px #fff, 0 0 3px #fff;
+  }
+  .sigwx-label > span { position: absolute; left: 0; top: 0; transform: translate(-50%, -50%); }
+  html.dark .sigwx-label { color: #f3f4f6; text-shadow: 0 0 2px #000, 0 0 2px #000, 0 0 3px #000, 0 0 3px #000; }
+  .sigwx-label.sigwx-trop > span { padding: 2px 4px; border-radius: 4px; color: #1d4ed8; background: rgba(255,255,255,.9); border: 1px solid #3b82f6; text-shadow: none; }
+  html.dark .sigwx-label.sigwx-trop > span { color: #bfdbfe; background: rgba(15,25,41,.9); border-color: #60a5fa; }
+  .sigwx-label.sigwx-jet > span { padding: 2px 4px; border-radius: 4px; color: #fff; background: #15803d; text-shadow: none; }
+  .sigwx-label.sigwx-cb { color: #b91c1c; }
+  .sigwx-label.sigwx-turb { color: #9a3412; }
+  .sigwx-label.sigwx-ice { color: #1e3a8a; }
+  html.dark .sigwx-label.sigwx-cb { color: #fca5a5; }
+  html.dark .sigwx-label.sigwx-turb { color: #fdba74; }
+  html.dark .sigwx-label.sigwx-ice { color: #bfdbfe; }
+  .sigwx-far .sigwx-ice { display: none; }
+  .sigwx-point { font: 700 10px/1 'IBM Plex Mono', monospace; white-space: nowrap; color: #111827; text-shadow: 0 0 2px #fff, 0 0 2px #fff, 0 0 3px #fff; cursor: pointer; }
+  .sigwx-point > span { position: absolute; left: 0; top: 0; transform: translate(-9px, -50%); display: flex; align-items: center; gap: 2px; }
+  .sigwx-point b { font-size: 17px; text-shadow: none; }
+  html.dark .sigwx-point { color: #f3f4f6; text-shadow: 0 0 2px #000, 0 0 2px #000, 0 0 3px #000; }
+  .sigwx-arrow { pointer-events: none; }
+  .sigwx-arrow svg { position: absolute; left: -9px; top: -9px; width: 18px; height: 18px; overflow: visible; }
+  /* ── List shown when a tap lands on several areas at once ── */
+  .area-tap { font: 13px/1.35 'Public Sans', sans-serif; min-width: 210px; }
+  .area-tap-head { font-size: 11px; opacity: .65; margin-bottom: 4px; }
+  .area-tap-list { max-height: 260px; overflow-y: auto; }
+  .area-tap-row { display: flex; align-items: center; gap: 8px; padding: 7px 2px; cursor: pointer; color: inherit !important; text-decoration: none; border-top: 1px solid rgba(127,127,127,.25); }
+  .area-tap-row i { flex: none; width: 10px; height: 10px; border-radius: 3px; }
+  .area-tap-row span { flex: 1; min-width: 0; }
+  .area-tap-row b { display: block; font-weight: 700; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .area-tap-row small { display: block; font-size: 11px; opacity: .7; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .area-tap-row em { flex: none; font-style: normal; font-size: 16px; opacity: .5; }
+  .area-tap-back { display: block; margin-bottom: 6px; font-weight: 600; color: #2563eb !important; cursor: pointer; text-decoration: none; }
 
         /* ── Heatmap legend ──────────────────────────────────── */
         #heatmapLegend {
@@ -1969,6 +2023,23 @@ document.addEventListener('DOMContentLoaded', () => {
             <div id="radarTimeDisplay">Radar Valid: --:--z</div>
             <div id="satelliteInfo"></div>
 
+                <!-- Significant weather forecast: time picker and key -->
+                <div id="sigwxBar">
+                    <div class="sigwx-row">
+                        <button id="sigwxPrev" class="sigwx-step" onclick="stepSigwx(-1)" aria-label="Earlier forecast time">◀</button>
+                        <div id="sigwxLabel">SIG WX: loading…</div>
+                        <button id="sigwxNext" class="sigwx-step" onclick="stepSigwx(1)" aria-label="Later forecast time">▶</button>
+                    </div>
+                    <input id="sigwxSlider" type="range" min="0" max="0" step="1" value="0" oninput="pickSigwxTime(+this.value)" aria-label="Forecast time">
+                    <div id="sigwxKey">
+                        <span><i style="border:2px dotted #dc2626;background:rgba(220,38,38,.12)"></i>CB</span>
+                        <span><i style="background:#6699ff"></i>Icing</span>
+                        <span><i style="background:#ff9900"></i>Turbulence</span>
+                        <span><i style="background:#16a34a;height:3px;vertical-align:middle"></i>Jet</span>
+                        <span><i style="border-top:2px dashed #3b82f6;height:0;border-radius:0;vertical-align:middle"></i>Tropopause</span>
+                    </div>
+                </div>
+
             <!-- Unified Map Warning (Tiny Bottom Right) -->
             <div id="combinedWarning" class="hidden absolute bottom-0 right-0 z-[1100] px-1 py-0.5 bg-black/50 text-[8px] text-white/70 pointer-events-none select-none">
                 Experimental Data
@@ -2091,6 +2162,10 @@ document.addEventListener('DOMContentLoaded', () => {
                     <button id="airspaceBtn" onclick="toggleAirspace()" class="layer-btn bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center justify-center">
                         <span class="font-black tracking-tighter leading-none">SUA</span>
                     </button>
+
+        <button id="sigwxBtn" onclick="toggleSigwx()" class="layer-btn bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center justify-center">
+            <span class="font-black tracking-tighter leading-none" style="font-size:0.6rem">SIG<br>WX</span>
+        </button>
 
                     <button id="dayNightBtn" onclick="toggleDayNight()" class="layer-btn bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 text-xl flex items-center justify-center">
                         🌗
@@ -2271,7 +2346,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         <script>
             // --- APP CONFIG ---
-            const CURRENT_VERSION = 'v2.9.17'; // Incremented Version
+            const CURRENT_VERSION = 'v2.9.18'; // Incremented Version
             const GITHUB_REPO = 'Unpiloted0852/AvWx';
 
             // Global Data Storage for Modal Access
@@ -2386,6 +2461,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const hasFieldMap = !!fieldMapLayer;
             const hasSatellite = !!satelliteLayers;
             const hasAirspace = !!airspaceLayer;
+            const hasSigwx = !!sigwxLayer;
             const hasPirep = !!pirepLayer;
             const hasHazards = !!hazardsLayer;
             const hasDayNight = !!dayNightLayer;
@@ -2393,7 +2469,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
             const mainBtn = document.getElementById('mainLayerToggle');
 
-            if (hasRadar || hasFreezing || hasHeatmap || hasFieldMap || hasSatellite || hasAirspace || hasPirep || hasHazards || hasDayNight || hasRunways) {
+            if (hasRadar || hasFreezing || hasHeatmap || hasFieldMap || hasSatellite || hasAirspace || hasSigwx || hasPirep || hasHazards || hasDayNight || hasRunways) {
                 mainBtn.classList.add('has-active-layers');
             } else {
                 mainBtn.classList.remove('has-active-layers');
@@ -4533,8 +4609,6 @@ document.addEventListener('DOMContentLoaded', () => {
             // areas change state and drop off on time.
             function drawAirspace() {
                 if (!airspaceLayer || !airspaceData) return;
-                // Leave things alone while someone is reading an area's popup; the next tick catches up
-                if (airspaceLayer._openArea && airspaceLayer.getLayers().length) return;
                 const now = _nowAccurate();
                 airspaceLayer.clearLayers();
                 // Upcoming areas go on first so the active ones sit on top of them
@@ -4555,9 +4629,8 @@ document.addEventListener('DOMContentLoaded', () => {
                             dashArray: isActive ? null : '6 5',
                             fillColor: isActive ? '#dc2626' : '#d97706', fillOpacity: isActive ? 0.16 : 0.05
                         });
-                        shape.bindPopup(() => airspacePopup(area, _nowAccurate()), { maxWidth: 300 });
-                        shape.on('popupopen', () => { airspaceLayer._openArea = area.name; });
-                        shape.on('popupclose', () => { if (airspaceLayer) airspaceLayer._openArea = null; });
+                        shape._tapInfo = { title: area.name, note: [area.kind, isActive ? 'active now' : 'not yet active'].filter(Boolean).join(' · '), html: () => airspacePopup(area, _nowAccurate()) };
+                        shape.on('click', areaTapped);
                         airspaceLayer.addLayer(shape);
                     });
                 });
@@ -4603,6 +4676,383 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
                 updateLayerActiveState();
             }
+
+    // --- Significant weather forecast (SIG WX) ---
+    // The World Area Forecast System's forecast of thunderstorm cloud, icing, turbulence,
+    // jet streams and tropopause heights for the next two days, in three-hour steps. This
+    // project's data job copies it from aviationweather.gov (see scripts/update_sigwx.py).
+    // A forecast for planning only; SIGMETs and the official charts remain the authority.
+    let SIGWX_URL = `${BASE_URL}/data/sigwx.json`;
+    let sigwxLayer = null;          // the group of shapes on the map, while the layer is on
+    let sigwxData = null;           // the last forecast fetched
+    let sigwxRefreshInterval = null;
+    let sigwxPicked = null;         // the forecast time chosen on the slider; null follows the clock
+    let sigwxDrawn = null;          // what is on the map now, so an unchanged forecast is left alone
+
+    function sigwxTime(text) {
+        return Date.parse(text.replace('Z', ':00:00Z'));
+    }
+
+    // The forecast times worth offering: everything not long past
+    function sigwxTimes() {
+        if (!sigwxData || !Array.isArray(sigwxData.times)) return [];
+        const now = _nowAccurate();
+        const current = sigwxData.times.filter(t => sigwxTime(t.valid) > now - 3 * 3600000);
+        return current.length ? current : sigwxData.times;
+    }
+
+    // The time to show: the one picked on the slider, else the one nearest to now
+    function sigwxShownIndex(times) {
+        if (sigwxPicked !== null) {
+            const at = times.findIndex(t => sigwxTime(t.valid) === sigwxPicked);
+            if (at >= 0) return at;
+            sigwxPicked = null; // that time has passed out of the forecast
+        }
+        const now = _nowAccurate();
+        let best = 0;
+        times.forEach((t, i) => {
+            if (Math.abs(sigwxTime(t.valid) - now) < Math.abs(sigwxTime(times[best].valid) - now)) best = i;
+        });
+        return best;
+    }
+
+    function sigwxLevel(level, missing) {
+        return level === null || level === undefined ? missing : `FL${String(level).padStart(3, '0')}`;
+    }
+
+    function sigwxPopup(title, rows) {
+        const esc = text => String(text).replace(/[&<>"]/g, ch => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[ch]));
+        return `<div style="font:13px/1.4 'Public Sans',sans-serif;min-width:170px">
+            <div style="font-weight:700;font-size:14px">${esc(title)}</div>
+            ${rows.filter(Boolean).map(row => `<div>${esc(row)}</div>`).join('')}
+            <div style="margin-top:6px;font-size:11px;opacity:.6">WAFS significant weather forecast via aviationweather.gov. For planning only.</div>
+        </div>`;
+    }
+
+    // A shape's points, once for each copy of the world it should appear on. Shapes that
+    // cross the date line are given with longitudes running past 180, so those are drawn
+    // a second time a whole turn back, and are then seen from either side of the line.
+    function sigwxCopies(flat) {
+        let west = Infinity, east = -Infinity;
+        for (let i = 1; i < flat.length; i += 2) {
+            if (flat[i] < west) west = flat[i];
+            if (flat[i] > east) east = flat[i];
+        }
+        const copies = [];
+        [-360, 0, 360].forEach(shift => {
+            if (east + shift < -180 || west + shift > 180) return;
+            const points = [];
+            for (let i = 0; i < flat.length; i += 2) points.push([flat[i], flat[i + 1] + shift]);
+            copies.push(points);
+        });
+        return copies;
+    }
+
+    // Makes a shape answer taps through the shared tap handling (see openAreasAt)
+    function sigwxTappable(shape, title, rows) {
+        shape._tapInfo = { title: title, note: rows.filter(Boolean).slice(0, 2).join(' · '), html: () => sigwxPopup(title, rows) };
+        return shape.on('click', areaTapped);
+    }
+
+    function sigwxTextMarker(latlng, html, className, interactive) {
+        return L.marker(latlng, {
+            pane: 'sigwxPane', interactive: !!interactive, keyboard: false,
+            icon: L.divIcon({ className: className, html: html, iconSize: [0, 0] })
+        });
+    }
+
+    // Redraws the map for the forecast time in hand and brings the time bar up to date
+    function drawSigwx(force) {
+        if (!sigwxLayer) return;
+        const label = document.getElementById('sigwxLabel');
+        const slider = document.getElementById('sigwxSlider');
+        const times = sigwxTimes();
+        if (times.length === 0) {
+            label.textContent = sigwxData ? 'SIG WX: not available right now' : 'SIG WX: loading…';
+            slider.disabled = true;
+            document.getElementById('sigwxPrev').disabled = document.getElementById('sigwxNext').disabled = true;
+            return;
+        }
+        const index = sigwxShownIndex(times);
+        const time = times[index];
+        const valid = sigwxTime(time.valid);
+
+        const d = new Date(valid);
+        const hours = Math.round((valid - _nowAccurate()) / 3600000);
+        const away = hours === 0 ? 'now' : (hours > 0 ? `in ${hours} h` : `${-hours} h ago`);
+        label.textContent = `SIG WX ${['Sun','Mon','Tue','Wed','Thu','Fri','Sat'][d.getUTCDay()]} ${String(d.getUTCDate()).padStart(2, '0')}/${String(d.getUTCHours()).padStart(2, '0')}Z · ${away}`;
+        slider.disabled = false;
+        slider.max = times.length - 1;
+        slider.value = index;
+        document.getElementById('sigwxPrev').disabled = index === 0;
+        document.getElementById('sigwxNext').disabled = index === times.length - 1;
+
+        const drawing = `${sigwxData.run}|${time.valid}`;
+        if (!force && drawing === sigwxDrawn) return;
+        sigwxDrawn = drawing;
+        sigwxLayer.clearLayers();
+        const base = { pane: 'sigwxPane', renderer: sigwxLayer._renderer, smoothFactor: 1.5 };
+        // Each area carries a short label at its middle saying what it is and its levels
+        const area = (item, style, title, rows, text, labelClass) => {
+            sigwxCopies(item.p).forEach(points => {
+                sigwxLayer.addLayer(sigwxTappable(L.polygon(points, Object.assign({}, base, style)), title, rows));
+                // The outline is closed, so its last point repeats the first
+                const corners = points.length > 3 ? points.slice(0, -1) : points;
+                const middle = [corners.reduce((sum, p) => sum + p[0], 0) / corners.length, corners.reduce((sum, p) => sum + p[1], 0) / corners.length];
+                sigwxLayer.addLayer(sigwxTextMarker(middle, `<span>${text}</span>`, `sigwx-label ${labelClass}`));
+            });
+        };
+        const span = item => item.base === null || item.base === undefined
+            ? `to ${sigwxLevel(item.top, 'top')}` : `${sigwxLevel(item.base)}-${String(item.top === null || item.top === undefined ? 'top' : item.top).padStart(3, '0')}`;
+        const limits = item => [`Top: ${sigwxLevel(item.top, 'above the forecast\'s highest level')}`,
+            `Base: ${sigwxLevel(item.base, 'below the forecast\'s lowest level')}`];
+        const capital = word => word ? word[0].toUpperCase() + word.slice(1) : '';
+
+        (time.icing || []).forEach(item => {
+            const colour = item.k === 'severe' ? '#3b6fe0' : '#7fb2f5';
+            area(item, { color: colour, weight: 1, fillColor: colour, fillOpacity: item.k === 'severe' ? 0.4 : 0.3 },
+                `${capital(item.k)} icing`, limits(item), `${item.k === 'severe' ? 'SEV' : 'MOD'} ICE ${span(item)}`, 'sigwx-ice');
+        });
+        (time.turb || []).forEach(item => {
+            const colour = item.k === 'severe' ? '#cc0000' : '#ff9900';
+            area(item, { color: colour, weight: 1.5, dashArray: '6 4', fillColor: colour, fillOpacity: 0.22 },
+                `${capital(item.k)} turbulence`, limits(item), `${item.k === 'severe' ? 'SEV' : 'MOD'} TURB ${span(item)}`, 'sigwx-turb');
+        });
+        const cbCover = { ISOL: 'Isolated', OCNL: 'Occasional', FRQ: 'Frequent', FREQ: 'Frequent' };
+        (time.cb || []).forEach(item => {
+            area(item, { color: '#dc2626', weight: 3.5, dashArray: '1 7', lineCap: 'round', fillColor: '#dc2626', fillOpacity: 0.1 },
+                'Cumulonimbus (thunderstorm cloud)', [item.k ? `Coverage: ${cbCover[item.k] || item.k} (${item.k})` : '', ...limits(item)],
+                `${String(item.k || '').replace(/[^A-Z]/g, '')} CB ${span(item)}`, 'sigwx-cb');
+        });
+
+        (time.trop || []).forEach(item => {
+            sigwxCopies(item.p).forEach(points => {
+                sigwxLayer.addLayer(sigwxTappable(L.polyline(points, Object.assign({}, base, { color: '#3b82f6', weight: 2, dashArray: '5 4', opacity: 0.9 })),
+                    'Tropopause height', [`The tropopause is at ${sigwxLevel(item.h, 'an unstated level')} along this line`]));
+                // Its height is written along the line at regular steps, so some label is always in view
+                for (let i = Math.min(4, points.length >> 1); i < points.length; i += 9) {
+                    sigwxLayer.addLayer(sigwxTextMarker(points[i], `<span>${sigwxLevel(item.h, '')}</span>`, 'sigwx-label sigwx-trop'));
+                }
+            });
+        });
+
+        (time.jet || []).forEach(item => {
+            const marks = (item.f || []).filter(f => f[2]);
+            const fastest = marks.reduce((best, f) => (!best || f[2] > best[2] ? f : best), null);
+            const rows = fastest
+                ? [`Fastest: ${fastest[2]} kt at ${sigwxLevel(fastest[3], 'an unstated level')}`,
+                   marks.length > 1 ? `Along the jet: ${marks.map(f => `${f[2]} kt`).join(', ')}` : '']
+                : ['No speeds given'];
+            sigwxCopies(item.p).forEach(points => {
+                const shift = points[0][1] - item.p[1];
+                sigwxLayer.addLayer(sigwxTappable(L.polyline(points, Object.assign({}, base, { color: '#16a34a', weight: 4, opacity: 0.9 })), 'Jet stream', rows));
+                // An arrowhead at the downwind end, turned to follow the line as the map shows it
+                const end = points[points.length - 1], before = points[points.length - 2];
+                const a = L.CRS.EPSG3857.latLngToPoint(L.latLng(before), 6), b = L.CRS.EPSG3857.latLngToPoint(L.latLng(end), 6);
+                const turn = Math.atan2(b.y - a.y, b.x - a.x) * 180 / Math.PI;
+                sigwxLayer.addLayer(sigwxTextMarker(end,
+                    `<svg viewBox="-9 -9 18 18"><path d="M8 0 L-6 -7 L-2 0 L-6 7 Z" fill="#16a34a" transform="rotate(${turn.toFixed(1)})"/></svg>`, 'sigwx-arrow'));
+                if (fastest) {
+                    sigwxLayer.addLayer(sigwxTextMarker([fastest[0], fastest[1] + shift],
+                        `<span>${fastest[2]}kt ${sigwxLevel(fastest[3], '')}</span>`, 'sigwx-label sigwx-jet'));
+                }
+            });
+        });
+
+        const point = (item, symbol, title) => {
+            if (!item.p) return;
+            [-360, 0, 360].forEach(shift => {
+                const lng = item.p[1] + shift;
+                if (lng < -180 || lng > 180) return;
+                const esc = String(item.n || '').replace(/[&<>"]/g, '');
+                sigwxLayer.addLayer(sigwxTextMarker([item.p[0], lng], `<span><b>${symbol}</b>${esc}</span>`, 'sigwx-point', true)
+                    .bindPopup(() => sigwxPopup(title, [item.n ? `Name: ${item.n}` : '']), { maxWidth: 260 }));
+            });
+        };
+        (time.tc || []).forEach(item => point(item, '🌀', 'Tropical cyclone'));
+        (time.volc || []).forEach(item => point(item, '🌋', 'Volcanic eruption'));
+        (time.rad || []).forEach(item => point(item, '☢️', 'Release of radioactive material'));
+    }
+
+    // The slider and the arrow buttons
+    function pickSigwxTime(index) {
+        const times = sigwxTimes();
+        if (!times[index]) return;
+        sigwxPicked = sigwxTime(times[index].valid);
+        drawSigwx();
+    }
+    function stepSigwx(by) {
+        const times = sigwxTimes();
+        if (times.length) pickSigwxTime(Math.max(0, Math.min(times.length - 1, sigwxShownIndex(times) + by)));
+    }
+
+    async function refreshSigwx() {
+        try {
+            const res = await fetch(`${SIGWX_URL}?cb=${Date.now()}`, { cache: 'no-store' });
+            if (!res.ok) throw new Error(`HTTP ${res.status}`);
+            const data = await res.json();
+            if (!sigwxLayer) return; // turned off in the meantime
+            sigwxData = data;
+        } catch (e) {
+            console.warn('Significant weather forecast unavailable', e);
+            if (sigwxLayer && !sigwxData) sigwxData = { times: [] };
+        }
+        drawSigwx();
+    }
+
+    // Keeps the time bar clear of the temperature and balloon legends, which share its spot
+    function positionSigwxBar() {
+        const bar = document.getElementById('sigwxBar');
+        if (!bar || bar.style.display === 'none' || !bar.style.display) return;
+        let lift = 0;
+        ['fieldMapLegend', 'heatmapLegend'].forEach(id => {
+            const legend = document.getElementById(id);
+            if (legend && getComputedStyle(legend).display !== 'none') lift = Math.max(lift, legend.offsetHeight + 8);
+        });
+        bar.style.bottom = lift ? `calc(2rem + ${lift}px)` : '';
+    }
+    ['fieldMapLegend', 'heatmapLegend'].forEach(id => {
+        const legend = document.getElementById(id);
+        if (legend) new MutationObserver(positionSigwxBar).observe(legend, { attributes: true, attributeFilter: ['style', 'class'] });
+    });
+
+    // Icing areas are many, so their labels wait until the map is zoomed in a little
+    function sigwxZoomed() {
+        const pane = mapInstance.getPane('sigwxPane');
+        if (pane) pane.classList.toggle('sigwx-far', mapInstance.getZoom() < 4);
+    }
+
+    function toggleSigwx() {
+        const btn = document.getElementById('sigwxBtn');
+        const bar = document.getElementById('sigwxBar');
+        if (!mapInstance) return;
+
+        if (sigwxLayer) {
+            mapInstance.removeLayer(sigwxLayer);
+            mapInstance.removeLayer(sigwxLayer._renderer); // its canvas would otherwise be left behind
+            sigwxLayer = null;
+            sigwxDrawn = null;
+            sigwxPicked = null;
+            clearInterval(sigwxRefreshInterval);
+            sigwxRefreshInterval = null;
+            mapInstance.off('zoomend', sigwxZoomed);
+            btn.classList.remove('sigwx-active');
+            bar.style.display = 'none';
+        } else {
+            // Above the weather fills and charts, below special use airspace and the hazard areas
+            const pane = mapInstance.getPane('sigwxPane') || mapInstance.createPane('sigwxPane');
+            pane.style.zIndex = 403;
+            sigwxLayer = L.layerGroup().addTo(mapInstance);
+            sigwxLayer._renderer = L.canvas({ pane: 'sigwxPane', padding: 0.3, tolerance: 6 });
+            mapInstance.on('zoomend', sigwxZoomed);
+            sigwxZoomed();
+            btn.classList.add('sigwx-active');
+            bar.style.display = 'flex';
+            positionSigwxBar();
+            drawSigwx(); // anything already in hand, straight away
+            refreshSigwx();
+            // A new forecast comes every six hours; this also moves the bar on as time passes
+            sigwxRefreshInterval = setInterval(refreshSigwx, 10 * 60 * 1000);
+        }
+        updateLayerActiveState();
+    }
+
+    // --- Taps where several areas overlap ---
+    // SIGMETs, special use airspace and forecast areas often lie on top of one another, and
+    // only the topmost would otherwise answer a tap. Each such shape carries a _tapInfo (a
+    // title, a short note, and its details as HTML). A tap gathers every shape under it:
+    // one shape shows its details straight away, several show a list to choose from.
+    let areaTapHits = [];
+
+    function areaTapShapes() {
+        const shapes = [];
+        // Listed in this order: warnings first, then airspace, then the forecast; within
+        // each, whatever is drawn on top comes first
+        [hazardsLayer, airspaceLayer, sigwxLayer].forEach(group => {
+            if (!group) return;
+            const found = [];
+            const gather = g => g.eachLayer(l => { if (l._tapInfo) found.push(l); else if (l.eachLayer) gather(l); });
+            gather(group);
+            shapes.push(...found.reverse());
+        });
+        return shapes;
+    }
+
+    function openAreasAt(latlng) {
+        if (!mapInstance) return false;
+        const at = mapInstance.latLngToLayerPoint(latlng);
+        const hits = areaTapShapes().filter(shape => {
+            if (!shape._map || !shape._containsPoint || !shape._pxBounds) return false;
+            try { return shape._containsPoint(at); } catch (err) { return false; }
+        });
+        if (hits.length === 0) return false;
+        // The same notice can arrive twice (a SIGMET in both the US and the international
+        // list, say); anything whose details read exactly alike is listed once
+        const seen = new Set();
+        areaTapHits = [];
+        hits.forEach(shape => {
+            const details = shape._tapInfo.html();
+            if (seen.has(details)) return;
+            seen.add(details);
+            areaTapHits.push({ info: shape._tapInfo, colour: shape.options.color || '#888888' });
+        });
+        let html;
+        if (areaTapHits.length === 1) {
+            html = areaTapHits[0].info.html();
+        } else {
+            const esc = text => String(text).replace(/[&<>"]/g, ch => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[ch]));
+            const rows = areaTapHits.map((hit, i) => `<a class="area-tap-row" onclick="showAreaTapItem(this, ${i})">
+                <i style="background:${esc(hit.colour)}"></i>
+                <span><b>${esc(hit.info.title)}</b>${hit.info.note ? `<small>${esc(hit.info.note)}</small>` : ''}</span>
+                <em>›</em></a>`).join('');
+            // Both views stay in the popup and are shown and hidden in turn: taking a tapped
+            // element out of the page mid-tap makes the map treat the tap as one on itself
+            html = `<div class="area-tap">
+                <div class="area-tap-list"><div class="area-tap-head">${areaTapHits.length} things here. Tap one for details.</div>${rows}</div>
+                <div class="area-tap-detail" style="display:none"><a class="area-tap-back" onclick="showAreaTapList(this)">‹ All ${areaTapHits.length} here</a><div class="area-tap-body"></div></div>
+            </div>`;
+        }
+        L.popup({ maxWidth: 300 }).setLatLng(latlng).setContent(html).openOn(mapInstance);
+        return true;
+    }
+
+    // The popup has changed size: fit it again and bring it back into view
+    function areaTapRefit() {
+        const popup = mapInstance && mapInstance._popup;
+        if (!popup) return;
+        if (popup._updateLayout) popup._updateLayout();
+        if (popup._updatePosition) popup._updatePosition();
+        if (popup._adjustPan) popup._adjustPan();
+    }
+    function showAreaTapItem(row, index) {
+        const box = row.closest('.area-tap');
+        if (!box || !areaTapHits[index]) return;
+        box.querySelector('.area-tap-body').innerHTML = areaTapHits[index].info.html();
+        box.querySelector('.area-tap-list').style.display = 'none';
+        box.querySelector('.area-tap-detail').style.display = '';
+        areaTapRefit();
+    }
+    function showAreaTapList(link) {
+        const box = link.closest('.area-tap');
+        if (!box) return;
+        box.querySelector('.area-tap-detail').style.display = 'none';
+        box.querySelector('.area-tap-list').style.display = '';
+        areaTapRefit();
+    }
+
+    // A tap on one of the shapes themselves
+    function areaTapped(e) {
+        if (e.originalEvent) e.originalEvent._stopped = true; // the map's own tap handling is not needed as well
+        openAreasAt(e.latlng);
+    }
+    // A tap that reached the map without any shape claiming it. Only the topmost drawing
+    // surface hears taps, so shapes on the ones beneath it are looked for here.
+    function areaTapMapClick(e) {
+        const target = e.originalEvent && e.originalEvent.target;
+        if (!target || !target.classList) return;
+        if (target.tagName !== 'CANVAS' && !target.classList.contains('leaflet-tile') && !target.classList.contains('leaflet-container')) return;
+        openAreasAt(e.latlng);
+    }
 
             function updateMapWarnings() {
                 const warningEl = document.getElementById('combinedWarning');
@@ -4700,6 +5150,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 hazards: !!hazardsRefreshInterval,
                 satellite: satelliteLook || false,
                 airspace: !!airspaceLayer,
+                sigwx: !!sigwxLayer,
                 daynight: !!dayNightInterval
             };
             try {
@@ -4725,6 +5176,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     pireps: false,
                     satellite: false,
                     airspace: false,
+                    sigwx: false,
                     hazards: false
                 };
             }
@@ -4750,6 +5202,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
             // Apply Special Use Airspace
             if (!!settings.airspace !== !!airspaceLayer) toggleAirspace();
+
+            // Apply Significant Weather forecast
+            if (!!settings.sigwx !== !!sigwxLayer) toggleSigwx();
 
             // Apply Satellite
             // (an older saved value of true meant the GeoColor look)
@@ -4787,6 +5242,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 }).setView([39.8283, -98.5795], 4);
 
                 mapRenderer = L.canvas({ tolerance: 20 });
+                mapInstance.on('click', areaTapMapClick);
 
                 tileLayer = L.tileLayer(isDark ? MAP_DARK_URL : MAP_LIGHT_URL, {
                     attribution: 'Tiles &copy; Esri &mdash; Esri, HERE, Garmin, &copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
@@ -5441,13 +5897,15 @@ document.addEventListener('DOMContentLoaded', () => {
                             layer.on('mouseout', unhighlight);
                             layer.on('popupclose', unhighlight);
 
-                            layer.bindPopup(`
+                            layer._tapInfo = { title: `SIGMET: ${hazardType}`, note: isNaN(Date.parse(validTo)) ? '' : `Valid until ${airspaceClock(Date.parse(validTo))}`, html: () => `
                                 <div class="font-sans min-w-[200px]">
                                     <div class="font-bold text-sm mb-1 border-b pb-1">SIGMET: ${hazardType}</div>
                                     <div class="text-xs font-mono bg-gray-100 dark:bg-gray-800 p-1 mb-2 whitespace-pre-wrap">${raw}</div>
                                     <div class="text-xs text-gray-500">Valid until: ${validTo}</div>
                                 </div>
-                            `);
+                            ` };
+                            // Areas answer taps through the shared tap handling (see openAreasAt); anything else keeps its own popup
+                            if (layer._containsPoint) layer.on('click', areaTapped); else layer.bindPopup(layer._tapInfo.html());
                         }
                     });
                     hazardGroup.addLayer(geoLayer);
@@ -7689,6 +8147,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (pirepRefreshInterval) updatePireps();
                 if (satelliteRefreshInterval) refreshSatelliteTimes();
                 if (airspaceRefreshInterval) refreshAirspace();
+                if (sigwxRefreshInterval) refreshSigwx();
             });
 
            // New helper to create station card
