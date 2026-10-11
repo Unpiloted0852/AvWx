@@ -2346,7 +2346,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         <script>
             // --- APP CONFIG ---
-            const CURRENT_VERSION = 'v2.9.18'; // Incremented Version
+            const CURRENT_VERSION = 'v2.9.19'; // Incremented Version
             const GITHUB_REPO = 'Unpiloted0852/AvWx';
 
             // Global Data Storage for Modal Access
@@ -4725,7 +4725,7 @@ document.addEventListener('DOMContentLoaded', () => {
         return `<div style="font:13px/1.4 'Public Sans',sans-serif;min-width:170px">
             <div style="font-weight:700;font-size:14px">${esc(title)}</div>
             ${rows.filter(Boolean).map(row => `<div>${esc(row)}</div>`).join('')}
-            <div style="margin-top:6px;font-size:11px;opacity:.6">WAFS significant weather forecast via aviationweather.gov. For planning only.</div>
+            <div style="margin-top:6px;font-size:11px;opacity:.6">WAFS significant weather forecast via aviationweather.gov, covering FL100 to FL600. For planning only.</div>
         </div>`;
     }
 
@@ -4803,9 +4803,9 @@ document.addEventListener('DOMContentLoaded', () => {
             });
         };
         const span = item => item.base === null || item.base === undefined
-            ? `to ${sigwxLevel(item.top, 'top')}` : `${sigwxLevel(item.base)}-${String(item.top === null || item.top === undefined ? 'top' : item.top).padStart(3, '0')}`;
-        const limits = item => [`Top: ${sigwxLevel(item.top, 'above the forecast\'s highest level')}`,
-            `Base: ${sigwxLevel(item.base, 'below the forecast\'s lowest level')}`];
+            ? `&lt;FL100-${String(item.top === null || item.top === undefined ? 'top' : item.top).padStart(3, '0')}` : `${sigwxLevel(item.base)}-${String(item.top === null || item.top === undefined ? 'top' : item.top).padStart(3, '0')}`;
+        const limits = item => [`Top: ${sigwxLevel(item.top, 'above FL600 (the top of this forecast)')}`,
+            `Base: ${sigwxLevel(item.base, 'below FL100 (the bottom of this forecast)')}`];
         const capital = word => word ? word[0].toUpperCase() + word.slice(1) : '';
 
         (time.icing || []).forEach(item => {
@@ -4978,6 +4978,47 @@ document.addEventListener('DOMContentLoaded', () => {
         return shapes;
     }
 
+    // The details box opens where the map was tapped, which for a small area would put it
+    // right on top of the area it describes. For an area that fits comfortably in view, the
+    // box is moved to sit above the area's top edge instead; it goes back to the tapped spot
+    // when the list of areas is shown again.
+    function areaTapPlacePopup(hit, popup) {
+        if (!popup || !popup._map) return;
+        if (!popup._tappedAt) popup._tappedAt = popup.getLatLng();
+        let spot = popup._tappedAt;
+        if (hit && hit.closed) {
+            const bounds = L.latLngBounds(hit.latlngs.flat(Infinity));
+            const size = mapInstance.getSize();
+            const corner1 = mapInstance.latLngToContainerPoint(bounds.getNorthWest()), corner2 = mapInstance.latLngToContainerPoint(bounds.getSouthEast());
+            if (corner2.x - corner1.x < size.x * 0.6 && corner2.y - corner1.y < size.y * 0.45) spot = L.latLng(bounds.getNorth(), bounds.getCenter().lng);
+        }
+        if (!popup.getLatLng().equals(spot)) popup.setLatLng(spot);
+    }
+
+    // Marks out the one area whose details are being read, with a bold outline and a stronger
+    // fill, so it can be told apart from the others around and under it. Drawn as a copy on
+    // top, because the shapes themselves are redrawn as their layers refresh.
+    let areaTapHighlight = null;
+    let areaTapRenderer = null;
+    function highlightTappedArea(hit, popup) {
+        if (areaTapHighlight) { mapInstance.removeLayer(areaTapHighlight); areaTapHighlight = null; }
+        areaTapPlacePopup(hit, popup || (mapInstance && mapInstance._popup));
+        if (!hit || !mapInstance) return;
+        if (!mapInstance.getPane('areaHighlightPane')) {
+            const pane = mapInstance.createPane('areaHighlightPane');
+            pane.style.zIndex = 406; // above every area, below the airport dots
+            pane.style.pointerEvents = 'none';
+        }
+        if (!areaTapRenderer) areaTapRenderer = L.svg({ pane: 'areaHighlightPane' });
+        const make = hit.closed ? L.polygon : L.polyline;
+        const base = { pane: 'areaHighlightPane', renderer: areaTapRenderer, interactive: false, lineJoin: 'round' };
+        areaTapHighlight = L.layerGroup([
+            make(hit.latlngs, Object.assign({}, base, { color: '#111827', weight: 8, opacity: 0.9, fill: false })),
+            make(hit.latlngs, Object.assign({}, base, { color: '#fde047', weight: 4, opacity: 1, fill: hit.closed, fillColor: hit.colour, fillOpacity: 0.35 }))
+        ]).addTo(mapInstance);
+        areaTapHighlight._for = popup;
+    }
+
     function openAreasAt(latlng) {
         if (!mapInstance) return false;
         const at = mapInstance.latLngToLayerPoint(latlng);
@@ -4994,7 +5035,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const details = shape._tapInfo.html();
             if (seen.has(details)) return;
             seen.add(details);
-            areaTapHits.push({ info: shape._tapInfo, colour: shape.options.color || '#888888' });
+            areaTapHits.push({ info: shape._tapInfo, colour: shape.options.color || '#888888', latlngs: shape.getLatLngs(), closed: shape instanceof L.Polygon });
         });
         let html;
         if (areaTapHits.length === 1) {
@@ -5012,7 +5053,10 @@ document.addEventListener('DOMContentLoaded', () => {
                 <div class="area-tap-detail" style="display:none"><a class="area-tap-back" onclick="showAreaTapList(this)">‹ All ${areaTapHits.length} here</a><div class="area-tap-body"></div></div>
             </div>`;
         }
-        L.popup({ maxWidth: 300 }).setLatLng(latlng).setContent(html).openOn(mapInstance);
+        const popup = L.popup({ maxWidth: 300 }).setLatLng(latlng).setContent(html);
+        popup.on('remove', () => { if (areaTapHighlight && areaTapHighlight._for === popup) highlightTappedArea(null); });
+        popup.openOn(mapInstance);
+        if (areaTapHits.length === 1) highlightTappedArea(areaTapHits[0], popup);
         return true;
     }
 
@@ -5028,6 +5072,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const box = row.closest('.area-tap');
         if (!box || !areaTapHits[index]) return;
         box.querySelector('.area-tap-body').innerHTML = areaTapHits[index].info.html();
+        highlightTappedArea(areaTapHits[index], mapInstance._popup);
         box.querySelector('.area-tap-list').style.display = 'none';
         box.querySelector('.area-tap-detail').style.display = '';
         areaTapRefit();
@@ -5037,6 +5082,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!box) return;
         box.querySelector('.area-tap-detail').style.display = 'none';
         box.querySelector('.area-tap-list').style.display = '';
+        highlightTappedArea(null);
         areaTapRefit();
     }
 
