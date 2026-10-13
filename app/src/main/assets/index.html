@@ -480,7 +480,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 flex-direction: column;
                 align-items: center;
                 pointer-events: none;
-                backdrop-filter: blur(4px);
+                -webkit-backdrop-filter: blur(4px); backdrop-filter: blur(4px);
                 width: 240px;
             }
             .dark #heatmapLegend {
@@ -627,7 +627,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 background: rgba(255, 255, 255, 0.8);
                 color: #d97706; /* Amber-600 for light mode visibility */
                 border: 1px solid rgba(0, 0, 0, 0.1);
-                backdrop-filter: blur(4px);
+                -webkit-backdrop-filter: blur(4px); backdrop-filter: blur(4px);
                 padding: 0.25rem 0.75rem;
                 border-radius: 0.5rem;
                 font-size: 0.875rem;
@@ -653,7 +653,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 background: rgba(255, 255, 255, 0.8);
                 color: #2563eb;
                 border: 1px solid rgba(0, 0, 0, 0.1);
-                backdrop-filter: blur(4px);
+                -webkit-backdrop-filter: blur(4px); backdrop-filter: blur(4px);
                 padding: 0.2rem 0.6rem;
                 border-radius: 0.5rem;
                 font-size: 0.65rem;
@@ -697,7 +697,7 @@ document.addEventListener('DOMContentLoaded', () => {
         background: rgba(255, 255, 255, 0.9);
         color: #d97706;
         border: 1px solid rgba(0, 0, 0, 0.1);
-        backdrop-filter: blur(4px);
+        -webkit-backdrop-filter: blur(4px); backdrop-filter: blur(4px);
         padding: 0.25rem 0.6rem;
         border-radius: 0.5rem;
         font-size: 0.75rem;
@@ -1070,7 +1070,7 @@ document.addEventListener('DOMContentLoaded', () => {
         /* Radar timestamp */
         #radarTimeDisplay {
           border-radius: 8px !important;
-          backdrop-filter: blur(8px) !important;
+          -webkit-backdrop-filter: blur(8px) !important; backdrop-filter: blur(8px) !important;
           background: rgba(255,255,255,.88) !important;
           border: 1px solid rgba(0,0,0,.08) !important;
         }
@@ -1111,7 +1111,7 @@ document.addEventListener('DOMContentLoaded', () => {
         .floating-pill {
           background: rgba(255,255,255,.92) !important;
           border: 1px solid rgba(0,0,0,.08) !important;
-          backdrop-filter: blur(10px) !important;
+          -webkit-backdrop-filter: blur(10px) !important; backdrop-filter: blur(10px) !important;
           border-radius: 999px !important;
           box-shadow: 0 4px 16px rgba(0,0,0,.15) !important;
           font-weight: 600 !important;
@@ -1152,7 +1152,7 @@ document.addEventListener('DOMContentLoaded', () => {
           z-index: 1000; display: none; flex-direction: column; align-items: center;
           width: 260px; padding: 8px 14px 6px; pointer-events: none;
           background: rgba(255,255,255,.9); border: 1px solid rgba(0,0,0,.08);
-          border-radius: 10px; backdrop-filter: blur(8px);
+          border-radius: 10px; -webkit-backdrop-filter: blur(8px); backdrop-filter: blur(8px);
         }
         html.dark #fieldMapLegend { background: rgba(15,25,41,.9); border-color: rgba(255,255,255,.08); }
         #fieldMapLegendBar { width: 100%; height: 10px; margin-top: 5px; border-radius: 3px; border: 1px solid rgba(0,0,0,.35); }
@@ -1165,7 +1165,7 @@ document.addEventListener('DOMContentLoaded', () => {
           position: absolute; top: 5.4rem; left: 1rem; z-index: 1100; display: none;
           padding: 0.2rem 0.6rem; border-radius: 8px; white-space: nowrap; pointer-events: none;
           font: 700 0.65rem 'IBM Plex Mono', monospace; color: #6d28d9;
-          background: rgba(255,255,255,.88); border: 1px solid rgba(0,0,0,.08); backdrop-filter: blur(8px);
+          background: rgba(255,255,255,.88); border: 1px solid rgba(0,0,0,.08); -webkit-backdrop-filter: blur(8px); backdrop-filter: blur(8px);
         }
         html.dark #satelliteInfo { background: rgba(15,25,41,.9); border-color: rgba(255,255,255,.08); color: #c4b5fd; }
         html .layer-btn.airspace-active { background-color: #dc2626 !important; border-color: #b91c1c !important; color: #fff !important; box-shadow: 0 2px 10px rgba(220,38,38,.4) !important; }
@@ -1176,7 +1176,7 @@ document.addEventListener('DOMContentLoaded', () => {
     z-index: 1000; display: none; flex-direction: column; align-items: stretch; gap: 5px;
     width: min(340px, calc(100% - 5.5rem)); padding: 7px 10px;
     background: rgba(255,255,255,.92); border: 1px solid rgba(0,0,0,.08);
-    border-radius: 10px; backdrop-filter: blur(8px); color: #1f2937;
+    border-radius: 10px; -webkit-backdrop-filter: blur(8px); backdrop-filter: blur(8px); color: #1f2937;
     font: 600 0.7rem 'Public Sans', sans-serif;
   }
   html.dark #wafsBar { background: rgba(15,25,41,.92); border-color: rgba(255,255,255,.08); color: #e5e7eb; }
@@ -1205,7 +1205,7 @@ document.addEventListener('DOMContentLoaded', () => {
     z-index: 1000; display: none; flex-direction: column; align-items: stretch; gap: 4px;
     width: min(340px, calc(100% - 5.5rem)); padding: 6px 10px 7px;
     background: rgba(255,255,255,.92); border: 1px solid rgba(0,0,0,.08);
-    border-radius: 10px; backdrop-filter: blur(8px); color: #1f2937;
+    border-radius: 10px; -webkit-backdrop-filter: blur(8px); backdrop-filter: blur(8px); color: #1f2937;
     font: 600 0.7rem 'Public Sans', sans-serif;
   }
   html.dark #sigwxBar { background: rgba(15,25,41,.92); border-color: rgba(255,255,255,.08); color: #e5e7eb; }
@@ -1258,7 +1258,7 @@ document.addEventListener('DOMContentLoaded', () => {
           background: rgba(255,255,255,.9) !important;
           border: 1px solid rgba(0,0,0,.08) !important;
           border-radius: 10px !important;
-          backdrop-filter: blur(8px) !important;
+          -webkit-backdrop-filter: blur(8px) !important; backdrop-filter: blur(8px) !important;
         }
         html.dark #heatmapLegend {
           background: rgba(15,25,41,.9) !important;
@@ -2412,7 +2412,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         <script>
             // --- APP CONFIG ---
-            const CURRENT_VERSION = 'v2.9.24'; // Incremented Version
+            const CURRENT_VERSION = 'v2.9.25'; // Incremented Version
             const GITHUB_REPO = 'Unpiloted0852/AvWx';
 
             // Global Data Storage for Modal Access
@@ -9040,8 +9040,9 @@ document.addEventListener('DOMContentLoaded', () => {
                 // Clouds: BKN005, OVC010, VV002, SKC, CLR, NSC
                 const cloudRegex = /\b(BKN|OVC|VV|SCT|FEW|SKC|CLR|NSC)\d{0,3}(?:CB|TCU)?\b/g;
                 // Vis: 10SM, 1 1/2SM, 4000, 9999.
-                // FIX: Use Lookbehind/Lookahead to ensure we don't match time groups like 2120/2123
-                const visRegex = /\b(?<!\/)\d{4}(?!\/)\b|\b(?:M|P)?\d+(?:\s?\d\/\d)?SM\b/g;
+                // Four digits standing alone, not part of a time group like 2120/2123 (written
+        // without lookbehind, which iPhones before iOS 16.4 cannot read)
+                const visRegex = /(?:^|[^\/\w])\d{4}(?![\/\w])|\b(?:M|P)?\d+(?:\s?\d\/\d)?SM\b/g;
                 const wxRegex = /\b([-+]|VC)?(RA|SN|DZ|SG|IC|PL|GR|GS|UP|TS|SH|FZ|BR|FG|HZ|FU|VA|DU|SA|HZ|PY|PO|SQ|FC|SS|DS)+\b/g;
                 const nswRegex = /\bNSW\b/;
 
