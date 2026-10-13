@@ -2400,7 +2400,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         <script>
             // --- APP CONFIG ---
-            const CURRENT_VERSION = 'v2.9.21'; // Incremented Version
+            const CURRENT_VERSION = 'v2.9.22'; // Incremented Version
             const GITHUB_REPO = 'Unpiloted0852/AvWx';
 
             // Global Data Storage for Modal Access
@@ -9653,11 +9653,17 @@ document.addEventListener('DOMContentLoaded', () => {
             renderDashboard();
         }
 
-        function extractBriefConditions(rawText) {
+        function extractBriefConditions(rawText, allLinesText) {
          if (!rawText || rawText === 'No Data' || rawText === 'N/A') return "VFR / CLEAR";
          const clean = cleanRawText(rawText);
          const vis = clean.match(/\b(M)?(\d+(?:\/\d+)?)SM\b/);
-         const clouds = clean.match(/\b(BKN|OVC|VV)\d{3}\b/g);
+         // The ceiling shown is the lowest in any forecast line valid at the time (a TEMPO or
+         // PROB line as much as the prevailing one), so the pill gives the worst to expect.
+         // A layer may carry CB or TCU on the end.
+         const clouds = cleanRawText(allLinesText || rawText).match(/\b(BKN|OVC|VV)\d{3}(?:CB|TCU)?\b/g);
+         const height = layer => parseInt(layer.replace(/\D/g, ''), 10);
+         // Lowest first; at the same height the one marked CB or TCU says more
+         if (clouds) clouds.sort((a, b) => height(a) - height(b) || b.length - a.length);
 
          // UPDATED: Added missing codes (SH, FZ, UP, etc.), added the '+' quantifier
          // for combinations (SHRA, FZRA), and fixed the boundary to capture +/- intensity
@@ -9758,12 +9764,15 @@ document.addEventListener('DOMContentLoaded', () => {
           );
 
           // Apply them sequentially
+          // The prevailing conditions and each active TEMPO or PROB line, side by side
+          const allLines = [activeState, ...activeTempos.map(tmp => tmp.text)].join(' ');
           activeTempos.forEach(tmp => {
             activeState = mergeCondition(activeState, tmp.text);
           });
 
           return {
             rawText: activeState,
+            allLines: allLines,
             category: analyzeCondition(activeState)
           };
         }
@@ -9790,7 +9799,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
             dashboardState.stations.forEach(icao => {
                 const station = stationLookup.get(icao) || { id: icao, metar: null, taf: null };
-                let displayCat = 'NODATA', displayText = '', windDir = 0, windSpeed = 0, gustSpeed = 0, isExpired = false;
+                let displayCat = 'NODATA', displayText = '', worstText = '', windDir = 0, windSpeed = 0, gustSpeed = 0, isExpired = false;
                 let timeLabel = "----Z";
 
                 const parseWind = (text) => {
@@ -9830,6 +9839,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
                         displayCat = isExpired ? 'NODATA' : condition.category;
                         displayText = condition.rawText;
+                        worstText = condition.allLines;
                         parseWind(displayText);
                     } else {
                         isExpired = true;
@@ -9866,7 +9876,7 @@ document.addEventListener('DOMContentLoaded', () => {
                             ${isExpired ? 'TAF EXPIRED' : `${windDir.toString().padStart(3,'0')}@${windSpeed}${gustSpeed ? `G${gustSpeed}` : ''}KT`}
                         </div>
                         <div class="text-[8px] font-bold font-mono leading-tight bg-black/40 rounded-md py-1 px-1 border border-white/10 text-center truncate">
-                            ${isExpired ? 'No Valid Forecast' : extractBriefConditions(displayText)}
+                            ${isExpired ? 'No Valid Forecast' : extractBriefConditions(displayText, worstText)}
                         </div>
                     </div>
                 `;
