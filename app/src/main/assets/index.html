@@ -2400,7 +2400,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         <script>
             // --- APP CONFIG ---
-            const CURRENT_VERSION = 'v2.9.22'; // Incremented Version
+            const CURRENT_VERSION = 'v2.9.23'; // Incremented Version
             const GITHUB_REPO = 'Unpiloted0852/AvWx';
 
             // Global Data Storage for Modal Access
@@ -9655,8 +9655,15 @@ document.addEventListener('DOMContentLoaded', () => {
 
         function extractBriefConditions(rawText, allLinesText) {
          if (!rawText || rawText === 'No Data' || rawText === 'N/A') return "VFR / CLEAR";
-         const clean = cleanRawText(rawText);
-         const vis = clean.match(/\b(M)?(\d+(?:\/\d+)?)SM\b/);
+         const clean = cleanRawText(allLinesText || rawText);
+         // Visibility: the lowest in any of the lines, whether in statute miles or metres
+         // (9999, "10 km or more", is left out)
+         const visMetres = token => {
+           if (!/SM$/.test(token)) return parseInt(token, 10);
+           return token.replace(/^[MP]|SM$/g, '').split(' ').reduce((sum, part) => { const [a, b] = part.split('/'); return sum + (b ? a / b : +a); }, 0) * 1609;
+         };
+         const visTokens = (clean.match(/(?:^|\s)(?:[MP]?(?:\d+ )?\d+(?:\/\d+)?SM|\d{4})(?=\s|$)/g) || []).map(t => t.trim()).filter(t => t !== '9999');
+         const vis = visTokens.length ? [visTokens.reduce((low, t) => visMetres(t) < visMetres(low) ? t : low)] : null;
          // The ceiling shown is the lowest in any forecast line valid at the time (a TEMPO or
          // PROB line as much as the prevailing one), so the pill gives the worst to expect.
          // A layer may carry CB or TCU on the end.
@@ -9676,7 +9683,7 @@ document.addEventListener('DOMContentLoaded', () => {
            // .trim() is used because the new regex might capture a leading space
            // .join(' ') ensures that if there are multiple weather phenomena (e.g. "-SN BR"), they all show up.
            // If you strictly only want the first one to save space, you can change this to wxCodes[0].trim()
-           parts.push(wxCodes.map(c => c.trim()).join(' '));
+           parts.push([...new Set(wxCodes.map(c => c.trim()))].join(' ')); // each kind of weather once
          }
 
          if (clouds) parts.push(clouds[0]);
@@ -9763,17 +9770,32 @@ document.addEventListener('DOMContentLoaded', () => {
             (b.type === 'TEMP') && b.start <= t && b.end >= t
           );
 
-          // Apply them sequentially
-          // The prevailing conditions and each active TEMPO or PROB line, side by side
+          // The rule for a chosen time: show the worst of any line valid then. Each active TEMPO
+          // or PROB line is laid over the prevailing conditions on its own, giving one picture of
+          // the weather per line, and the worst is taken from among those pictures.
           const allLines = [activeState, ...activeTempos.map(tmp => tmp.text)].join(' ');
-          activeTempos.forEach(tmp => {
-            activeState = mergeCondition(activeState, tmp.text);
+          const pictures = [activeState, ...activeTempos.map(tmp => mergeCondition(activeState, tmp.text))];
+
+          // Flight category: the worst of the pictures
+          const categoryOrder = ['VFR', 'MVFR', 'IFR', 'LIFR'];
+          const category = pictures.map(text => analyzeCondition(text))
+              .reduce((worst, c) => categoryOrder.indexOf(c) > categoryOrder.indexOf(worst) ? c : worst, 'VFR');
+
+          // Wind: the strongest, counting gusts. It goes first in the text handed back, which is
+          // where the tiles and the runway diagram read the wind from.
+          const windPattern = /\b(?:\d{3}|VRB)(\d{2,3})(?:G(\d{2,3}))?KT\b/;
+          let worstWind = null;
+          pictures.forEach(text => {
+              const m = cleanRawText(text).match(windPattern);
+              const strength = m ? parseInt(m[2] || m[1], 10) : -1;
+              if (m && (!worstWind || strength > worstWind.strength)) worstWind = { token: m[0], strength: strength };
           });
+          const rest = allLines.replace(new RegExp(windPattern.source, 'g'), ' ');
 
           return {
-            rawText: activeState,
-            allLines: allLines,
-            category: analyzeCondition(activeState)
+              rawText: worstWind ? `${worstWind.token} ${rest}` : allLines,
+              allLines: allLines,
+              category: category
           };
         }
 
