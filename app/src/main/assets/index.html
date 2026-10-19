@@ -2492,7 +2492,7 @@ input.bc-num { font-size: .9rem !important; padding: 0 .35rem !important; }
 
         <script>
             // --- APP CONFIG ---
-            const CURRENT_VERSION = 'v2.9.30'; // Incremented Version
+            const CURRENT_VERSION = 'v2.9.31'; // Incremented Version
             const GITHUB_REPO = 'Unpiloted0852/AvWx';
 
             // Global Data Storage for Modal Access
@@ -10922,6 +10922,13 @@ input.bc-num { font-size: .9rem !important; padding: 0 .35rem !important; }
             return { soon: false, only: '', text: `In force${until ? (end === 'PERM' ? ', ' : ' ') + until : ''}` };
         }
 
+        // A scheduled NOTAM's text in ICAO form for the PDFs: "B) 2610192200 C) 2610240400",
+        // "D) MON-FRI 2200-0400", "E) RWY 06/24 CLOSED", start and end in UTC
+        function airportNotamIcaoText(start, end, schedule, text) {
+            const stamp = value => value === 'PERM' ? 'PERM' : String(value || '').replace(/\D/g, '').slice(2, 12);
+            return `B) ${stamp(start)} C) ${stamp(end)}\nD) ${schedule}\nE) ${text}`;
+        }
+
         // The airports whose NOTAMs go into the PDF report, remembered on this device
         function pdfNotamAirports() {
             try { return new Set(JSON.parse(localStorage.getItem('pdfNotamAirports') || '[]')); } catch (e) { return new Set(); }
@@ -11212,8 +11219,8 @@ input.bc-num { font-size: .9rem !important; padding: 0 .35rem !important; }
                 for (const [number, start, end, issued, classification, text, schedule] of airport.notams) {
                     const when = airportNotamWhen(start, end, schedule);
                     doc.setFont("courier", "normal"); doc.setFontSize(8);
-                    const lines = text.split('\n').flatMap(part => doc.splitTextToSize(part || ' ', USABLE_WIDTH - 4));
-                    room(5 + (when.only ? 4 : 0) + Math.min(lines.length, 6) * 3.4);
+                    const lines = (schedule ? airportNotamIcaoText(start, end, schedule, text) : text).split('\n').flatMap(part => doc.splitTextToSize(part || ' ', USABLE_WIDTH - 4));
+                    room(5 + (when.only ? 4.6 : 0) + Math.min(lines.length, 6) * 3.4);
                     doc.setFont("helvetica", "bold"); doc.setFontSize(8.5); doc.setTextColor(0, 0, 0);
                     doc.text(number, PAGE_MARGIN + 2, y);
                     doc.setFont("helvetica", "normal");
@@ -11222,7 +11229,9 @@ input.bc-num { font-size: .9rem !important; padding: 0 .35rem !important; }
                     y += 4;
                     if (when.only) {
                         doc.setFont("helvetica", "bold"); doc.setTextColor(0, 0, 0);
-                        doc.text(when.only, PAGE_MARGIN + 2, y); y += 4;
+                        doc.setFillColor(253, 224, 71);
+                        doc.rect(PAGE_MARGIN + 1, y - 3.1, doc.getTextWidth(when.only) + 2, 4.2, "F");
+                        doc.text(when.only, PAGE_MARGIN + 2, y); y += 4.6;
                     }
                     doc.setFont("courier", "normal"); doc.setFontSize(8); doc.setTextColor(30, 30, 30);
                     for (const line of lines) { room(3.4); doc.text(line, PAGE_MARGIN + 4, y); y += 3.4; }
